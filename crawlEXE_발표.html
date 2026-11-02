@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRAWL.EXE 1차 발표</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Press+Start+2P&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/galmuri/dist/galmuri.css" rel="stylesheet">
+<style>
+:root{
+  --desk1:#050f2b; --desk2:#0b2257;
+  --win:#0b1a40; --win2:#10245a; --win3:#163172;
+  --line:#2a4b95; --line2:#3d66c4;
+  --text:#e4ecff; --muted:#8fa7da; --dim:#5f78ad;
+  --accent:#ff8c2a; --ok:#6fd36a; --link:#7fd0ff; --bad:#ff5a4a;
+  --pix:'Galmuri11','Noto Sans KR',sans-serif;
+  --en:'Press Start 2P',monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#02050f;overflow:hidden}
+body{font-family:'Noto Sans KR',sans-serif;color:var(--text)}
+.mono{font-family:'JetBrains Mono',monospace}
+em{font-style:normal;color:var(--accent)}
+p{margin:0}
+.lnk{color:var(--link);text-decoration:underline;text-underline-offset:3px}
+
+/* ---------- desktop ---------- */
+#stage{position:absolute;left:50%;top:50%;width:1280px;height:720px;transform-origin:center center;overflow:hidden;
+  background:
+    radial-gradient(ellipse 70% 60% at 70% 35%, rgba(43,111,224,.28), transparent 70%),
+    linear-gradient(180deg,var(--desk2),var(--desk1));
+  box-shadow:0 20px 80px rgba(0,0,0,.6)}
+#stage::before{content:'';position:absolute;inset:0;pointer-events:none;
+  background-image:radial-gradient(rgba(140,180,255,.07) 1px, transparent 1.2px);background-size:8px 8px}
+.slide{position:absolute;inset:0 0 40px 0;opacity:0;visibility:hidden;transition:opacity .3s ease}
+.slide.active{opacity:1;visibility:visible}
+
+/* ---------- XP-ish window ---------- */
+.win{position:absolute;left:24px;top:18px;right:24px;bottom:14px;background:var(--win);
+  border:3px solid #0a3aa8;border-top:0;border-radius:9px 9px 3px 3px;
+  box-shadow:0 0 0 1px #02133f, 0 14px 40px rgba(0,0,0,.55);display:flex;flex-direction:column;overflow:hidden}
+.tb{height:32px;flex:none;display:flex;align-items:center;gap:8px;padding:0 6px 0 10px;border-radius:8px 8px 0 0;
+  background:linear-gradient(180deg,#3d86ff 0%,#1f5ee8 9%,#1650d6 40%,#1347c4 88%,#0b37a0 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35)}
+.tb .ico{width:16px;height:16px;flex:none}
+.tb .ttl{font-family:var(--pix);font-weight:700;font-size:14px;color:#fff;text-shadow:1px 1px 0 #0a246a;letter-spacing:.02em;flex:1;white-space:nowrap}
+.tb .bt{width:22px;height:22px;border-radius:4px;border:1px solid #fff;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(180deg,#4f8dff,#2459e0);color:#fff;font:700 12px/1 'JetBrains Mono';box-shadow:inset 0 1px 0 rgba(255,255,255,.4)}
+.tb .bt.x{background:linear-gradient(180deg,#f08a6c,#d6421f)}
+.addr{height:30px;flex:none;display:flex;align-items:center;gap:10px;padding:0 12px;background:var(--win2);border-bottom:1px solid var(--line);
+  font-family:var(--pix);font-size:12px;color:var(--muted)}
+.addr .box{flex:1;height:20px;background:#06112e;border:1px solid var(--line2);display:flex;align-items:center;padding:0 8px;color:var(--link);font-family:'JetBrains Mono';font-size:12px}
+.addr .go{padding:2px 10px;border:1px solid var(--line2);border-radius:3px;background:linear-gradient(180deg,#1d3d86,#12295c);color:var(--text)}
+.body{flex:1;padding:22px 38px 24px;position:relative;overflow:hidden}
+h2{font-family:var(--pix);font-weight:700;font-size:34px;letter-spacing:-.01em;margin:0 0 4px;color:#fff;text-shadow:2px 2px 0 #0a246a}
+h2 small{font-family:'Noto Sans KR';font-weight:500;font-size:17px;color:var(--muted);margin-left:14px;text-shadow:none}
+.eb{font-family:var(--pix);font-size:13px;color:var(--accent);letter-spacing:.06em}
+
+/* group box */
+.grp{position:relative;border:1px solid var(--line2);border-radius:4px;padding:18px 18px 14px;background:rgba(16,36,90,.45)}
+.grp>.lg{position:absolute;top:-10px;left:12px;padding:0 6px;background:var(--win);font-family:var(--pix);font-size:12px;color:var(--link)}
+
+/* ---------- taskbar ---------- */
+#taskbar{position:absolute;left:0;right:0;bottom:0;height:40px;z-index:8;display:flex;align-items:center;gap:8px;padding:0 0 0 0;
+  background:linear-gradient(180deg,#3a7cf0 0%,#245ddb 8%,#1d50c8 50%,#1a48b8 90%,#123a96 100%);border-top:1px solid #6aa0ff}
+#tb-start{height:40px;display:flex;align-items:center;gap:8px;padding:0 18px 0 12px;border-radius:0 14px 14px 0;
+  background:linear-gradient(180deg,#5c8cff,#2f61e0 45%,#2552c6);box-shadow:inset 0 1px 0 rgba(255,255,255,.45),2px 0 6px rgba(0,0,0,.35);
+  font-family:var(--en);font-size:11px;color:#fff;text-shadow:1px 1px 0 #0a246a;font-style:italic}
+#tb-start svg{width:20px;height:20px}
+#tb-task{height:28px;min-width:260px;display:flex;align-items:center;gap:8px;padding:0 12px;border-radius:3px;
+  background:linear-gradient(180deg,#1b46ad,#163d9c);box-shadow:inset 1px 1px 2px rgba(0,0,0,.45);font-family:var(--pix);font-size:12px;color:#fff}
+#tb-tray{margin-left:auto;height:40px;display:flex;align-items:center;gap:14px;padding:0 16px;
+  background:linear-gradient(180deg,#1aa0f0,#0f86de 50%,#0c74c8);border-left:1px solid #0a4a9a;box-shadow:inset 1px 0 0 #5cc4ff;
+  font-family:'JetBrains Mono';font-size:12px;color:#fff}
+#tb-tray .pg{font-family:var(--pix)}
+#progress{position:absolute;left:0;bottom:40px;height:3px;background:var(--accent);width:0;z-index:9;transition:width .35s}
+
+/* ---------- 1 title ---------- */
+#cv-title-lines{position:absolute;left:0;top:0;width:1280px;height:680px;z-index:3}
+#cv-globe{position:absolute;left:690px;top:70px;width:476px;height:476px;image-rendering:pixelated;z-index:2}
+.t-wrap{position:absolute;left:80px;top:150px;z-index:4;pointer-events:none}
+.t-wrap .eb{font-size:14px}
+.word{font-family:var(--en);font-size:62px;line-height:1;margin:22px 0 28px;color:#fff;
+  text-shadow:4px 4px 0 #0a246a,0 0 24px rgba(90,162,255,.45);letter-spacing:-2px}
+.word span{color:var(--accent);text-shadow:4px 4px 0 #6a2a00,0 0 24px rgba(255,140,42,.4)}
+.tag{font-family:var(--pix);font-size:26px;line-height:1.55;color:#dfe9ff}
+.tag em{font-weight:700}
+.who{margin-top:40px;font-family:var(--pix);font-size:16px;color:var(--muted)}
+.t-foot{position:absolute;left:80px;bottom:34px;font-family:var(--pix);font-size:12px;color:var(--dim);z-index:4}
+.balloon{position:absolute;right:20px;bottom:18px;width:300px;z-index:6;background:#fffbe0;color:#1a1a1a;border:1px solid #333;border-radius:8px;
+  padding:10px 12px 10px 14px;font-size:13px;line-height:1.5;box-shadow:2px 3px 8px rgba(0,0,0,.4);pointer-events:none}
+.balloon b{display:block;font-family:var(--pix);font-size:13px;margin-bottom:2px}
+.balloon::after{content:'';position:absolute;right:70px;bottom:-10px;border:10px solid transparent;border-top-color:#fffbe0;border-bottom:0}
+
+/* ---------- 2 intro ---------- */
+.two{display:grid;grid-template-columns:1.1fr 1fr;gap:40px;margin-top:22px}
+.lead{font-size:25px;line-height:1.6;font-weight:500}
+.lead b{font-weight:900;color:#fff}
+.keys{margin-top:30px}
+.keyrow{display:flex;align-items:center;gap:14px;margin-bottom:11px;font-size:16px;white-space:nowrap;color:#cfdcff}
+.kgroup{display:flex;gap:8px;width:168px;flex-shrink:0;align-items:center}
+.ms-ico{width:46px;height:34px;flex:none}
+.kc{display:inline-flex;min-width:42px;height:36px;padding:0 10px;align-items:center;justify-content:center;border-radius:5px;
+  border:1px solid #8fb0ff;border-bottom:4px solid #3a5bb0;background:linear-gradient(180deg,#24448f,#16306c);
+  font-family:var(--en);font-size:10px;color:#fff}
+.kc.wide{min-width:92px}
+dl.info{margin:0}
+dl.info div{display:grid;grid-template-columns:86px 1fr;padding:11px 0;border-bottom:1px dashed var(--line);font-size:16px;line-height:1.5}
+dl.info div:last-child{border:0}
+dl.info dt{font-family:var(--pix);color:var(--link)}
+dl.info dd{margin:0}
+dl.info dd small{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+dl.info dd .tag2{display:inline-block;font-family:var(--pix);font-size:11px;padding:1px 6px;border:1px solid var(--accent);color:var(--accent);border-radius:3px;margin-left:6px}
+
+/* ---------- 3 loop ---------- */
+.goal{margin-top:20px;display:flex;gap:18px}
+.goal .grp{flex:1}
+.goal p{font-size:19px;line-height:1.5;font-weight:500}
+.flow{margin-top:28px;display:flex;align-items:center}
+.node{flex:1;text-align:center;padding:16px 8px;border:1px solid var(--line2);border-radius:4px;background:var(--win2)}
+.node .n{font-family:var(--en);font-size:9px;color:var(--muted)}
+.node .k{font-family:var(--pix);font-size:20px;font-weight:700;margin-top:8px;color:#fff}
+.node .d{font-size:13px;color:var(--muted);margin-top:4px}
+.node.hot{background:linear-gradient(180deg,#2c6be6,#1a4bbd);border-color:#8fb0ff}
+.node.hot .n,.node.hot .d{color:#d6e4ff}
+.arr{width:40px;text-align:center;font-family:var(--en);font-size:14px;color:var(--link)}
+.back{margin-top:10px;display:flex;justify-content:space-between;font-size:13px;color:var(--muted)}
+.back span:last-child{color:var(--text);font-family:var(--pix)}
+.branch{margin-top:22px;display:grid;grid-template-columns:1fr 1fr 1.15fr;gap:14px}
+.chip{border-left:4px solid var(--line2);padding:9px 14px;background:var(--win2);font-size:15px;line-height:1.5}
+.chip b{display:block;font-family:var(--pix);font-size:12px;font-weight:400;color:var(--muted)}
+.chip.plus{border-color:var(--ok)} .chip.plus b{color:var(--ok)}
+.chip.minus{border-color:var(--bad)} .chip.minus b{color:var(--bad)}
+
+/* ---------- canvases ---------- */
+.cvbox{position:relative;border:2px inset #3a5bb0;background:#040c24;overflow:hidden}
+.cvbox canvas{display:block;position:absolute;left:0;top:0}
+.cvlabel{position:absolute;left:10px;top:8px;font-family:var(--pix);font-size:11px;color:var(--muted);pointer-events:none;z-index:3}
+.cvlegend{position:absolute;right:10px;bottom:8px;font-family:var(--pix);font-size:11px;color:var(--muted);pointer-events:none;text-align:right;z-index:3}
+.cvlegend i{display:inline-block;width:10px;height:10px;vertical-align:-1px;margin-right:4px;border:1.5px dashed var(--accent);border-radius:50%}
+.pxl{image-rendering:pixelated}
+
+/* ---------- 4 legs ---------- */
+.g4{display:grid;grid-template-columns:590px 1fr;gap:34px;margin-top:16px}
+.steps .st{display:grid;grid-template-columns:46px 1fr;padding:12px 0;border-bottom:1px dashed var(--line)}
+.steps .st:first-child{padding-top:0}
+.steps .num{font-family:var(--en);font-size:15px;color:var(--accent);padding-top:3px}
+.steps .k{font-family:var(--pix);font-size:19px;font-weight:700;color:#fff}
+.steps .d{font-size:15px;line-height:1.55;color:#c3d2f5;margin-top:4px}
+.steps code{font-family:'JetBrains Mono';font-size:13px;background:#06112e;border:1px solid var(--line);padding:0 5px;color:var(--link)}
+.note{margin-top:14px;font-size:15px;line-height:1.55;padding:10px 14px;border:1px solid var(--accent);background:rgba(255,140,42,.08)}
+.note b{color:var(--accent)}
+
+/* ---------- 5 collect ---------- */
+.g5{display:grid;grid-template-columns:620px 1fr;gap:34px;margin-top:16px}
+.pts .p{padding:12px 0;border-bottom:1px dashed var(--line)}
+.pts .p:first-child{padding-top:0}
+.pts .k{font-family:var(--pix);font-size:18px;font-weight:700;color:#fff}
+.pts .d{font-size:15px;line-height:1.55;color:#c3d2f5;margin-top:4px}
+.bigq{font-family:var(--pix);font-size:22px;color:#fff;margin:2px 0 16px;line-height:1.5}
+
+/* ---------- 4 core: legs + feet ---------- */
+.g4b{display:grid;grid-template-columns:600px 1fr;gap:30px;margin-top:14px}
+.steps.tight .st{padding:9px 0}
+.steps.tight .d{font-size:14px}
+.feet{margin-top:12px;padding:12px 14px;border:1px solid var(--accent);background:rgba(255,140,42,.08);border-radius:3px}
+.feet .k{font-family:var(--pix);font-size:17px;color:#fff;font-weight:700}
+.feet .k em{color:var(--accent)}
+.feet .d{font-size:14px;line-height:1.55;color:#c3d2f5;margin-top:4px}
+
+/* ---------- 5 crawler types ---------- */
+.g5c{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:12px}
+.cc{border:1px solid var(--line2);border-radius:4px;background:var(--win2);overflow:hidden;display:flex;flex-direction:column}
+.cc .hd{display:flex;align-items:center;gap:8px;padding:6px 10px;background:linear-gradient(180deg,#2a55b8,#1b3f94)}
+.cc.ext .hd{background:linear-gradient(180deg,#c2661c,#8f450c)}
+.cc .hd svg{width:18px;height:18px;flex:none}
+.cc .hd .en{font-family:var(--en);font-size:9px;color:#fff}
+.cc .hd .kr{margin-left:auto;font-family:var(--pix);font-size:11px;color:#fff}
+.cc .cvw{position:relative;height:250px;background:#040c24;border-bottom:1px solid var(--line)}
+.cc .cvw canvas{position:absolute;left:0;top:0}
+.cc .ctl{padding:8px 10px 4px}
+.cc .row{display:grid;grid-template-columns:48px 1fr;gap:6px;font-size:14px;line-height:1.4;padding:4px 0;color:#d6e2ff}
+.cc .row .b{font-family:var(--en);font-size:8px;color:var(--link);padding-top:3px}
+.cc .row .b.l{color:var(--accent)} .cc .row .b.r{color:var(--ok)}
+.cc .gist{margin:auto 12px 12px;padding-top:8px;border-top:1px dashed var(--line);font-family:var(--pix);font-size:13px;color:#fff;line-height:1.5}
+.cc .hud{position:absolute;right:8px;top:6px;font-family:var(--pix);font-size:11px;color:var(--muted);pointer-events:none}
+.cc .hud b{color:var(--accent);font-weight:400}
+.sub5{margin-top:10px;font-size:13px;color:var(--muted)}
+
+/* ---------- 6 leg parts ---------- */
+.rule{display:grid;grid-template-columns:70px 1fr;padding:12px 0;border-bottom:1px dashed var(--line);font-size:16px;line-height:1.45;align-items:center}
+.rule .v{font-family:var(--en);font-size:15px}
+.rule .v.p{color:var(--ok)} .rule .v.m{color:var(--bad)}
+.g6b{display:grid;grid-template-columns:430px 1fr;gap:26px;margin-top:14px}
+.parts{display:grid;gap:9px;margin-top:12px}
+.part{display:grid;grid-template-columns:52px 1fr;gap:12px;align-items:center;padding:13px 12px;border:1px solid var(--line2);border-radius:4px;background:var(--win2)}
+.part svg{width:52px;height:40px}
+.part .k{font-family:var(--pix);font-size:15px;color:#fff;font-weight:700}
+.part .k span{font-family:var(--en);font-size:8px;color:var(--muted);margin-left:6px}
+.part .d{font-size:13px;color:#c3d2f5;line-height:1.45;margin-top:2px}
+.base6 .rule{padding:7px 0;font-size:14px;grid-template-columns:52px 1fr}
+.base6 .rule .v{font-size:12px}
+table.mx{width:100%;border-collapse:collapse;font-size:14px}
+table.mx th{text-align:left;font-family:var(--pix);font-size:11px;font-weight:400;color:#fff;padding:6px 10px;background:linear-gradient(180deg,#2a55b8,#1b3f94);border-right:1px solid #0b2a6e}
+table.mx td{padding:18px 10px;border-bottom:1px solid var(--line);vertical-align:middle;line-height:1.45;color:#d6e2ff}
+table.mx td.nm{white-space:nowrap;font-family:var(--pix);font-size:13px;color:#fff}
+table.mx td.nm svg{width:18px;height:18px;vertical-align:-4px;margin-right:6px}
+table.mx td.at{font-size:13px;color:var(--muted);white-space:nowrap}
+table.mx b{color:var(--accent);font-weight:500}
+.combo{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.combo span{font-size:12.5px;padding:5px 10px;border:1px dashed var(--ok);border-radius:3px;color:#d6e2ff}
+.combo span b{font-family:var(--pix);color:var(--ok);font-weight:400}
+
+/* ---------- 7 enemies + stages ---------- */
+.g7b{display:grid;grid-template-columns:420px 1fr;gap:26px;margin-top:14px}
+.objs{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.ob{display:grid;grid-template-columns:38px 1fr;gap:9px;align-items:start;padding:9px 10px;border:1px solid var(--line2);border-radius:4px;background:var(--win2)}
+.ob svg{width:38px;height:38px}
+.ob .tp{font-family:var(--pix);font-size:10px;color:var(--ok)}
+.ob.en .tp{color:var(--bad)}
+.ob .k{font-family:var(--pix);font-size:14px;color:#fff;font-weight:700}
+.ob .d{font-size:12px;color:#c3d2f5;line-height:1.45;margin-top:2px}
+
+/* ---------- 10 AI ---------- */
+.aiflow{display:flex;align-items:stretch;margin-top:14px}
+.aiflow .nd{flex:1;padding:10px 12px;border:1px solid var(--line2);border-radius:4px;background:var(--win2)}
+.aiflow .nd.ai{background:linear-gradient(180deg,#2c6be6,#1a4bbd);border-color:#8fb0ff}
+.aiflow .nd .n{font-family:var(--en);font-size:8px;color:var(--muted)}
+.aiflow .nd.ai .n{color:#d6e4ff}
+.aiflow .nd .k{font-family:var(--pix);font-size:16px;color:#fff;font-weight:700;margin:5px 0 4px}
+.aiflow .nd .d{font-size:12.5px;line-height:1.45;color:#c3d2f5}
+.aiflow .nd.ai .d{color:#e6eeff}
+.aiflow .ar{width:26px;display:flex;align-items:center;justify-content:center;font-family:var(--en);font-size:10px;color:var(--link)}
+.g10b{display:grid;grid-template-columns:1fr 1fr 1.05fr;gap:14px;margin-top:22px}
+.g10b .grp ul{margin:0;padding:0 0 0 2px;list-style:none;font-size:15px;line-height:1.85;color:#d6e2ff}
+.g10b .grp li::before{content:'▸ ';color:var(--link)}
+.g10b .grp.me li::before{color:var(--accent)}
+.g10b .grp.principle li::before{content:'✓ ';color:var(--ok)}
+.loopback{margin-top:6px;text-align:right;font-family:var(--pix);font-size:11px;color:var(--muted)}
+.gantt .lb .ai{font-family:var(--pix);font-size:10px;color:var(--ok);border:1px solid rgba(111,211,106,.6);border-radius:3px;padding:0 4px;margin-left:8px;white-space:nowrap}
+table.st{width:100%;border-collapse:collapse;font-size:14px}
+table.st th{text-align:left;font-family:var(--pix);font-size:11px;font-weight:400;color:#fff;padding:6px 8px;background:linear-gradient(180deg,#2a55b8,#1b3f94);border-right:1px solid #0b2a6e}
+table.st td{padding:8px 8px;border-bottom:1px solid var(--line);vertical-align:middle;line-height:1.35}
+table.st td.u{font-family:'JetBrains Mono';font-size:12px;color:var(--link);white-space:nowrap}
+table.st td.w{font-family:var(--en);font-size:9px;color:var(--muted);white-space:nowrap}
+table.st tr.ext td{background:rgba(255,140,42,.07)}
+table.st tr.ext td.w{color:var(--accent)}
+table.st tr.boss td{background:rgba(255,90,74,.12)}
+.badge{display:inline-block;font-family:var(--pix);font-size:10px;padding:0 5px;border:1px solid var(--accent);color:var(--accent);border-radius:3px;margin-left:4px;vertical-align:1px}
+.foot8{margin-top:12px;font-size:13px;color:var(--muted)}
+.foot8 b{color:var(--accent);font-weight:500}
+/* ---------- 9 fun ---------- */
+.g9{display:grid;grid-template-columns:1fr 1fr;gap:0 40px;margin-top:14px}
+.fun{display:grid;grid-template-columns:50px 1fr;padding:20px 0;border-bottom:1px dashed var(--line)}
+.fun .num{font-family:var(--en);font-size:22px;color:var(--accent);padding-top:2px}
+.fun .k{font-family:var(--pix);font-size:20px;font-weight:700;color:#fff}
+.fun .d{font-size:15px;line-height:1.55;color:#c3d2f5;margin-top:5px}
+.vs{margin-top:30px;display:grid;grid-template-columns:1fr 60px 1fr;align-items:center}
+.vs .c{padding:14px 20px;border:1px solid var(--line2);border-radius:4px;font-size:16px;line-height:1.5;background:var(--win2)}
+.vs .c .t{font-family:var(--pix);font-size:12px;color:var(--muted)}
+.vs .c.me{background:linear-gradient(180deg,#2c6be6,#1a4bbd);border-color:#8fb0ff}
+.vs .c.me .t{color:#ffd1a8}
+.vs .mid{text-align:center;font-family:var(--en);font-size:13px;color:var(--accent)}
+
+/* ---------- 10 plan ---------- */
+.gantt{margin-top:14px;display:grid;grid-template-columns:390px repeat(8,1fr);row-gap:6px;font-size:14px;position:relative}
+.gantt .h{font-family:var(--en);font-size:10px;color:#fff;text-align:center;padding:7px 0;background:linear-gradient(180deg,#2a55b8,#1b3f94);border-right:1px solid #0b2a6e}
+.gantt .h.lbl{text-align:left;padding-left:10px;font-family:var(--pix);font-size:12px}
+.gantt .h.ph2{background:linear-gradient(180deg,#c2661c,#8f450c)}
+.gantt .lb{display:flex;align-items:center;padding-right:10px;color:#dbe6ff}
+.gantt .lb .w{font-family:var(--pix);font-size:10px;color:var(--muted);margin-right:8px;width:34px;flex:none}
+.gantt .b{height:22px;align-self:center;position:relative;border:1px solid #8fb0ff;border-radius:2px;
+  background:repeating-linear-gradient(90deg,#5aa2ff 0 8px,#2b6fe0 8px 10px)}
+.gantt .b.key{background:repeating-linear-gradient(90deg,#ffb15a 0 8px,#ff8c2a 8px 10px);border-color:#ffd1a8}
+.gantt .b.ext{background:repeating-linear-gradient(90deg,#6fd36a 0 8px,#3a9a36 8px 10px);border-color:#c4f5b8}
+.gantt .ms{position:absolute;left:calc(100% + 8px);top:2px;font-family:var(--pix);font-size:11px;color:var(--accent);white-space:nowrap}
+.gantt .div{position:absolute;top:0;bottom:0;width:0;border-left:2px dashed rgba(255,140,42,.55);pointer-events:none}
+.g10{display:grid;grid-template-columns:1fr 1fr 1fr 1.2fr;gap:12px;margin-top:20px}
+.pri{padding:10px 14px;border:1px solid var(--line2);border-top:3px solid var(--link);background:var(--win2);font-size:14px;line-height:1.6;border-radius:3px}
+.pri .t{font-family:var(--pix);font-size:12px;margin-bottom:3px;color:var(--link)}
+.pri.ext{border-top-color:var(--ok)} .pri.ext .t{color:var(--ok)}
+.pri.opt{border-top-color:var(--dim)} .pri.opt .t{color:var(--muted)}
+.pri.risk{border-top-color:var(--accent);background:rgba(255,140,42,.08)} .pri.risk .t{color:var(--accent)}
+
+/* ---------- overlays ---------- */
+#notes{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);width:min(900px,92vw);background:rgba(4,10,30,.94);
+  color:#e4ecff;padding:16px 22px;border-radius:8px;font-size:17px;line-height:1.6;display:none;z-index:20;border:1px solid #2a4b95}
+#notes .meta{font-family:var(--pix);font-size:12px;color:var(--accent);margin-bottom:4px}
+#help{position:fixed;left:14px;top:10px;opacity:0;font-family:var(--pix);font-size:12px;color:#6f86b8;z-index:20;transition:opacity .3s}
+#nav{position:fixed;right:14px;top:8px;display:flex;gap:6px;z-index:20;transition:opacity .3s;opacity:0}
+body.hint #help{opacity:.75} body.hint #nav{opacity:1}
+#nav button{background:#0b1a40;color:#cfdcff;border:1px solid #2a4b95;font-family:'JetBrains Mono';font-size:14px;width:36px;height:30px;border-radius:5px;cursor:pointer}
+#nav button:hover{background:#163172}
+body.clean #help,body.clean #nav{opacity:0;pointer-events:none}
+/* ================= terminal theme overrides ================= */
+:root{--pix:'JetBrains Mono','Galmuri11','Noto Sans KR',monospace;--text:#d3e4ff;--term:#030919}
+body{font-family:var(--pix)}
+#stage::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:7;
+  background:radial-gradient(ellipse 80% 75% at 50% 45%,transparent 55%,rgba(0,0,0,.38) 100%)}
+.win{background:var(--term)}
+.body{background:repeating-linear-gradient(180deg,rgba(127,208,255,.04) 0 1px,transparent 1px 3px),var(--term);
+  text-shadow:0 0 6px rgba(127,208,255,.18)}
+.addr{background:var(--term);border-bottom:1px dashed #1e3a7a;gap:0;font-size:13px;color:var(--text)}
+.addr .ps{color:var(--ok)}
+.addr .cmd{margin-left:8px;color:#e4ecff}
+.cur{display:inline-block;width:8px;height:15px;background:#cfe3ff;margin-left:3px;vertical-align:-2px;animation:blink 1.05s steps(1) infinite;box-shadow:0 0 6px rgba(207,227,255,.6)}
+@keyframes blink{50%{opacity:0}}
+h2{font-family:var(--pix);font-weight:700;font-size:30px;text-shadow:0 0 12px rgba(127,208,255,.4);letter-spacing:-.02em}
+h2::before{content:'# ';color:var(--accent)}
+h2 small{font-family:var(--pix);font-size:14px;color:var(--dim)}
+h2 small::before{content:'// '}
+.lead,.goal p{font-family:var(--pix)}
+.lead{font-size:23px}
+/* boxes become flat TUI panels */
+.grp{border:1px dashed #3d66c4;border-radius:0;background:transparent}
+.grp>.lg{background:var(--term)}
+.grp>.lg::before{content:'[ '} .grp>.lg::after{content:' ]'}
+.node,.card,.cc,.ob,.part,.pri,.vs .c,.chip,.aiflow .nd,.cvbox,.feet,.note{border-radius:0!important}
+.node,.cc,.ob,.part,.pri,.vs .c,.chip,.aiflow .nd,.card{background:#06102a;border-color:#2a4b95}
+.node.hot,.aiflow .nd.ai,.vs .c.me{background:#0d2660;border:1px solid #7fd0ff;box-shadow:inset 0 0 0 1px #0d2660,0 0 14px rgba(127,208,255,.18)}
+.cvbox{border:1px solid #3d66c4;background:#020714}
+/* reverse-video headers */
+table.lv th,table.st th,table.mx th,.gantt .h{background:#7fd0ff!important;color:#03122e!important;font-weight:700;text-shadow:none;border-right:1px solid var(--term)}
+.gantt .h.ph2{background:#ff8c2a!important}
+.cc .hd{background:#7fd0ff!important;text-shadow:none}
+.cc.ext .hd{background:#ff8c2a!important}
+.cc .hd .en,.cc .hd .kr{color:#03122e}
+.cc .hd svg{filter:brightness(0)}
+.cc .gist::before{content:'> ';color:var(--accent)}
+table.st td,table.mx td,table.lv td{border-bottom:1px dashed #1e3a7a}
+.gantt .b{border-radius:0}
+.kc{border:1px solid #7fd0ff;border-bottom-width:1px;border-radius:0;background:transparent;font-family:var(--pix);font-size:12px;color:#7fd0ff}
+.kc::before{content:'['} .kc::after{content:']'}
+.steps .num,.fun .num{font-family:var(--pix);font-size:18px}
+.steps .num::before,.fun .num::before{content:'['} .steps .num::after,.fun .num::after{content:']'}
+.fun{grid-template-columns:56px 1fr}
+.g10b .grp li::before{content:'> '!important}
+.g10b .grp.principle li::before{content:'[✓] '!important}
+.combo span{border-radius:0}
+.badge{border-radius:0}
+.aiflow .ar,.arr{color:var(--ok)}
+.eb::before{content:'$ ';color:var(--ok)}
+/* title boot log */
+.boot{margin:30px 0 0;font-family:var(--pix);font-size:13px;line-height:1.7;color:#9fb6e6;white-space:pre;min-height:112px;text-shadow:0 0 6px rgba(127,208,255,.25)}
+.boot .ok{color:var(--ok)} .boot .wa{color:var(--accent)} .boot .ps{color:var(--ok)}
+.who{font-family:var(--pix)}
+.steps .st{grid-template-columns:58px 1fr}
+/* ================= full-screen terminal layout ================= */
+#stage{background:
+  repeating-linear-gradient(180deg,rgba(127,208,255,.035) 0 1px,transparent 1px 3px),
+  radial-gradient(ellipse 70% 60% at 65% 30%,rgba(43,111,224,.16),transparent 70%),
+  #040a1c}
+#stage::before{background-image:none}
+.slide{inset:0 0 28px 0}
+.win{left:64px;right:64px;top:30px;bottom:18px;background:transparent;border:0;border-radius:0;box-shadow:none;overflow:visible}
+.tb{display:none}
+.addr{height:auto;padding:0;background:transparent;border:0;font-size:14px;color:#9fb6e6}
+.addr .ps{color:var(--ok);font-weight:700}
+.addr .ps b{color:var(--link);font-weight:700}
+.body{background:transparent;padding:22px 0 0;overflow:visible;text-shadow:0 0 6px rgba(127,208,255,.16)}
+h2{font-size:34px;margin-bottom:6px}
+.grp>.lg{background:#040a1c}
+.balloon{display:none}
+#progress{bottom:28px;height:2px}
+/* tmux-style status bar */
+#taskbar{height:28px;background:#0b1f52;border-top:1px solid #1e3a7a;gap:0;font-family:var(--pix);font-size:12px}
+#tb-start{height:28px;border-radius:0;padding:0 14px;background:var(--ok);box-shadow:none;color:#04140a;text-shadow:none;font-family:var(--pix);font-style:normal;font-weight:700;font-size:12px}
+#tb-start svg{display:none}
+#tb-task{height:28px;min-width:0;padding:0 6px;background:transparent;box-shadow:none;gap:2px;border-radius:0}
+#tb-task .tab{padding:0 8px;height:28px;display:flex;align-items:center;color:#7f95c4;cursor:pointer}
+#tb-task .tab.on{background:#7fd0ff;color:#03122e;font-weight:700}
+#tb-tray{height:28px;background:#123a8a;border:0;box-shadow:none;font-family:var(--pix);font-size:12px;padding:0 14px}
+.endp{margin-top:22px;font-size:14px;color:#9fb6e6}
+.endp .ps{color:var(--ok);font-weight:700} .endp .ps b{color:var(--link)}
+.addr .cmd{color:#e4ecff}
+
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <!-- 1. TITLE / LOGO -->
+  <section class="slide active" data-t="CRAWL.EXE">
+    <canvas id="cv-globe" width="136" height="136"></canvas>
+    <canvas id="cv-title-lines"></canvas>
+    <div class="t-wrap">
+      <div class="eb">2D 게임 프로그래밍 · 1차 발표</div>
+      <div class="word">CRAWL<span>.EXE</span></div>
+      <p class="tag">다리로 <em>밟아서</em> 긁어모으는<br>웹 크롤러 액션 게임</p>
+      <div class="who">게임공학과 · 2023184013 · 박준서</div>
+      <div class="boot" id="boot"></div>
+    </div>
+    <div class="t-foot">Python · pico2d · 2D Top-down Action</div>
+    <div class="balloon"><b>새 크롤러가 감지되었습니다</b>마우스를 움직이면 크롤러가 따라옵니다.</div>
+  </section>
+
+  <!-- 2. INTRO -->
+  <section class="slide" data-t="01_게임소개">
+    <div class="win">
+      <div class="tb"><svg class="ico" viewBox="0 0 16 16" shape-rendering="crispEdges"><circle cx="8" cy="8" r="7" fill="#2b6fe0" stroke="#fff" stroke-width="1"/><path d="M3 6h10M2.5 10h11M8 1.5v13" stroke="#a8d4ff" stroke-width="1" fill="none"/><rect x="4" y="4" width="3" height="2" fill="#5cd39a"/><rect x="9" y="9" width="3" height="2" fill="#5cd39a"/></svg><span class="ttl">01_게임소개 - CRAWL.EXE</span><span class="bt">_</span><span class="bt">□</span><span class="bt x">×</span></div>
+      <div class="addr"><span class="ps">junseo@crawl<b>:~/plan$</b></span><span class="cmd">cat intro.md</span></div>
+      <div class="body">
+        <h2>어떤 게임인가?</h2>
+        <div class="two">
+          <div>
+            <p class="lead">웹페이지 속을 기어 다니는 <b>크롤러</b>가 되어,<br>흩어진 <span class="lnk">데이터</span>를 <b><em>발로 밟아</em></b> 수집하고<br>백신을 피해 다음 페이지로 탈출하는<br>탑다운 액션 게임</p>
+            <div class="keys grp"><span class="lg">조작 · 마우스 하나로 (사각형 크롤러 기준)</span>
+              <div class="keyrow"><span class="kgroup"><svg class="ms-ico" viewBox="0 0 40 30"><g transform="translate(6 3)"><path d="M2 10 a9 9 0 0 1 9-9 v10 h-9z" fill="#16306c" stroke="#8fb0ff"/><path d="M20 10 a9 9 0 0 0 -9-9 v10 h9z" fill="#16306c" stroke="#8fb0ff"/><path d="M2 10 v6 a9 9 0 0 0 18 0 v-6z" fill="#16306c" stroke="#8fb0ff"/></g><path d="M30 4 l0 9 l2.5-2.2 l1.8 3.8 l1.5-.7 l-1.8-3.8 l3.3-.2 z" fill="#ffffff" stroke="#0a246a" stroke-width=".8"/></svg><span class="kc wide">MOVE</span></span>마우스 방향으로 머리가 기어감 (다리는 알아서 따라옴)</div><div class="keyrow"><span class="kgroup"><svg class="ms-ico" viewBox="0 0 40 30"><g transform="translate(6 3)"><path d="M2 10 a9 9 0 0 1 9-9 v10 h-9z" fill="#ff8c2a" stroke="#8fb0ff"/><path d="M20 10 a9 9 0 0 0 -9-9 v10 h9z" fill="#16306c" stroke="#8fb0ff"/><path d="M2 10 v6 a9 9 0 0 0 18 0 v-6z" fill="#16306c" stroke="#8fb0ff"/></g></svg><span class="kc wide">L-HOLD</span></span>질주 · 보폭이 커지고 발 위치가 덜 정확해짐</div><div class="keyrow" style="margin:0"><span class="kgroup"><svg class="ms-ico" viewBox="0 0 40 30"><g transform="translate(6 3)"><path d="M2 10 a9 9 0 0 1 9-9 v10 h-9z" fill="#16306c" stroke="#8fb0ff"/><path d="M20 10 a9 9 0 0 0 -9-9 v10 h9z" fill="#ff8c2a" stroke="#8fb0ff"/><path d="M2 10 v6 a9 9 0 0 0 18 0 v-6z" fill="#16306c" stroke="#8fb0ff"/></g></svg><span class="kc wide">R-HOLD</span></span>웅크리기 · 다리를 접어 피격 회피, 이동·수집 불가</div>
+            </div>
+          </div>
+          <div class="grp"><span class="lg">속성</span>
+            <dl class="info">
+              <div><dt>장르</dt><dd>탑다운 액션 · 수집</dd></div>
+              <div><dt>화면</dt><dd>2D 탑다운, 한 화면 고정 스테이지</dd></div>
+              <div><dt>분량</dt><dd>스테이지 6개 + 보스 · 크롤러 3종<small>크롤러마다 몸 모양과 이동 방식이 다름 · 2주 차까지 스테이지 3개와 사각형 1종으로 먼저 완성</small></dd></div>
+              <div><dt>개발</dt><dd>Python · pico2d · 1인 · <b>4주</b><small>AI(Claude)와 협업하는 개발 방식</small></dd></div>
+              <div><dt>영감</dt><dd>Slava Rybin 〈Crawlers〉<small>웹 크롤러를 벌레로 표현한 인터랙티브 아트에서 '다리 움직임'만 착안, 규칙과 설정은 창작</small></dd></div>
+            </dl>
+          </div>
+        </div>
+        <div class="endp"><span class="ps">junseo@crawl<b>:~/plan$</b></span> <span class="cur"></span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. GOAL & LOOP -->
+  <section class="slide" data-t="02_게임기획">
+    <div class="win">
+      <div class="tb"><svg class="ico" viewBox="0 0 16 16" shape-rendering="crispEdges"><circle cx="8" cy="8" r="7" fill="#2b6fe0" stroke="#fff" stroke-width="1"/><path d="M3 6h10M2.5 10h11M8 1.5v13" stroke="#a8d4ff" stroke-width="1" fill="none"/><rect x="4" y="4" width="3" height="2" fill="#5cd39a"/><rect x="9" y="9" width="3" height="2" fill="#5cd39a"/></svg><span class="ttl">02_게임기획 - CRAWL.EXE</span><span class="bt">_</span><span class="bt">□</span><span class="bt x">×</span></div>
+      <div class="addr"><span class="ps">junseo@crawl<b>:~/plan$</b></span><span class="cmd">cat loop.md</span></div>
+      <div class="body">
+        <h2>목표와 플레이 루프</h2>
+        <div class="goal">
+          <div class="grp"><span class="lg" style="color:var(--ok)">CLEAR</span><p>스테이지의 데이터를 목표 수만큼 모으면<br><span class="lnk">출구 링크</span>가 열린다 → 다음 페이지로</p></div>
+          <div class="grp"><span class="lg" style="color:var(--bad)">GAME OVER</span><p>적에게 다리를 하나씩 잃는다<br>다리가 <b>0개</b>가 되면 끝</p></div>
+        </div>
+        <div class="flow">
+          <div class="node"><div class="n">01</div><div class="k">탐색</div><div class="d">페이지를 기어 다님</div></div>
+          <div class="arr">▶</div>
+          <div class="node hot"><div class="n">02</div><div class="k">발로 밟기</div><div class="d">착지한 발이 데이터 수집</div></div>
+          <div class="arr">▶</div>
+          <div class="node"><div class="n">03</div><div class="k">목표 달성</div><div class="d">예: 데이터 10 / 10</div></div>
+          <div class="arr">▶</div>
+          <div class="node"><div class="n">04</div><div class="k">출구 링크</div><div class="d">다음 페이지 로드</div></div>
+        </div>
+        <div class="back"><span>↺ 스테이지마다 반복, 새 요소가 하나씩 추가</span><span>점수 = 데이터×10 + 남은 다리×50 + 시간 보너스</span></div>
+        <div class="branch">
+          <div class="chip plus"><b>+ 다리 캡슐을 밟음</b>다리 +1 · 더 빠르고 넓게</div>
+          <div class="chip minus"><b>− 적이 다리에 닿음</b>그 다리가 잘려 나감 · −1</div>
+          <div class="chip"><b>판단</b>다리를 늘리러 돌아갈까, 지금 출구로 갈까?</div>
+        </div>
+        <div class="endp"><span class="ps">junseo@crawl<b>:~/plan$</b></span> <span class="cur"></span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. CORE: legs + feet -->
+  <section class="slide" data-t="03_살아있는다리">
+    <div class="win">
+      <div class="tb"><svg class="ico" viewBox="0 0 16 16" shape-rendering="crispEdges"><circle cx="8" cy="8" r="7" fill="#2b6fe0" stroke="#fff" stroke-width="1"/><path d="M3 6h10M2.5 10h11M8 1.5v13" stroke="#a8d4ff" stroke-width="1" fill="none"/><rect x="4" y="4" width="3" height="2" fill="#5cd39a"/><rect x="9" y="9" width="3" height="2" fill="#5cd39a"/></svg><span class="ttl">03_핵심게임플레이① - CRAWL.EXE</span><span class="bt">_</span><span class="bt">□</span><span class="bt x">×</span></div>
+      <div class="addr"><span class="ps">junseo@crawl<b>:~/core$</b></span><span class="cmd">cat legs.md</span></div>
+      <div class="body">
+        <h2>살아 있는 다리, 발로 줍는 데이터</h2>
+        <div class="g4b">
+          <div class="cvbox" style="width:600px;height:436px">
+            <canvas id="cv-core" style="width:596px;height:432px"></canvas>
+            <canvas id="cv-core-px" class="pxl" width="298" height="216" style="width:596px;height:432px;pointer-events:none"></canvas>
+            <div class="cvlabel">실시간 시뮬레이션 · 마우스를 따라감</div>
+            <div class="cvlegend"><span id="core-count">수집 0</span> · <i></i>발의 목표 위치</div>
+          </div>
+          <div>
+            <div class="steps tight">
+              <div class="st"><div class="num">01</div><div><div class="k">몸통만 조종한다</div><div class="d">머리만 마우스 커서를 따라가고, 각 마디는 앞 마디와의 거리를 유지하며 따라간다.</div></div></div>
+              <div class="st"><div class="num">02</div><div><div class="k">발은 스스로 딛는다</div><div class="d">이상적인 발 위치(점선 원)에서 <code>임계 거리</code> 이상 벗어나면 새 위치로 한 걸음 옮긴다.</div></div></div>
+              <div class="st"><div class="num">03</div><div><div class="k">관절은 IK로 계산</div><div class="d">코사인 법칙 공식 하나로 무릎 위치를 구하는 2마디 역운동학. 다리마다 길이·보폭이 달라 매 판 다르게 걷는다.</div></div></div>
+            </div>
+            <div class="feet">
+              <div class="k">수집 판정은 몸통이 아니라 <em>발끝</em>에 있다</div>
+              <div class="d">발이 <b>착지하는 순간</b>에만 그 자리의 데이터를 줍는다. 몸통으로 지나가도 소용없다. 조작은 몸통, 결과는 다리라서 정확히 밟는 것 자체가 재미가 된다.</div>
+            </div>
+          </div>
+        </div>
+        <div class="endp"><span class="ps">junseo@crawl<b>:~/core$</b></span> <span class="cur"></span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. CRAWLER TYPES -->
+  <section class="slide" data-t="04_크롤러4종">
+    <div class="win">
+      <div class="tb"><svg class="ico" viewBox="0 0 16 16" shape-rendering="crispEdges"><circle cx="8" cy="8" r="7" fill="#2b6fe0" stroke="#fff" stroke-width="1"/><path d="M3 6h10M2.5 10h11M8 1.5v13" stroke="#a8d4ff" stroke-width="1" fill="none"/><rect x="4" y="4" width="3" height="2" fill="#5cd39a"/><rect x="9" y="9" width="3" height="2" fill="#5cd39a"/></svg><span class="ttl">04_핵심게임플레이② - CRAWL.EXE</span><span class="bt">_</span><span class="bt">□</span><span class="bt x">×</span></div>
+      <div class="addr"><span class="ps">junseo@crawl<b>:~/core$</b></span><span class="cmd">cat crawlers.md</span></div>
+      <div class="body">
+        <h2>몸 모양이 바뀌면 조작이 바뀐다 <small>크롤러 3종</small></h2>
+        <div class="g5c">
+          <div class="cc">
+            <div class="hd"><svg viewBox="0 0 18 18"><rect x="3" y="3" width="12" height="12" fill="#0b1a40" stroke="#d8e6ff" stroke-width="1.5"/></svg><span class="en">BOX</span><span class="kr">사각형 · 기본 · W2</span></div>
+            <div class="cvw"><canvas id="cv-c0"></canvas><div class="hud" id="hud-c0">마디 2 · 다리 4</div></div>
+            <div class="ctl">
+              <div class="row"><span class="b">MOVE</span><span>마우스 방향으로 기어감</span></div>
+              <div class="row"><span class="b l">L</span><span>질주</span></div>
+              <div class="row"><span class="b r">R</span><span>웅크리기 · 피격 회피</span></div>
+            </div>
+            <div class="gist">파츠를 먹을 때마다 마디와 다리가 함께 늘어나는 기준형</div>
+          </div>
+          <div class="cc ext">
+            <div class="hd"><svg viewBox="0 0 18 18"><polygon points="9,2 16,15 2,15" fill="#0b1a40" stroke="#d8e6ff" stroke-width="1.5"/></svg><span class="en">TRI</span><span class="kr">삼각형 · 돌진 · W3</span></div>
+            <div class="cvw"><canvas id="cv-c1"></canvas></div>
+            <div class="ctl">
+              <div class="row"><span class="b">MOVE</span><span>커서는 목적지를 고르는 데만 쓴다</span></div>
+              <div class="row"><span class="b l">L</span><span>클릭한 곳까지 <b>우다다다</b> 직진 · 매우 빠름</span></div>
+              <div class="row"><span class="b r">R</span><span>웅크리기 (공통)</span></div>
+            </div>
+            <div class="gist">급선회해도 몸통은 머리가 지나간 길을 그대로 따라간다 · 도착 전엔 방향을 못 바꾼다</div>
+          </div>
+          <div class="cc ext">
+            <div class="hd"><svg viewBox="0 0 18 18"><circle cx="9" cy="9" r="6" fill="#0b1a40" stroke="#d8e6ff" stroke-width="1.5"/></svg><span class="en">ORB</span><span class="kr">원형 · 구르기 · W3</span></div>
+            <div class="cvw"><canvas id="cv-c2"></canvas><div class="hud" id="hud-c2">다리 4 · <b>미끄러움</b></div></div>
+            <div class="ctl">
+              <div class="row"><span class="b">MOVE</span><span>마우스 방향으로 구름 · 마찰이 적어 미끄러진다</span></div>
+              <div class="row"><span class="b l">L</span><span>질주</span></div>
+              <div class="row"><span class="b r">R</span><span>웅크리기 (공통)</span></div>
+            </div>
+            <div class="gist">구르는 다리가 지나가며 데이터를 쓸어 담는다 · 마디는 늘지 않는다</div>
+          </div>
+        </div>
+        <p class="sub5">사각형으로 시작하고, 스테이지를 깨면 삼각형과 원형이 해금된다. 스테이지마다 크롤러를 골라 들어간다.</p>
+        <div class="endp"><span class="ps">junseo@crawl<b>:~/core$</b></span> <span class="cur"></span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. LEG PARTS -->
+  <section class="slide" data-t="05_다리파츠">
+    <div class="win">
+      <div class="tb"><svg class="ico" viewBox="0 0 16 16" shape-rendering="crispEdges"><circle cx="8" cy="8" r="7" fill="#2b6fe0" stroke="#fff" stroke-width="1"/><path d="M3 6h10M2.5 10h11M8 1.5v13" stroke="#a8d4ff" stroke-width="1" fill="none"/><rect x="4" y="4" width="3" height="2" fill="#5cd39a"/><rect x="9" y="9" width="3" height="2" fill="#5cd39a"/></svg><span class="ttl">05_핵심게임플레이③ - CRAWL.EXE</span><span class="bt">_</span><span class="bt">□</span><span class="bt x">×</span></div>
+      <div class="addr"><span class="ps">junseo@crawl<b>:~/core$</b></span><span class="cmd">cat leg-parts.md</span></div>
+      <div class="body">
+        <h2>다리 파츠 <small>파츠 하나 = 마디 + 다리 + 능력</small></h2>
+        <div class="g6b">
+          <div>
+            <div class="grp base6" style="padding-top:8px"><span class="lg">기본 규칙</span>
+              <div class="rule"><span class="v p">+1</span>다리 파츠를 발로 밟으면 마디 하나와 다리 한 쌍이 늘고 능력이 붙는다 (원형은 다리만)</div>
+              <div class="rule"><span class="v m">-1</span>적이 다리에 닿으면 그 다리가 파츠째 떨어져 나간다</div>
+              <div class="rule" style="border:0"><span class="v">0</span>다리가 없으면 GAME OVER · 최대 12개</div>
+            </div>
+            <div class="parts">
+              <div class="part"><svg viewBox="0 0 52 40"><path d="M6 34 L22 8 L46 20" fill="none" stroke="#d8e6ff" stroke-width="2"/><rect x="20" y="6" width="4" height="4" fill="#d8e6ff"/><circle cx="46" cy="20" r="3" fill="#7fd0ff"/></svg>
+                <div><div class="k">긴 다리<span>LONG</span></div><div class="d">발이 멀리 닿아 수집 범위 증가 · 걸음은 느려짐</div></div></div>
+              <div class="part"><svg viewBox="0 0 52 40"><path d="M6 34 L22 12 L40 26" fill="none" stroke="#d8e6ff" stroke-width="2"/><rect x="20" y="10" width="4" height="4" fill="#d8e6ff"/><path d="M40 26 l6 -6 M40 26 l8 2 M40 26 l2 8" stroke="#ff5a4a" stroke-width="2"/></svg>
+                <div><div class="k">가시 다리<span>SPIKE</span></div><div class="d">착지할 때 근처 백신 봇을 잠시 멈추게 함</div></div></div>
+              <div class="part"><svg viewBox="0 0 52 40"><path d="M6 34 L22 12 L38 24" fill="none" stroke="#d8e6ff" stroke-width="2"/><rect x="20" y="10" width="4" height="4" fill="#d8e6ff"/><circle cx="38" cy="24" r="4" fill="none" stroke="#6fd36a" stroke-width="2"/><circle cx="38" cy="24" r="9" fill="none" stroke="#6fd36a" stroke-dasharray="2 3"/></svg>
+                <div><div class="k">자석 다리<span>MAG</span></div><div class="d">착지 지점 근처 데이터를 끌어당김</div></div></div>
+            </div>
+          </div>
+          <div>
+            <table class="mx">
+              <tr><th>크롤러</th><th>늘어나는 것</th><th>다리 파츠를 먹으면</th></tr>
+              <tr><td class="nm"><svg viewBox="0 0 18 18"><rect x="3" y="3" width="12" height="12" fill="#0b1a40" stroke="#d8e6ff" stroke-width="1.5"/></svg>사각형</td><td class="at">마디 + 다리 한 쌍</td><td><b>이동 속도와 수집 폭이 커진다</b> · 대신 몸이 길어져 꼬리가 맞기 쉽다</td></tr>
+              <tr><td class="nm"><svg viewBox="0 0 18 18"><polygon points="9,2 16,15 2,15" fill="#0b1a40" stroke="#d8e6ff" stroke-width="1.5"/></svg>삼각형</td><td class="at">마디 + 다리 한 쌍</td><td>머리 경로를 따라오는 <b>몸 전체가 데이터를 쓸어 담는다</b> · 돌진 중 방향을 못 바꿔 긴 꼬리가 노출된다</td></tr>
+              <tr><td class="nm"><svg viewBox="0 0 18 18"><circle cx="9" cy="9" r="6" fill="#0b1a40" stroke="#d8e6ff" stroke-width="1.5"/></svg>원형</td><td class="at">다리만 (마디 없음)</td><td>다리가 늘수록 <b>마찰력 증가</b> → 덜 미끄러져 제어가 쉬워지지만 느려진다 · 구를 때 훑는 발이 늘어난다</td></tr>
+            </table>
+            <div class="combo">
+              <span><b>삼각 + 가시</b> 돌진 경로가 곧 공격</span>
+              <span><b>원 + 자석</b> 굴러가며 주변 데이터 흡입</span>
+              <span><b>사각 + 긴 다리</b> 수집 폭 확장</span>
+            </div>
+          </div>
+          </div>
+        </div>
+        <div class="endp"><span class="ps">junseo@crawl<b>:~/core$</b></span> <span class="cur"></span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. ENEMIES + STAGES -->
+  <section class="slide" data-t="06_적과스테이지">
+    <div class="win">
+      <div class="tb"><svg class="ico" viewBox="0 0 16 16" shape-rendering="crispEdges"><circle cx="8" cy="8" r="7" fill="#2b6fe0" stroke="#fff" stroke-width="1"/><path d="M3 6h10M2.5 10h11M8 1.5v13" stroke="#a8d4ff" stroke-width="1" fill="none"/><rect x="4" y="4" width="3" height="2" fill="#5cd39a"/><rect x="9" y="9" width="3" height="2" fill="#5cd39a"/></svg><span class="ttl">06_적과스테이지 - CRAWL.EXE</span><span class="bt">_</span><span class="bt">□</span><span class="bt x">×</span></div>
+      <div class="addr"><span class="ps">junseo@crawl<b>:~/plan$</b></span><span class="cmd">cat stages.md</span></div>
+      <div class="body">
+        <h2>오브젝트와 스테이지 <small>새 요소는 스테이지마다 하나씩</small></h2>
+        <div class="g7b">
+          <div class="objs"><div class="ob"><svg viewBox="0 0 28 28" shape-rendering="crispEdges"><rect x="2" y="9" width="24" height="10" fill="#06112e" stroke="#7fd0ff"/><rect x="6" y="12" width="2" height="4" fill="#7fd0ff"/><rect x="10" y="12" width="2" height="4" fill="#7fd0ff"/><rect x="14" y="12" width="3" height="4" fill="#7fd0ff"/><rect x="19" y="12" width="3" height="4" fill="#7fd0ff"/><rect x="5" y="17" width="18" height="1" fill="#7fd0ff"/></svg><div><div class="tp">ITEM</div><div class="k">데이터 조각</div><div class="d">발로 밟으면 수집. 스테이지 목표</div></div></div><div class="ob"><svg viewBox="0 0 28 28" shape-rendering="crispEdges"><rect x="10" y="10" width="8" height="8" fill="#10245a" stroke="#d8e6ff"/><path d="M10 11 L4 6 L2 9 M18 11 L24 6 L26 9 M10 17 L4 22 L2 19 M18 17 L24 22 L26 19" fill="none" stroke="#d8e6ff"/><rect x="13" y="12" width="2" height="4" fill="#6fd36a"/><rect x="12" y="13" width="4" height="2" fill="#6fd36a"/></svg><div><div class="tp">ITEM</div><div class="k">다리 파츠</div><div class="d">밟으면 마디·다리 +1 · 능력 부여</div></div></div><div class="ob"><svg viewBox="0 0 28 28" shape-rendering="crispEdges"><rect x="3" y="3" width="22" height="22" fill="none" stroke="#7fd0ff" stroke-dasharray="2 2"/><path d="M9 19 L19 9 M13 9 L19 9 L19 15" fill="none" stroke="#ff8c2a" stroke-width="2"/></svg><div><div class="tp">GOAL</div><div class="k">출구 링크</div><div class="d">목표 달성 시 열림</div></div></div><div class="ob en"><svg viewBox="0 0 28 28" shape-rendering="crispEdges"><polygon points="14,3 24,8 24,20 14,25 4,20 4,8" fill="#2a0d0d" stroke="#ff5a4a"/><rect x="12" y="8" width="4" height="12" fill="#ff5a4a"/><rect x="8" y="12" width="12" height="4" fill="#ff5a4a"/></svg><div><div class="tp">ENEMY · 추적</div><div class="k">백신 봇</div><div class="d">가까운 다리를 쫓아와 자름</div></div></div><div class="ob en"><svg viewBox="0 0 28 28" shape-rendering="crispEdges"><rect x="1" y="11" width="26" height="6" fill="#ff5a4a" opacity=".3"/><rect x="1" y="13" width="26" height="2" fill="#ff5a4a"/><path d="M2 6 H26 M2 22 H26" stroke="#5f78ad" stroke-dasharray="1 3"/></svg><div><div class="tp">ENEMY · 패턴</div><div class="k">스캐너 빔</div><div class="d">화면을 가로지름 · 웅크려 회피</div></div></div><div class="ob en"><svg viewBox="0 0 28 28" shape-rendering="crispEdges"><rect x="2" y="5" width="24" height="18" fill="#3a1208" stroke="#ff8c2a"/><path d="M2 11 H26 M2 17 H26 M10 5 V11 M18 5 V11 M6 11 V17 M14 11 V17 M22 11 V17 M10 17 V23 M18 17 V23" stroke="#ff8c2a"/></svg><div><div class="tp">ENEMY · 지형</div><div class="k">방화벽</div><div class="d">닿으면 감전 · 미로를 이룸</div></div></div></div>
+          <div>
+            <table class="st">
+              <tr><th>페이지</th><th>주차</th><th>새 요소</th><th>목표</th></tr>
+              <tr><td class="u">/wiki/crawler</td><td class="w">W2</td><td>이동 · 발로 수집 · 다리 파츠</td><td>데이터 10</td></tr>
+              <tr><td class="u">/news/today</td><td class="w">W2</td><td>스캐너 빔 → 웅크리기</td><td>데이터 15</td></tr>
+              <tr><td class="u">/shop/cart</td><td class="w">W2</td><td>방화벽 미로</td><td>데이터 20</td></tr>
+              <tr class="ext"><td class="u">/video/stream<span class="badge">확장</span></td><td class="w">W3</td><td>화면이 계속 아래로 흐른다</td><td>데이터 20</td></tr>
+              <tr class="ext"><td class="u">/mail/inbox<span class="badge">확장</span></td><td class="w">W3</td><td>스팸 떼 · 무리 지어 오는 적</td><td>데이터 25</td></tr>
+              <tr class="ext"><td class="u">/404<span class="badge">확장</span></td><td class="w">W4</td><td>암흑 · 발 주변만 보인다</td><td>데이터 25</td></tr>
+              <tr class="boss"><td class="u">/antivirus.core<span class="badge">확장</span></td><td class="w">W4</td><td>패치 노드에 발 3개를 동시에</td><td>과부하 ×3</td></tr>
+            </table>
+            <p class="foot8">2주 차까지 <b>스테이지 1–3</b>으로 끝까지 플레이 가능한 상태를 만들고, 이후 한 페이지씩 덧붙인다. 스테이지마다 크롤러를 고를 수 있어서 같은 페이지도 다르게 풀린다.</p>
+          </div>
+        </div>
+        <div class="endp"><span class="ps">junseo@crawl<b>:~/plan$</b></span> <span class="cur"></span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. FUN -->
+  <section class="slide" data-t="07_재미요소">
+    <div class="win">
+      <div class="tb"><svg class="ico" viewBox="0 0 16 16" shape-rendering="crispEdges"><circle cx="8" cy="8" r="7" fill="#2b6fe0" stroke="#fff" stroke-width="1"/><path d="M3 6h10M2.5 10h11M8 1.5v13" stroke="#a8d4ff" stroke-width="1" fill="none"/><rect x="4" y="4" width="3" height="2" fill="#5cd39a"/><rect x="9" y="9" width="3" height="2" fill="#5cd39a"/></svg><span class="ttl">07_재미요소와차별성 - CRAWL.EXE</span><span class="bt">_</span><span class="bt">□</span><span class="bt x">×</span></div>
+      <div class="addr"><span class="ps">junseo@crawl<b>:~/plan$</b></span><span class="cmd">cat why-fun.md</span></div>
+      <div class="body">
+        <h2>왜 재미있는가?</h2>
+        <div class="g9">
+          <div class="fun"><div class="num">1</div><div><div class="k">같은 걸음이 없다</div><div class="d">스프라이트 대신 매 프레임 계산하는 다리. 발이 닿을 때마다 다리별로 다른 음이 나서 이동이 곧 연주가 된다.</div></div></div>
+          <div class="fun"><div class="num">2</div><div><div class="k">발끝 판정이 주는 긴장</div><div class="d">"저 발이 데이터에 닿을까?" 몸통 조작과 발 판정 사이의 작은 어긋남이 긴장감과 웃음을 만든다.</div></div></div>
+          <div class="fun"><div class="num">3</div><div><div class="k">모양 = 조작 방식</div><div class="d">마우스 방향으로 기기, 클릭한 곳까지 질주, 미끄러지며 구르기. 크롤러를 바꾸면 같은 스테이지가 다른 게임이 된다.</div></div></div>
+          <div class="fun"><div class="num">4</div><div><div class="k">다리 하나하나가 선택</div><div class="d">파츠를 어디에 붙일지, 어떤 다리를 잃었는지가 눈에 보인다. 체력바 대신 몸이 곧 상태창이다.</div></div></div>
+        </div>
+        <div class="vs">
+          <div class="c"><div class="t">일반적인 2D 액션</div>캐릭터 히트박스 <b>1개</b>, 조작 방식 <b>1개</b></div>
+          <div class="mid">VS</div>
+          <div class="c me"><div class="t">CRAWL.EXE</div>발끝 판정점 <b>N개</b> · 몸 모양별 조작 <b>3가지</b></div>
+        </div>
+        <div class="endp"><span class="ps">junseo@crawl<b>:~/plan$</b></span> <span class="cur"></span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9. SCHEDULE -->
+  <section class="slide" data-t="08_개발일정">
+    <div class="win">
+      <div class="tb"><svg class="ico" viewBox="0 0 16 16" shape-rendering="crispEdges"><circle cx="8" cy="8" r="7" fill="#2b6fe0" stroke="#fff" stroke-width="1"/><path d="M3 6h10M2.5 10h11M8 1.5v13" stroke="#a8d4ff" stroke-width="1" fill="none"/><rect x="4" y="4" width="3" height="2" fill="#5cd39a"/><rect x="9" y="9" width="3" height="2" fill="#5cd39a"/></svg><span class="ttl">08_개발일정 - CRAWL.EXE</span><span class="bt">_</span><span class="bt">□</span><span class="bt x">×</span></div>
+      <div class="addr"><span class="ps">junseo@crawl<b>:~/plan$</b></span><span class="cmd">cat schedule.md</span></div>
+      <div class="body">
+        <h2>4주 개발 일정 <small>1–2주 차 핵심 완성 → 3–4주 차 확장</small></h2>
+        <div class="gantt" id="gantt"></div>
+        <div class="g10">
+          <div class="pri"><div class="t">1–2주 차 · 필수</div>다리 시스템 · 발 수집 · 적 3종<br>다리 파츠 · 스테이지 1–3 · 사각형</div>
+          <div class="pri ext"><div class="t">3–4주 차 · 확장</div>삼각형 · 원형 크롤러<br>스테이지 4–6 · 보스</div>
+          <div class="pri opt"><div class="t">여유가 있으면</div>발소리 음계 · 점수 기록<br>파츠 조합 효과 추가</div>
+          <div class="pri risk"><div class="t">리스크 대응</div>1주 차 끝까지 다리 시스템이 미완성이면 확장 크롤러를 1종으로 줄이고 다리 품질을 우선한다.</div>
+        </div>
+        <div class="endp"><span class="ps">junseo@crawl<b>:~/plan$</b></span> <span class="cur"></span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10. AI COLLAB -->
+  <section class="slide" data-t="09_AI협업개발">
+    <div class="win">
+      <div class="tb"><svg class="ico" viewBox="0 0 16 16" shape-rendering="crispEdges"><circle cx="8" cy="8" r="7" fill="#2b6fe0" stroke="#fff" stroke-width="1"/><path d="M3 6h10M2.5 10h11M8 1.5v13" stroke="#a8d4ff" stroke-width="1" fill="none"/><rect x="4" y="4" width="3" height="2" fill="#5cd39a"/><rect x="9" y="9" width="3" height="2" fill="#5cd39a"/></svg><span class="ttl">09_AI협업개발 - CRAWL.EXE</span><span class="bt">_</span><span class="bt">□</span><span class="bt x">×</span></div>
+      <div class="addr"><span class="ps">junseo@crawl<b>:~/plan$</b></span><span class="cmd">cat ai-workflow.md</span></div>
+      <div class="body">
+        <h2>AI와 함께 만드는 방법 <small>Claude와 기능 단위로 반복</small></h2>
+        <div class="aiflow">
+          <div class="nd"><div class="n">01 · 나</div><div class="k">설계</div><div class="d">기능 하나를 작업 단위로 쪼개고 기대 동작을 글로 쓴다</div></div>
+          <div class="ar">▶</div>
+          <div class="nd ai"><div class="n">02 · CLAUDE</div><div class="k">구현 요청</div><div class="d">관련 코드 + 기대 동작 + 제약(pico2d, 클래스 구조)을 주고 코드 작성</div></div>
+          <div class="ar">▶</div>
+          <div class="nd"><div class="n">03 · 나</div><div class="k">실행 · 튜닝</div><div class="d">직접 플레이하며 확인하고, 조작감 수치는 손으로 맞춘다</div></div>
+          <div class="ar">▶</div>
+          <div class="nd ai"><div class="n">04 · CLAUDE</div><div class="k">리뷰 · 디버그</div><div class="d">이해 안 되는 부분은 설명 요청, 버그는 재현 방법과 함께 원인 분석</div></div>
+          <div class="ar">▶</div>
+          <div class="nd"><div class="n">05 · 나</div><div class="k">커밋 · 기록</div><div class="d">기능 단위로 Git 커밋, AI_LOG.md에 요청과 결과를 남긴다</div></div>
+        </div>
+        <div class="loopback">↺ 기능마다 반복</div>
+        <div class="g10b">
+          <div class="grp"><span class="lg">Claude에게 맡기는 것</span><ul>
+            <li>IK · 스텝 · 충돌 판정 수식 구현</li>
+            <li>크롤러별 조작 모드 · 상태 머신 코드</li>
+            <li>디버그 시각화 도구 (03장 화면처럼)</li>
+            <li>버그 원인 분석 · 리팩터링 제안</li>
+            <li>스테이지 배치 데이터 초안</li></ul></div>
+          <div class="grp me"><span class="lg" style="color:var(--accent)">내가 직접 하는 것</span><ul>
+            <li>게임 규칙 · 크롤러 · 파츠 기획</li>
+            <li>코드 구조 결정과 병합 여부 판단</li>
+            <li>조작감 · 밸런스 수치 튜닝</li>
+            <li>플레이 테스트와 완료 기준 판정</li>
+            <li>발표 · 문서 · 시연</li></ul></div>
+          <div class="grp principle"><span class="lg" style="color:var(--ok)">원칙</span><ul>
+            <li>설명할 수 없는 코드는 커밋하지 않는다</li>
+            <li>요청 하나 = 기능 하나 = 커밋 하나</li>
+            <li>AI_LOG.md로 과정을 남겨 2·3차 발표에 활용</li>
+            <li>매주 끝에 직접 플레이 가능한 빌드 유지</li></ul></div>
+        </div>
+        <div class="endp"><span class="ps">junseo@crawl<b>:~/plan$</b></span> <span class="cur"></span></div>
+      </div>
+    </div>
+  </section>
+
+  <div id="progress"></div>
+  <div id="taskbar">
+    <div id="tb-start">[crawl]</div>
+    <div id="tb-task"></div>
+    <div id="tb-tray"><span class="pg" id="pageno">01 / 10</span><span id="clock">--:--</span></div>
+  </div>
+</div>
+
+<div id="notes"><div class="meta"></div><div class="txt"></div></div>
+<div id="help">← → 넘기기 · P 자동 재생(1:30) · N 대본 · F 전체 화면 · H 안내 숨기기</div>
+<div id="nav"><button id="prev">‹</button><button id="next">›</button></div>
+
+<script>(()=>{var Wo=Object.defineProperty;var Go=(t)=>t;function _o(t,o){this[t]=Go.bind(null,o)}var Mo=(t,o)=>{for(var n in o)Wo(t,n,{get:o[n],enumerable:!0,configurable:!0,set:_o.bind(o,n)})};var so={};Mo(so,{draw:()=>On,drawBack:()=>In,meta:()=>eo});var ao={};Mo(ao,{create:()=>Sn,meta:()=>Ln});var S=Math.PI*2,A=(t,o=0,n=1)=>t<o?o:t>n?n:t,Gt=(t,o,n)=>t+(o-t)*n;var Et=(t,o)=>(t%o+o)%o;var Ct={linear:(t)=>t,inQuad:(t)=>t*t,outQuad:(t)=>1-(1-t)*(1-t),inOutQuad:(t)=>t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2,inCubic:(t)=>t*t*t,outCubic:(t)=>1-Math.pow(1-t,3),inOutCubic:(t)=>t<0.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2,inQuart:(t)=>t*t*t*t,outQuart:(t)=>1-Math.pow(1-t,4),inExpo:(t)=>t<=0?0:Math.pow(2,10*t-10),outExpo:(t)=>t>=1?1:1-Math.pow(2,-10*t),inSine:(t)=>1-Math.cos(t*Math.PI/2),outSine:(t)=>Math.sin(t*Math.PI/2),inOutSine:(t)=>-(Math.cos(Math.PI*t)-1)/2,inBack:(t,o=1.70158)=>t<=0?0:t>=1?1:(o+1)*t*t*t-o*t*t,outBack:(t,o=1.70158)=>t<=0?0:t>=1?1:1+(o+1)*Math.pow(t-1,3)+o*Math.pow(t-1,2),outElastic:(t)=>t<=0?0:t>=1?1:Math.pow(2,-10*t)*Math.sin((t*10-0.75)*(2*Math.PI/3))+1,outBounce:(t)=>{if(t<0.36363636363636365)return 7.5625*t*t;if(t<0.7272727272727273)return 7.5625*(t-=0.5454545454545454)*t+0.75;if(t<0.9090909090909091)return 7.5625*(t-=0.8181818181818182)*t+0.9375;return 7.5625*(t-=0.9545454545454546)*t+0.984375}};function xo(...t){let o=2654435769;for(let n of t)o=Math.imul(o^(n|0),2246822507),o^=o>>>13,o=Math.imul(o,3266489909),o^=o>>>16;return o>>>0}var it=(...t)=>xo(...t)/4294967296;class rt{constructor(t=1){this.s=t>>>0||1}next(){let t=this.s=this.s+1831565813>>>0;return t=Math.imul(t^t>>>15,t|1),t^=t+Math.imul(t^t>>>7,t|61),((t^t>>>14)>>>0)/4294967296}range(t,o){return t+(o-t)*this.next()}int(t,o){return Math.floor(this.range(t,o+1))}chance(t){return this.next()<t}sign(){return this.next()<0.5?-1:1}pick(t){return t[Math.floor(this.next()*t.length)]}gauss(){return(this.next()+this.next()+this.next()+this.next()-2)*1.732}}var _t=(...t)=>new rt(xo(...t));function Vo(t,o,n=0,e=0,s=0){let a=Math.floor(t),i=Math.floor(o),r=t-a,c=o-i,h=r*r*(3-2*r),f=c*c*(3-2*c),l=n?Et(a,n):a,u=n?Et(a+1,n):a+1,p=e?Et(i,e):i,d=e?Et(i+1,e):i+1,g=it(l,p,s),k=it(u,p,s),m=it(l,d,s),w=it(u,d,s);return Gt(Gt(g,k,h),Gt(m,w,h),f)*2-1}function go(t,o,n=0,e=0,s=0,a=3){let i=0,r=0.5,c=0,h=1;for(let f=0;f<a;f++)i+=Vo(t*h,o*h,n*h,e*h,s+f*101)*r,c+=r,r*=0.5,h*=2;return i/c}var Vt=(t,o,n)=>-16777216|(n&255)<<16|(o&255)<<8|t&255,ko=(t)=>t&255,mo=(t)=>t>>>8&255,yo=(t)=>t>>>16&255;function y(t){if(typeof t==="number")return t;let o=t.replace("#","");if(o.length===3)o=o[0]+o[0]+o[1]+o[1]+o[2]+o[2];let n=parseInt(o.slice(0,6),16);return Vt(n>>16&255,n>>8&255,n&255)}var wo=(t)=>"#"+[ko(t),mo(t),yo(t)].map((o)=>o.toString(16).padStart(2,"0")).join("");var Qt=(t,o)=>Vt(Math.min(255,ko(t)*o),Math.min(255,mo(t)*o),Math.min(255,yo(t)*o));var bo=(t)=>t.map(y);function V(t,o){if(t=t.map(y),t.length===o)return t;return Array.from({length:o},(n,e)=>t[Math.round(e*(t.length-1)/Math.max(1,o-1))])}var Qo={fire:["#1f0b10","#4a1118","#8c1d1c","#cc3a1a","#f2701f","#ffae35","#ffe27a","#fff8d6"],ember:["#1a0a0e","#3d1012","#701a14","#a8301a","#e0561e","#ff8a2a","#ffc46a"],lava:["#14060a","#380a10","#6e1210","#ac2410","#e8501a","#ff8c2a","#ffd25a"],smoke:["#0e0c12","#1d1a22","#2e2a35","#433e4b","#5c5664","#7b7484","#a39cab"],dust:["#1c1610","#33281c","#4f3f2c","#6e5a40","#927a58","#b89f78","#dcc8a2"],ice:["#0c1430","#162c5c","#1f4f94","#2f7fcc","#58b4ec","#9bdcff","#d8f4ff","#ffffff"],water:["#081830","#0e2e5a","#14508c","#1c76bc","#36a2e0","#78ccf4","#c4ecff","#ffffff"],electric:["#0a0f2e","#172a78","#2550d0","#3f8cff","#7cc8ff","#c8f0ff","#ffffff"],volt:["#24160a","#5e3a0c","#a8680f","#e8a218","#ffd23c","#fff08a","#ffffff"],poison:["#0d1a0c","#173a14","#265e18","#3f8a1e","#6cb82a","#a8e04a","#e0ff8a"],holy:["#2a1c08","#5a3e10","#9a6c18","#d8a428","#ffd84a","#fff09a","#fffbe6","#ffffff"],heal:["#08201a","#0f3f2c","#17663e","#24924e","#3ec466","#7ee88a","#c8ffc4","#ffffff"],arcane:["#140a26","#2b1252","#481c88","#6b2cc0","#9a48ec","#c684ff","#ecc8ff","#ffffff"],shadow:["#050308","#0f0a18","#1c1230","#2c1a4a","#432468","#5e3290","#8048b8","#a970e0"],blood:["#14040a","#3a0a14","#6a101c","#a01824","#d42a30","#ff5a50","#ff9a8a"],earth:["#140e0a","#2a1e14","#47321e","#69492a","#8e6638","#b88a52","#dcb47c"],stone:["#0e0e12","#1c1c24","#2c2c38","#42424f","#5c5c6b","#7d7d8c","#a4a4b2","#d0d0da"],gold:["#1e1206","#4a2c08","#86520c","#c48412","#f0b424","#ffe066","#fff6c4","#ffffff"],leaf:["#0c1a0e","#163418","#225224","#357530","#4f9a3a","#7cc048","#b4e070","#e4ffb0"],wood:["#160c06","#2e1a0c","#4a2c14","#6a421e","#8e5c2c","#b47c40","#d8a464"],metal:["#0c0e14","#1c2230","#2e3648","#4a5468","#6e7a90","#9aa6ba","#d0d8e6","#ffffff"],bone:["#1a1814","#3a352c","#5e5648","#8a806c","#b8ad96","#e4dcc8","#fffaf0"],neon:["#1a0516","#3d0a33","#701560","#b0228f","#f53cd1","#ff86e6","#ffd2f6","#ffffff"],cyber:["#041418","#08303a","#0c5260","#108088","#18b4b0","#4ce8d8","#b4fff0","#ffffff"],matrix:["#020a04","#05200c","#0a3c16","#106624","#1a9a34","#3cd650","#a4ffa8","#e8ffe8"],candy:["#ff4a5a","#ff9a2a","#ffe03c","#5ad84a","#3cc8ff","#7a6cff","#f53cd1"],night:["#07060d","#0c0a18","#131026","#1b1734","#241f44","#2f2956"]},Yn=Object.fromEntries(Object.entries(Qo).map(([t,o])=>[t,bo(o)])),N=y("#ffffff"),Tn=y("#000000"),Kn=y("#0b0a10"),Un=y("#f53cd1");var Zo={A:".#.|#.#|###|#.#|#.#",B:"##.|#.#|##.|#.#|##.",C:".##|#..|#..|#..|.##",D:"##.|#.#|#.#|#.#|##.",E:"###|#..|##.|#..|###",F:"###|#..|##.|#..|#..",G:".##|#..|#.#|#.#|.##",H:"#.#|#.#|###|#.#|#.#",I:"###|.#.|.#.|.#.|###",J:"..#|..#|..#|#.#|.#.",K:"#.#|#.#|##.|#.#|#.#",L:"#..|#..|#..|#..|###",M:"#.#|###|###|#.#|#.#",N:"##.|#.#|#.#|#.#|#.#",O:".#.|#.#|#.#|#.#|.#.",P:"##.|#.#|##.|#..|#..",Q:".#.|#.#|#.#|##.|.##",R:"##.|#.#|##.|#.#|#.#",S:".##|#..|.#.|..#|##.",T:"###|.#.|.#.|.#.|.#.",U:"#.#|#.#|#.#|#.#|###",V:"#.#|#.#|#.#|#.#|.#.",W:"#.#|#.#|###|###|#.#",X:"#.#|#.#|.#.|#.#|#.#",Y:"#.#|#.#|.#.|.#.|.#.",Z:"###|..#|.#.|#..|###",0:"###|#.#|#.#|#.#|###",1:".#.|##.|.#.|.#.|###",2:"##.|..#|.#.|#..|###",3:"##.|..#|.#.|..#|##.",4:"#.#|#.#|###|..#|..#",5:"###|#..|##.|..#|##.",6:".##|#..|###|#.#|###",7:"###|..#|.#.|.#.|.#.",8:"###|#.#|###|#.#|###",9:"###|#.#|###|..#|##.","+":"...|.#.|###|.#.|...","-":"...|...|###|...|...","!":"#|#|#|.|#","?":"##.|..#|.#.|...|.#.",".":".|.|.|.|#",",":"..|..|..|.#|#.",":":".|#|.|#|.","/":"..#|..#|.#.|#..|#..","%":"#.#|..#|.#.|#..|#.#",x:"...|#.#|.#.|#.#|...","*":"#.#|.#.|#.#|...|...","'":"#|#|.|.|.","(":".#|#.|#.|#.|.#",")":"#.|.#|.#|.#|#.","<":"..#|.#.|#..|.#.|..#",">":"#..|.#.|..#|.#.|#..","=":"...|###|...|###|...",_:"...|...|...|...|###","#":"#.#|###|#.#|###|#.#"},$o={A:".###.|#...#|#...#|#####|#...#|#...#|#...#",B:"####.|#...#|#...#|####.|#...#|#...#|####.",C:".###.|#...#|#....|#....|#....|#...#|.###.",D:"####.|#...#|#...#|#...#|#...#|#...#|####.",E:"#####|#....|#....|####.|#....|#....|#####",F:"#####|#....|#....|####.|#....|#....|#....",G:".###.|#...#|#....|#.###|#...#|#...#|.####",H:"#...#|#...#|#...#|#####|#...#|#...#|#...#",I:"###|.#.|.#.|.#.|.#.|.#.|###",J:"..###|...#.|...#.|...#.|...#.|#..#.|.##..",K:"#...#|#..#.|#.#..|##...|#.#..|#..#.|#...#",L:"#....|#....|#....|#....|#....|#....|#####",M:"#...#|##.##|#.#.#|#.#.#|#...#|#...#|#...#",N:"#...#|#...#|##..#|#.#.#|#..##|#...#|#...#",O:".###.|#...#|#...#|#...#|#...#|#...#|.###.",P:"####.|#...#|#...#|####.|#....|#....|#....",Q:".###.|#...#|#...#|#...#|#.#.#|#..#.|.##.#",R:"####.|#...#|#...#|####.|#.#..|#..#.|#...#",S:".####|#....|#....|.###.|....#|....#|####.",T:"#####|..#..|..#..|..#..|..#..|..#..|..#..",U:"#...#|#...#|#...#|#...#|#...#|#...#|.###.",V:"#...#|#...#|#...#|#...#|#...#|.#.#.|..#..",W:"#...#|#...#|#...#|#.#.#|#.#.#|#.#.#|.#.#.",X:"#...#|#...#|.#.#.|..#..|.#.#.|#...#|#...#",Y:"#...#|#...#|.#.#.|..#..|..#..|..#..|..#..",Z:"#####|....#|...#.|..#..|.#...|#....|#####",0:".###.|#...#|#..##|#.#.#|##..#|#...#|.###.",1:".#.|##.|.#.|.#.|.#.|.#.|###",2:".###.|#...#|....#|...#.|..#..|.#...|#####",3:"#####|...#.|..#..|...#.|....#|#...#|.###.",4:"...#.|..##.|.#.#.|#..#.|#####|...#.|...#.",5:"#####|#....|####.|....#|....#|#...#|.###.",6:"..##.|.#...|#....|####.|#...#|#...#|.###.",7:"#####|....#|...#.|..#..|.#...|.#...|.#...",8:".###.|#...#|#...#|.###.|#...#|#...#|.###.",9:".###.|#...#|#...#|.####|....#|...#.|.##..","!":"#|#|#|#|#|.|#","?":".###.|#...#|....#|...#.|..#..|.....|..#..","+":".....|..#..|..#..|#####|..#..|..#..|.....","-":"....|....|....|####|....|....|....",".":".|.|.|.|.|.|#",",":"..|..|..|..|..|.#|#.",":":".|.|#|.|.|#|.","/":"....#|....#|...#.|..#..|.#...|#....|#....","%":"##...|##..#|...#.|..#..|.#...|#..##|...##",x:".....|.....|#...#|.#.#.|..#..|.#.#.|#...#","*":".....|..#..|#.#.#|.###.|#.#.#|..#..|.....","'":"#|#|.|.|.|.|.","<":"...#|..#.|.#..|#...|.#..|..#.|...#",">":"#...|.#..|..#.|...#|..#.|.#..|#...","=":"....|....|####|....|####|....|....","(":"..#|.#.|#..|#..|#..|.#.|..#",")":"#..|.#.|..#|..#|..#|.#.|#..","#":".#.#.|.#.#.|#####|.#.#.|#####|.#.#.|.#.#."};function Do(t,o){let n={};for(let[e,s]of Object.entries(t)){let a=s.split("|");if(n[e]={w:a[0].length,rows:a.map((i)=>[...i].map((r)=>r==="#"))},a.length!==o)throw Error(`glyph ${e} has ${a.length} rows, expected ${o}`)}return n}var xt={mini:{h:5,space:2,gap:1,glyphs:Do(Zo,5)},big:{h:7,space:3,gap:1,glyphs:Do($o,7)}};function It(t,o="mini"){let n=xt[o],e=0;for(let s of String(t)){let a=n.glyphs[s]??n.glyphs[s.toUpperCase()];e+=(a?a.w:n.space)+n.gap}return Math.max(0,e-n.gap)}function Ot(t,o,n){let e=xt[o],s=0;for(let a of String(t)){let i=e.glyphs[a]??e.glyphs[a.toUpperCase()];if(!i){s+=e.space+e.gap;continue}for(let r=0;r<e.h;r++)for(let c=0;c<i.w;c++)if(i.rows[r][c])n(s+c,r);s+=i.w+e.gap}}var tn=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5].map((t)=>(t+0.5)/16),on={c:0,a:1,l:0,k:0},vo=new WeakMap,v=(t,...o)=>typeof t==="function"?t(...o):t;class gt{constructor(t){this.frame=t,this.reset()}reset(){let t=this.frame;return this.w=t.w,this.h=t.h,this.ox=t.ox|0,this.oy=t.oy|0,this.C=t.color,this.L=t.light,this.tx=0,this.ty=0,this.fx=1,this.cs=1,this.sn=0,this.fade=1,this.lightK=1,this.layer="front",this}place(t,o,n=!1,e=0){return this.tx=t,this.ty=o,this.fx=n?-1:1,this.cs=Math.cos(e),this.sn=Math.sin(e),this}toX(t,o){return this.tx+t*this.fx*this.cs-o*this.sn}toY(t,o){return this.ty+t*this.fx*this.sn+o*this.cs}fromX(t,o){let n=t-this.tx,e=o-this.ty;return(n*this.cs+e*this.sn)*this.fx}fromY(t,o){let n=t-this.tx,e=o-this.ty;return-n*this.sn+e*this.cs}cellX(t,o){return Math.floor(this.toX(Math.floor(t)+0.5,Math.floor(o)+0.5))}cellY(t,o){return Math.floor(this.toY(Math.floor(t)+0.5,Math.floor(o)+0.5))}put(t,o,n,e=1){if(!n)return;if(e*=this.fade,e<1&&e<=tn[(o&3)<<2|t&3])return;let s=t-this.ox,a=o-this.oy;if(s<0||a<0||s>=this.w||a>=this.h)return;this.C[a*this.w+s]=n}add(t,o,n,e=1){if(e*=this.fade*this.lightK,e<=0.004)return;let s=t-this.ox,a=o-this.oy;if(s<0||a<0||s>=this.w||a>=this.h)return;let i=a*this.w+s,r=this.L[i],c=Math.min(255,(r&255)+(n&255)*e)|0,h=Math.min(255,(r>>>8&255)+(n>>>8&255)*e)|0,f=Math.min(255,(r>>>16&255)+(n>>>16&255)*e)|0;this.L[i]=-16777216|f<<16|h<<8|c}blendPx(t,o,n,e){if(e*=this.fade,!n||e<=0.004)return;let s=t-this.ox,a=o-this.oy;if(s<0||a<0||s>=this.w||a>=this.h)return;let i=a*this.w+s,r=this.C[i],c=(r>>>24)/255,h=e+c*(1-e),f=e/h,l=(u)=>(n>>>u&255)*f+(r>>>u&255)*(1-f)&255;this.C[i]=(h*255&255)<<24|l(16)<<16|l(8)<<8|l(0)}blend(t,o,n,e){this.blendPx(this.cellX(t,o),this.cellY(t,o),n,e)}disc(t,o,n,e,s){if(n<0.5)return this.blend(t,o,v(e,0,0),v(s,0,0));this.each(t-n,o-n,t+n,o+n,(a,i,r,c)=>{let h=a-t,f=i-o,l=h*h+f*f;if(l>n*n)return;let u=Math.sqrt(l)/n,p=Math.atan2(f,h);this.blendPx(r,c,v(e,u,p),v(s,u,p))})}get(t,o){let n=this.cellX(t,o)-this.ox,e=this.cellY(t,o)-this.oy;return n<0||e<0||n>=this.w||e>=this.h?0:this.C[e*this.w+n]}px(t,o,n){this.put(this.cellX(t,o),this.cellY(t,o),n,1)}dot(t,o,n,e=1){if(e>0)this.put(this.cellX(t,o),this.cellY(t,o),n,e)}light(t,o,n,e=1){this.add(this.cellX(t,o),this.cellY(t,o),n,e)}each(t,o,n,e,s){let a=1/0,i=-1/0,r=1/0,c=-1/0;for(let p=0;p<4;p++){let d=p&1?n:t,g=p&2?e:o,k=this.toX(d,g),m=this.toY(d,g);if(k<a)a=k;if(k>i)i=k;if(m<r)r=m;if(m>c)c=m}let h=Math.max(Math.floor(a),this.ox),f=Math.min(Math.ceil(i),this.ox+this.w-1),l=Math.max(Math.floor(r),this.oy),u=Math.min(Math.ceil(c),this.oy+this.h-1);for(let p=l;p<=u;p++)for(let d=h;d<=f;d++){let g=d+0.5,k=p+0.5;s(this.fromX(g,k),this.fromY(g,k),d,p)}}shade(t,o,n,e,s){let a=on;this.each(t,o,n,e,(i,r,c,h)=>{a.c=0,a.a=1,a.l=0,a.k=0;let f=s(i,r,a)||a.c;if(f)this.put(c,h,f,a.a);if(a.k>0)this.add(c,h,a.l||f,a.k)})}line(t,o,n,e,s,a=1){let i=this.cellX(t,o),r=this.cellY(t,o),c=this.cellX(n,e),h=this.cellY(n,e),f=Math.abs(c-i),l=-Math.abs(h-r),u=i<c?1:-1,p=r<h?1:-1,d=Math.max(f,-l)||1,g=typeof s==="function",k=typeof a==="function",m=f+l,w=0;for(;;){let D=w++/d;if(this.put(i,r,g?s(D):s,k?a(D):a),i===c&&r===h)break;let F=2*m;if(F>=l)m+=l,i+=u;if(F<=f)m+=f,r+=p}}polyline(t,o,n=1){for(let e=1;e<t.length;e++)this.line(t[e-1][0],t[e-1][1],t[e][0],t[e][1],o,n)}beam(t,o,n,e,s,a,i=1){let r=s/2,c=n-t,h=e-o,f=c*c+h*h||0.000000001;this.shade(Math.min(t,n)-r,Math.min(o,e)-r,Math.max(t,n)+r,Math.max(o,e)+r,(l,u,p)=>{let d=A(((l-t)*c+(u-o)*h)/f),g=t+c*d-l,k=o+h*d-u,m=g*g+k*k;if(m>r*r)return;let w=Math.sqrt(m)/r;p.c=v(a,d,w),p.a=v(i,d,w)})}circle(t,o,n,e,s=1){if(n<0.6)return this.dot(t,o,v(e,0,0),v(s,0,0));this.shade(t-n,o-n,t+n,o+n,(a,i,r)=>{let c=a-t,h=i-o,f=c*c+h*h;if(f>n*n)return;let l=Math.sqrt(f)/n,u=Math.atan2(h,c);r.c=v(e,l,u),r.a=v(s,l,u)})}ellipse(t,o,n,e,s,a=1){if(n<=0||e<=0)return;this.shade(t-n,o-e,t+n,o+e,(i,r,c)=>{let h=(i-t)/n,f=(r-o)/e,l=h*h+f*f;if(l>1)return;let u=Math.sqrt(l),p=Math.atan2(f,h);c.c=v(s,u,p),c.a=v(a,u,p)})}ring(t,o,n,e,s,a=1){let i=Math.max(0,n-e);this.shade(t-n,o-n,t+n,o+n,(r,c,h)=>{let f=r-t,l=c-o,u=f*f+l*l;if(u>n*n||u<i*i)return;let p=e>0?(Math.sqrt(u)-i)/(n-i||1):1,d=Math.atan2(l,f);h.c=v(s,p,d),h.a=v(a,p,d)})}arc(t,o,n,e,s,a,i,r=1){let c=a-s,h=typeof e==="function";this.shade(t-n,o-n,t+n,o+n,(f,l,u)=>{let p=f-t,d=l-o,g=Math.sqrt(p*p+d*d);if(g>n)return;let k=Math.atan2(d,p)-s;if(k-=Math.floor(k/(Math.PI*2))*Math.PI*2,k>c)return;let m=k/c,w=h?e(m):e;if(w<=0||g<n-w)return;let D=(g-(n-w))/w;u.c=v(i,m,D),u.a=v(r,m,D)})}rect(t,o,n,e,s,a=1){if(this.sn===0){let i=Math.round(t),r=Math.round(o),c=Math.round(t+n),h=Math.round(o+e);for(let f=r;f<h;f++)for(let l=i;l<c;l++)this.put(this.cellX(l,f),this.cellY(l,f),s,a);return}this.shade(t,o,t+n,o+e,(i,r,c)=>{if(i<t||r<o||i>=t+n||r>=o+e)return;c.c=s,c.a=a})}poly(t,o,n=1){let e=1/0,s=1/0,a=-1/0,i=-1/0;for(let[c,h]of t){if(c<e)e=c;if(c>a)a=c;if(h<s)s=h;if(h>i)i=h}let r=t.length;this.shade(e,s,a,i,(c,h,f)=>{let l=!1;for(let u=0,p=r-1;u<r;p=u++){let[d,g]=t[u],[k,m]=t[p];if(g>h!==m>h&&c<(k-d)*(h-g)/(m-g)+d)l=!l}if(!l)return;f.c=v(o,c,h),f.a=v(n,c,h)})}tri(t,o,n,e,s,a,i,r=1){this.poly([[t,o],[n,e],[s,a]],i,r)}glow(t,o,n,e,s=0.5){if(n<1||s<=0.004)return;let a=this.toX(t,o),i=this.toY(t,o),r=Math.floor(a-n),c=Math.ceil(a+n),h=Math.floor(i-n),f=Math.ceil(i+n);for(let l=h;l<=f;l++){let u=(l+0.5-i)/n;for(let p=r;p<=c;p++){let d=(p+0.5-a)/n,g=d*d+u*u;if(g>=1)continue;let k=1-Math.sqrt(g);this.add(p,l,e,k*k*s)}}}glowLine(t,o,n,e,s,a,i=0.5){if(s<1||i<=0.004)return;let r=this.toX(t,o),c=this.toY(t,o),h=this.toX(n,e),f=this.toY(n,e),l=h-r,u=f-c,p=l*l+u*u||0.000000001,d=Math.floor(Math.min(r,h)-s),g=Math.ceil(Math.max(r,h)+s),k=Math.floor(Math.min(c,f)-s),m=Math.ceil(Math.max(c,f)+s);for(let w=k;w<=m;w++)for(let D=d;D<=g;D++){let F=D+0.5,B=w+0.5,z=A(((F-r)*l+(B-c)*u)/p),E=r+l*z-F,R=c+u*z-B,Y=Math.sqrt(E*E+R*R)/s;if(Y>=1)continue;let W=1-Y;this.add(D,w,a,W*W*i)}}glowRing(t,o,n,e,s,a=0.5){if(e<1||a<=0.004)return;let i=this.toX(t,o),r=this.toY(t,o),c=n+e;for(let h=Math.floor(r-c);h<=Math.ceil(r+c);h++)for(let f=Math.floor(i-c);f<=Math.ceil(i+c);f++){let l=Math.abs(Math.hypot(f+0.5-i,h+0.5-r)-n)/e;if(l>=1)continue;let u=1-l;this.add(f,h,s,u*u*a)}}sprite(t,o,n,e,s={}){let a=vo.get(t);if(!a)vo.set(t,a=t.map((f)=>[...f]));let i=s.scale??1,r=s.a??1,c=a[0]?.length??0,h={};for(let f=0;f<a.length;f++)for(let l=0;l<a[f].length;l++){let u=a[f][l];if(u==="."||u===" ")continue;let p=s.tint;if(p===void 0){if(p=h[u],p===void 0)p=h[u]=o[u]===void 0?0:y(o[u])}if(!p)continue;let d=s.flip?c-1-l:l,g=s.flipY?a.length-1-f:f;if(i===1)this.dot(n+d,e+g,p,r);else this.rect(n+d*i,e+g*i,i,i,p,r)}}text(t,o,n,e,s={}){let a=s.font??"mini",i=s.scale??1,r=s.a??1,c=It(t,a)*i,h=Math.round(s.align==="center"?o-c/2:s.align==="right"?o-c:o),f=Math.round(n),{outline:l,shadow:u}=s;if(l!==void 0)Ot(t,a,(p,d)=>this.rect(h+p*i-1,f+d*i-1,i+2,i+2,l,r));if(u!==void 0)Ot(t,a,(p,d)=>this.rect(h+p*i+1,f+d*i+1,i,i,u,r));Ot(t,a,(p,d)=>this.rect(h+p*i,f+d*i,i,i,v(e,p,d),r))}measure(t,o={}){let n=o.scale??1;return[It(t,o.font??"mini")*n,xt[o.font??"mini"].h*n]}mask(t,o,n,e,s=1){for(let a=0;a<t.h;a++)for(let i=0;i<t.w;i++)if(t.data[a*t.w+i])this.dot(o+i,n+a,v(e,i,a),v(s,i,a))}outline(t,o,n,e,s=1){let a=(i,r)=>i>=0&&r>=0&&i<t.w&&r<t.h&&t.data[r*t.w+i];for(let i=-1;i<=t.h;i++)for(let r=-1;r<=t.w;r++)if(!a(r,i)&&(a(r-1,i)||a(r+1,i)||a(r,i-1)||a(r,i+1)))this.dot(o+r,n+i,v(e,r,i),v(s,r,i))}}var Zt=["....kkkkk...","..kkhhhhhk..",".khhhhhhhhk.",".khhhhhhhhhk",".khhssssshhk",".khsessesshk",".khsessesshk","..ksssssssk.","...kkSSSkk..","..kttttttk..",".kttTttTttk.",".ksttTTttsk.",".kstttttttk.","..kbbbbbbk..","..kppkkppk..","..kppk.kppk.","..kppk.kppk.","..koook.kook","..kkkkk.kkkk"],Bo={k:"#17121f",h:"#7a4128",s:"#f3c49d",S:"#c98b6c",e:"#17121f",t:"#5f6f94",T:"#46536f",b:"#8a5a32",p:"#38334a",o:"#6a4030",H:"#a35d34",w:"#ffffff",m:"#a3564a",g:"#e8c060",L:"#7f90b6",O:"#8f5a3f",P:"#4b4560",c:"#f53cd1",C:"#ff8fe6",D:"#a31f8a"},ct={k:"#0e0c14",A:"#e4e6ec",B:"#b6b9c3",C:"#868995",D:"#5c5e6a",E:"#6e707c",F:"#4b4d58",G:"#34353f",J:"#2a2b33",m:"#f53cd1"},kt=["...........kkk..........","..........kAABk.........",".........kAAABJk........",".........kABBJJk........",".........kBBBJCDk.......",".........kBCJDDDk.......",".........kkJJJDk........",".......kkkkABBJCkk......","......kAABCJBCCCkDk.....","......kABBCJCCCmDkDk....","......kBBCDDJCDDDkDk....","......kABCDJDDDDDkk.....",".....kAABDkDDDDJkk......",".....kABCDkDDJJGkk......",".....kABCkJJJGGGkk......","....kJJCDkFFFGGGk.......","....kAJJDkJJJGGGk.......","....kJCJJkABBJGGk.......",".....kJCCkBBCDJJJk......",".....kCCCJBBCDJJDk......",".....kCCCDJCCDkJDDk.....","......kCDDJBCDkDDDk.....",".......kDJJJCDkDDDkk....",".......kJBCJCDkDDDkk....",".......kBDJBCDkCDDkk....","........kJJBCDkCDDk.....","........kBBBCDkCCDDk....","........kBBBCDkCCDDk....",".........kBBCDkJDDDk....","........kBJJJJkCJJJk....","........kBBCCDkCCDDk....","........kBBCDDkCDDk.....","........kBBCDkCCDDk.....","........kBCCDkCCDDk.....","........kBCDDkCDDDk.....",".......kJBCJkkkDJkkkk...",".......kAJJAAAAkCCCCCk..","........kkkkkkkkkkkkk..."];function Ao(t,o=1){let n=t.length*o,e=t[0].length*o,s=new Uint8Array(e*n);return t.forEach((a,i)=>[...a].forEach((r,c)=>{if(r===".")return;for(let h=0;h<o*o;h++)s[(i*o+(h/o|0))*e+c*o+h%o]=1})),{w:e,h:n,data:s}}var nn={1:Ao(Zt,1),2:Ao(kt,1)};function Fo(t,o){let n=t[0].length,e=new Uint32Array(n*t.length);return t.forEach((s,a)=>[...s].forEach((i,r)=>e[a*n+r]=i==="."?0:y(o[i]))),e}var en={1:Fo(Zt,Bo),2:Fo(kt,ct)};function Pt(t=1){t=t===2?2:1;let o=nn[t],n=-Math.floor(o.w/2),e=-o.h;return{mask:o,pixels:en[t],x:n,y:e,w:o.w,h:o.h,k:t,head:[0,e],chest:[0,t===2?-26:e+11],...t===2?{eyes:[[13,3],[15,3]]}:{}}}function mt(t,o,n=0,e=0){return{w:t,h:o,ox:n,oy:e,color:new Uint32Array(t*o),light:new Uint32Array(t*o)}}function Lt(t){return t.color.fill(0),t.light.fill(0),t}var Ro=new WeakMap;function $t(t){let o=Ro.get(t);if(!o)Ro.set(t,o=new gt(t));return o.reset()}var No=0.3,Eo=(t)=>Array.isArray(t)&&t.length>0&&t.every((o)=>typeof o==="number"||/^#[0-9a-f]{3,8}$/i.test(o));function Co(t,o={}){let n={...t.options??{},...o};for(let[e,s]of Object.entries(t.options??{}))if(Eo(s)&&Eo(o[e])&&o[e].length!==s.length)n[e]=V(o[e],s.length).map(wo);if(t.actor&&!n.actor)n.actor=Pt(t.actor===2?2:1);return n}function yt(t,o={}){let n=t.meta??{},e=Co(n,o),s=t.create?t.create(e):t,a=n.duration??1,i=0,r=1/0;return{meta:n,options:e,get t(){return i},update(c){if(i+=c,!s.update)return;let h=Math.max(1,Math.ceil(c*120-0.000000001));for(let f=0;f<h;f++)s.update(c/h,e)},draw(c,h){let f=$t(c);f.place(e.x??0,e.y??0,!!e.flip,e.angle??0),f.fade=r===1/0?1:A(1-(i-r)/No),f.lightK=e.light??1;let l=n.loop?i%a:Math.min(i,a);if(h!=="front"&&s.drawBack)f.layer="back",s.drawBack(f,l,e);if(h!=="back")f.layer="front",s.draw(f,l,e)},stop(){if(r===1/0)r=i},done(){return i-r>=No||!n.loop&&i>=a}}}function to(t,o,n=null,e=1){let s=t.w*t.h,{color:a,light:i}=t,r=typeof n==="number";for(let c=0;c<s;c++){let h=a[c],f=i[c]&16777215,l,u,p,d,g=h>>>24;if(g===255)l=h&255,u=h>>>8&255,p=h>>>16&255,d=255;else if(n===null)l=h&255,u=h>>>8&255,p=h>>>16&255,d=g;else{let m=r?n:n[c],w=g/255;l=(h&255)*w+(m&255)*(1-w),u=(h>>>8&255)*w+(m>>>8&255)*(1-w),p=(h>>>16&255)*w+(m>>>16&255)*(1-w),d=255}if(f){let m=(f&255)*e,w=(f>>>8&255)*e,D=(f>>>16&255)*e;if(d<255){let F=d/255,B=l*F+m,z=u*F+w,E=p*F+D,R=Math.min(1,Math.max(F,Math.max(m,w,D)/255));if(R>0)l=Math.min(255,B/R),u=Math.min(255,z/R),p=Math.min(255,E/R),d=R*255}else l=Math.min(255,l+m),u=Math.min(255,u+w),p=Math.min(255,p+D)}let k=c*4;o[k]=l,o[k+1]=u,o[k+2]=p,o[k+3]=d}return o}function Io(t,o,n,e,s,a){for(let i=0;i<n;i++){let r=_t(e,i,911),c=r.next()*o,h=typeof s==="function"?s(r):s,f=((t-c)%o+o)%o;for(;f<h;f+=o)a(f,h,_t(e,i),i)}}var sn=[[1,0],[-1,0],[0,1],[0,-1]],Oo=[[1,1],[1,-1],[-1,1],[-1,-1]],fe=["#fff3a6","#ffe26b","#ff8a2a","#f2561d"].map(y),an=["#ffffff","#fff3a6","#ffe26b","#ffc23d","#ff8a2a","#f2561d","#c9281f","#8a1f17","#4a1712"].map(y),rn=["#7b6f72","#5d5660","#433d48","#2b2630","#1a171e"].map(y);var St={SPARK:0,MOTE:1,STREAK:2,FLAKE:3,VAPOUR:4,DUST:5,STAR:6,EMBER:7,SMOKE:8,FIRE:9,BRAND:10,GRIT:11};var he=new Set([St.VAPOUR,St.DUST,St.SMOKE]);class Jt{constructor(){this.list=[]}add(t,o,n,e,s,a){this.list.push({x:t,y:o,r:n,color:y(e),k:s,life:a,max:a})}update(t){for(let o=this.list.length-1;o>=0;o--)if((this.list[o].life-=t)<=0)this.list.splice(o,1)}draw(t){for(let o of this.list){let n=o.life/o.max;t.glow(o.x,o.y,o.r*(0.55+0.45*n),o.color,o.k*n*n)}}}function oo(t,o,n,e,s,a=s,i=0.6){let r=Math.round(e);if(r<1)return;let c=Math.floor(o),h=Math.floor(n);for(let f=1;f<=r;f++){let l=f>r*0.6?a:s;for(let[u,p]of sn)t.px(c+u*f,h+p*f,l)}if(r>=3)for(let[f,l]of Oo)t.px(c+f,h+l,s);if(r>=6)for(let[f,l]of Oo)t.px(c+f*2,h+l*2,a);t.px(c,h,N),t.glow(o,n,4+r*2,s,i)}var de=y("#15131d"),Me=y("#0d0b14"),xe=y("#221d33"),ge=y("#4a4263"),ke=y("#2b2639"),me=y("#211d2d"),ye=y("#1a1724");var J=Object.fromEntries(Object.entries(ct).map(([t,o])=>[t,y(o)>>>0])),{k:ve,J:Ae,m:Fe}=J,Be=[J.A,J.B,J.C,J.D],Re=[J.E,J.F,J.G,J.G],T=Math.PI/180;var I=(t,o)=>[t[0]+o[0],t[1]+o[1],t[2]+o[2]],q=(t,o)=>[t[0]-o[0],t[1]-o[1],t[2]-o[2]],K=(t,o)=>[t[0]*o,t[1]*o,t[2]*o],zt=(t,o)=>t[0]*o[0]+t[1]*o[1]+t[2]*o[2],vt=(t,o)=>[t[1]*o[2]-t[2]*o[1],t[2]*o[0]-t[0]*o[2],t[0]*o[1]-t[1]*o[0]],pt=(t)=>Math.hypot(t[0],t[1],t[2]),O=(t)=>K(t,1/(pt(t)||0.000001)),ft=(t)=>{let o=Math.cos(t),n=Math.sin(t);return[o,0,n,0,1,0,-n,0,o]},ht=(t)=>{let o=Math.cos(t),n=Math.sin(t);return[o,-n,0,n,o,0,0,0,1]},lt=(t,o)=>{let n=[,,,,,,,,,];for(let e=0;e<3;e++)for(let s=0;s<3;s++)n[e*3+s]=t[e*3]*o[s]+t[e*3+1]*o[3+s]+t[e*3+2]*o[6+s];return n},wt=(t,o)=>[t[0]*o[0]+t[1]*o[1]+t[2]*o[2],t[3]*o[0]+t[4]*o[1]+t[5]*o[2],t[6]*o[0]+t[7]*o[1]+t[8]*o[2]];var cn=(t)=>Math.max(0,Math.min(1,t)),b={pelvis:19.7,spine1:2.8,spine2:4.6,shoulderUp:2.5,shoulderOut:5.9,neckUp:4,headUp:3.1,hipDown:1.1,hipOut:2.8,thigh:8.6,shin:8.3,upper:7.6,fore:7.4,turn:36*T},Dt={lean:0,crouch:0,yaw:0,fx:-3,fy:-15,bx:5,by:-15,ffx:-2,ffy:-4,fbx:3,fby:-4};function bt(t,o,n,e,s){let a=q(o,t),i=pt(a),r=n+e-0.02;if(i>r)a=K(a,r/i),i=r;let c=O(a),h=(n*n-e*e+i*i)/(2*i),f=Math.sqrt(Math.max(0,n*n-h*h)),l=q(s,K(c,zt(s,c)));return l=pt(l)<0.0001?O(vt(c,[0,0,1])):O(l),{joint:I(t,I(K(c,h),K(l,f))),end:I(t,a),u:c,v:l}}function Z(t,o){return{t,R:o}}function Q(t,o,n){let e=O(q(o,t)),s=q(n,K(e,zt(n,e)));s=pt(s)<0.0001?O(vt(e,[0,0,1])):O(s);let a=vt(e,s);return Z(t,[e[0],s[0],a[0],e[1],s[1],a[1],e[2],s[2],a[2]])}var Lo=(t)=>wn[t];function fn(t){let o={...Dt,...t},n=o.lean,e=o.weapon&&Lo(o.weapon),s=o.offWeapon&&Lo(o.offWeapon),a=o.sa??0,i=o.wl??1,r=Math.sqrt(Math.max(0,1-i*i))*(o.wz??1),c=[Math.cos(a)*i,-Math.sin(a)*i,r],h=[-Math.sin(a),-Math.cos(a),0],f=!!(o.two&&e),l=o.fz??(f?3:4.5),u=(o.fx-Dt.fx)/24,p=f?0:(o.bx-Dt.bx)/22,d=b.turn+(u>=0?-44*T*Math.min(1,u):28*T*Math.min(1,-u*1.8));if(d+=(p>0?34*T*Math.min(1,p):0)+(o.twist??0)*4*T,o.turn!==void 0)d=o.turn;let g=b.turn+(d-b.turn)*0.45,k=Math.atan2(n,13),m=lt(ht(-k*0.25),ft(-g)),w=lt(ht(-k),ft(-d)),D=[o.ffx,-o.ffy-1.8,o.fzz??2.4],F=[o.fbx,-o.fby-1.8,o.bzz??-2.4],B=[n*0.2,b.pelvis-o.crouch,0],z=(P)=>I(B,wt(m,[0,-b.hipDown,P*b.hipOut])),E=(b.thigh+b.shin)*0.995;for(let[P,C]of[[1,D],[-1,F]]){let L=z(P),G=L[0]-C[0],_=L[2]-C[2],at=G*G+_*_;if(at<E*E){let Mt=C[1]+Math.sqrt(E*E-at);if(L[1]>Mt)B=[B[0],B[1]-(L[1]-Mt),B[2]]}}let R=I(B,[Math.sin(k*0.45)*b.spine1,Math.cos(k*0.45)*b.spine1,0]),Y=I(R,[Math.sin(k)*b.spine2,Math.cos(k)*b.spine2,0]),W=I(Y,wt(w,[0,b.neckUp,0])),At=b.turn*0.9+(d-b.turn)*0.35,Yt=k*0.35+(o.hy??0)*7*T,Tt=(o.hx??0)*7*T,dt=lt(ht(-Yt-Tt),ft(-At)),U=I(W,wt(dt,[0.15,b.headUp,0])),Ft=(P,C)=>{let L=I(Y,wt(w,[0,b.shoulderUp,P*b.shoulderOut])),G=q(C,L),_=pt(G);return I(L,K(O(G),Math.min(1.8,Math.max(0,_-11)*0.35)))},X=[o.fx,-o.fy,l],Kt=f?[o.fx+c[0]*e.two,-o.fy+c[1]*e.two,l+c[2]*e.two]:[o.bx,-o.by,o.bz??(o.armsFront?5.5:-4.5)],Bt=Ft(1,X),Rt=Ft(-1,Kt),io=(P,C,L,G)=>{let _=cn((C[1]-L[1]+2)/10),at=[-0.55+_*1.1,-1+_*0.9,P*(0.45+_*0.5)];if(!G)return at;let Mt=O(q(C,L)),co=at,fo=1/0;for(let Ht=0;Ht<16;Ht++){let ho=Ht/16*Math.PI*2,lo=O(vt(Mt,[0.3,1,0.2])),qo=vt(Mt,lo),Wt=I(K(lo,Math.cos(ho)),K(qo,Math.sin(ho))),uo=bt(L,C,b.upper,b.fore,Wt),Ho=O(q(uo.end,uo.joint)),po=Math.abs(zt(Ho,G))*0.7+(1-zt(O(at),Wt))*0.55;if(po<fo)fo=po,co=Wt}return co},Uo=e?e.across?h:c:null,Xo=f?e.across?h:c:s?[Math.cos(o.sb??Math.PI),-Math.sin(o.sb??Math.PI),0]:null,et=bt(Bt,X,b.upper,b.fore,io(1,X,Bt,Uo)),st=bt(Rt,Kt,b.upper,b.fore,io(-1,Kt,Rt,Xo)),ro=(P)=>wt(m,[1,0,P*0.35]),Ut=z(1),Xt=z(-1),ot=bt(Ut,D,b.thigh,b.shin,ro(1)),nt=bt(Xt,F,b.thigh,b.shin,ro(-1)),Nt=(P)=>{let C=g*0.6+P*8*T;return[Math.cos(C),0,Math.sin(C)]},qt={pelvis:Z(B,m),waist:Z(R,lt(ht(-k*0.6),ft(-(d+g)/2))),chest:Z(Y,w),head:Z(U,dt),neck:Z(W,dt),upperN:Q(Bt,et.joint,et.v),foreN:Q(et.joint,et.end,et.v),upperF:Q(Rt,st.joint,st.v),foreF:Q(st.joint,st.end,st.v),thighN:Q(Ut,ot.joint,ot.v),shinN:Q(ot.joint,ot.end,ot.v),thighF:Q(Xt,nt.joint,nt.v),shinF:Q(nt.joint,nt.end,nt.v)};return qt.footN=Z(ot.end,lt(ft(-Math.atan2(Nt(1)[2],Nt(1)[0])),ht(o.toeF?-55*T:0))),qt.footF=Z(nt.end,lt(ft(-Math.atan2(Nt(-1)[2],Nt(-1)[0])),ht(o.toeB?-55*T:0))),{B:qt,W:e,OW:s,q:o,axis:c,side:h,armN:et,armF:st,legN:ot,legF:nt,sN:Bt,sF:Rt,hipN:Ut,hipF:Xt,turn:d}}var H=300,tt=240,hn=150,ln=180,So=new Float32Array(H*tt),un=new Float32Array(H*tt),Jo=new Int8Array(H*tt),pn=new Int8Array(H*tt),dn=new Int8Array(H*tt),Mn=new Float32Array(H*tt),xn=new Float32Array(H*tt),gn=new Uint32Array(H*tt),kn=[],Ne=O([-0.55,0.72,0.5]);var zo=0;var jo=0;function mn(t,o,n,e,s,a,i,r){if(jo&&e!==jo)return;if(Jo[t]===0)kn.push(t);else if(o<=So[t])return;So[t]=o,un[t]=n,Jo[t]=e,pn[t]=s,dn[t]=zo,Mn[t]=a,xn[t]=i,gn[t]=r}var yn={pelvis:1,waist:2,chest:3,neck:4,head:5,face:6,upperN:7,elbowN:8,foreN:9,handN:10,upperF:11,elbowF:12,foreF:13,handF:14,thighN:15,kneeN:16,shinN:17,footN:18,thighF:19,kneeF:20,shinF:21,footF:22,weapon:23,offWeapon:24};var x=Object.fromEntries(Object.entries({hi:"#ffffff",a:"#e8edf6",b:"#a4afc6",d:"#68748f",gold:"#ffd84a",goldD:"#b8862a",grip:"#7a3a2a",gripD:"#4a2018",wood:"#8a5a32",woodD:"#5a3820",dark:"#3a3448",darkD:"#262033",olive:"#58663f",oliveA:"#7d8c58",oliveD:"#3a4529"}).map(([t,o])=>[t,y(o)>>>0]));function jt(t,o,n,e){for(let s=o;s<=o+n+0.01;s+=0.4){let a=s-o,i=a>n-5?Math.max(0,(n-a)/5*e):e;for(let r=-i;r<=i+0.01;r+=0.4)t(s,r,r<-e*0.4?x.hi:r>e*0.4?x.d:x.a)}}var ut=(t,o,n,e,s,a=0.8)=>{for(let i=o;i<=n;i+=0.4)for(let r=-a;r<=a+0.01;r+=0.4)t(i,r,r>0.1?s:e)},wn={sword:{two:-4.4,draw(t,o){let n=o.two?-6.5:-2.6;ut(t,n,2.2,x.grip,x.gripD);for(let e=-1.4;e<=1.4;e+=0.4)t(n-0.4,e,x.gold);for(let e=-4.6;e<=4.6;e+=0.4)t(2.6,e,Math.abs(e)>3.8?x.goldD:x.gold),t(3,e,x.goldD);jt(t,3.2,25,2.2)}},greatsword:{two:-4.8,draw(t){ut(t,-7.2,2.2,x.grip,x.gripD);for(let o=-1.8;o<=1.8;o+=0.4)t(-7.6,o,x.gold);for(let o=-6.6;o<=6.6;o+=0.4)t(2.6,o,Math.abs(o)>5.6?x.goldD:x.gold),t(3,o,x.goldD);jt(t,3.2,31,3);for(let o=4;o<=28;o+=0.4)t(o,0,x.b)}},dagger:{draw(t){ut(t,-2.4,1.8,x.grip,x.gripD);for(let o=-2.6;o<=2.6;o+=0.4)t(2.2,o,x.goldD);jt(t,2.6,10,1.3)}},spear:{two:-12,draw(t){ut(t,-18,36,x.wood,x.woodD,0.5),jt(t,36,11,2);for(let o=-2.4;o<=2.4;o+=0.4)t(36,o,x.goldD)}},hammer:{two:-7,draw(t){for(let o of[-0.8,0,0.8])for(let n=-10;n<=18;n+=0.4)for(let e=-0.8;e<=0.81;e+=0.4)t(n,e,e>0.1?x.woodD:x.wood,o);for(let o=18;o<=28;o+=0.4)for(let n=-9;n<=9;n+=0.4){let e=Math.abs(n)>7.4?n<0?x.a:x.d:o<20?x.hi:o>26.4?x.d:Math.abs(n)<2?x.gold:x.b;if(t(o,n,e,4.5),t(o,n,e,-4.5),o<18.4||o>27.6||Math.abs(n)>8.6)for(let s=-4;s<=4;s+=0.4)t(o,n,n<0?x.a:o>27.6?x.d:x.b,s)}}},scythe:{two:-11,draw(t){ut(t,-16,31,x.dark,x.darkD,0.5);for(let o=0;o<=28;o+=0.4){let n=o/28,e=3.2*(1-n)+0.3,s=31.5-n*n*12;for(let a=-e;a<=e;a+=0.4)t(s+a,o+0.8,a>e*0.3?x.hi:a<-e*0.4?x.d:x.b)}}},claw:{draw(t){for(let o of[-2.4,0,2.4])for(let n=2;n<=9.5;n+=0.4){let e=(n-2)/7.5,s=o+e*e*1.8;if(t(n,s,e>0.55?x.hi:x.a),e<0.6)t(n,s+0.8,x.d)}}},bow:{across:!0,draw(t,o,n){for(let r=-1;r<=1.001;r+=0.025){let c=r*17,h=6*(1-r*r)-1;t(h,c,Math.abs(r)>0.85?x.goldD:x.wood),t(h+0.8,c,x.woodD)}let e=t.at(-1,-17),s=t.at(-1,17),a=o.pull?n:t.at(-1,0),i=(r,c,h)=>{let f=Math.max(2,Math.ceil(pt(q(c,r))/0.4)),l=x.a;for(let u=0;u<=f;u++){let p=I(r,K(q(c,r),u/f)),d=Math.round(p[0]),g=Math.round(p[1]),k=(ln-g)*H+(hn+d);zo=-1,mn(k,p[2]+0.05,2,yn.weapon,2,d,g,h??l)}};if(i(e,a),i(s,a),o.nocked){let r=a,c=t.at(13,0);i(r,c,x.wood);for(let h=9;h<=13;h+=0.4)for(let f=-(13-h)*0.45;f<=(13-h)*0.45;f+=0.4)t(h,f,x.hi)}}},pistol:{across:!0,draw(t){for(let o=-1;o<=9.5;o+=0.4)for(let n=-4.2;n<=-2.4;n+=0.4)t(o,n,n<-3.6?x.a:n>-2.9?x.d:x.b);for(let o=-1.2;o<=1.2;o+=0.4)for(let n=-2.4;n<=2.4;n+=0.4)t(o,n,x.gripD);t(9,-4.6,x.hi)}},launcher:{two:-9,draw(t){for(let o=-14;o<=22;o+=0.4)for(let n=-6;n<=-1;n+=0.4)t(o,n,n<-4.8?x.oliveA:n>-2.2?x.oliveD:Math.abs(o-3)<1.4?x.gold:x.olive);for(let o=-6.8;o<=-0.2;o+=0.4)t(22.4,o,x.b),t(-14.4,o,x.d)}},handle:{draw(t){ut(t,-2.6,6,x.grip,x.gripD);for(let o=-1.6;o<=1.6;o+=0.4)t(-3,o,x.gold),t(6.4,o,x.gold)}}};var bn=null;bn=fn({}).B;var no=38,Yo=52,M=Object.fromEntries(Object.entries({ink:"#0b0a1a",wood:"#724c2e",woodL:"#a0703a",woodD:"#4e331f",straw:"#d2aa55",strawL:"#f0d98a",burlapD:"#86643a",burlap:"#b38b57",burlapL:"#c9a26c",red:"#9a2f3c",redL:"#c4434f",white:"#ffffff"}).map(([t,o])=>[t,y(o)])),Se=["#efe7dc","#c9bfb8","#8f8693","#5a5468"].map(y),Fn=new Uint32Array(no*Yo);(function(){let o=(s,a,i)=>{if(s>=0&&a>=0&&s<no&&a<Yo)Fn[a*no+s]=i},n=(s,a,i,r,c)=>{for(let h=0;h<r;h++)for(let f=0;f<i;f++)o(s+f,a+h,c)};n(15,38,8,14,M.ink),n(16,34,6,18,M.wood),n(16,34,2,18,M.woodL),n(20,34,2,18,M.woodD),n(1,18,36,1,M.ink),n(1,23,36,1,M.ink),n(1,19,36,4,M.wood),n(1,19,36,1,M.woodL),n(1,22,36,1,M.woodD);for(let[s,a]of[[0,-1],[33,1]]){n(s,17,5,8,M.straw);for(let[i,r,c]of[[2,16,M.straw],[3,15,M.strawL],[1,17,M.strawL],[2,25,M.straw],[1,26,M.strawL],[3,25,M.burlapD],[2,19,M.strawL],[3,21,M.strawL],[1,22,M.burlapD],[2,23,M.strawL]])o(s+i,r,c);o(a<0?s-1:s+5,19,M.straw),o(a<0?s-1:s+5,22,M.strawL)}let e=(s,a,i,r)=>{n(s+1,a,i-2,1,M.ink),n(s+1,a+r-1,i-2,1,M.ink),n(s,a+1,1,r-2,M.ink),n(s+i-1,a+1,1,r-2,M.ink),n(s+1,a+1,i-2,r-2,M.burlap),n(s+i-4,a+1,3,r-2,M.burlapD),n(s+1,a+r-3,i-2,2,M.burlapD),n(s+1,a+1,1,r-4,M.burlapL),n(s+1,a+1,i-6,1,M.burlapL);for(let c=a+2;c<a+r-2;c+=3)for(let h=s+3+c%2;h<s+i-4;h+=4)o(h,c,M.burlapD)};e(9,17,20,24);for(let s=19;s<36;s++)for(let a=11;a<27;a++){let i=Math.hypot(a-18.5,s-27);if(i>4&&i<5.4||i<1.9)o(a,s,a+s<45?M.redL:M.red)}for(let s=10;s<28;s++)o(s,36,s&1?M.woodL:M.straw),o(s,37,s&1?M.woodD:M.wood);for(let[s,a,i]of[[11,41,M.straw],[12,42,M.strawL],[14,41,M.strawL],[15,42,M.straw],[23,41,M.straw],[24,42,M.strawL],[26,41,M.straw],[13,43,M.straw],[25,43,M.straw]])o(s,a,i);e(10,1,18,16);for(let s of[14,23])for(let a=-2;a<=2;a++)o(s+a,7+a,M.ink),o(s-a,7+a,M.ink);for(let s=14;s<24;s++)o(s,12,s&1?M.ink:M.burlapD);for(let s of[15,18,21])o(s,11,M.ink),o(s,13,M.ink);for(let s=12;s<26;s++)o(s,16,s&1?M.woodL:M.straw),o(s,17,s&1?M.wood:M.woodD);for(let[s,a,i]of[[13,0,M.straw],[15,0,M.strawL],[18,0,M.straw],[21,0,M.strawL],[24,0,M.straw],[9,4,M.straw],[28,6,M.straw],[8,7,M.strawL],[29,3,M.strawL]])o(s,a,i)})();var Bn={flash:[M.white,1],char:[y("#1a0c0e"),0.72],ice:[y("#a8e8ff"),0.72],shadow:[y("#3a1a70"),0.5],holy:[y("#fff4c0"),0.5],red:[y("#ff2040"),0.45],shock:[y("#8fd6ff"),0.6],poison:[y("#58c43a"),0.5]},Je=[M.strawL,M.straw,M.straw,M.burlapD,M.burlapD];var To=new Uint8Array(912),Rn=new Uint32Array(912);kt.forEach((t,o)=>[...t].forEach((n,e)=>{if(n!==".")To[o*24+e]=1,Rn[o*24+e]=y(ct[n])}));var Nn=new Int16Array(912).fill(-1);for(let t=0;t<38;t++)for(let o=0;o<24;o++){let n=-1,e=1e9;for(let s=Math.max(0,t-7);s<Math.min(38,t+8);s++)for(let a=Math.max(0,o-7);a<Math.min(24,o+8);a++){let i=(a-o)*(a-o)+(s-t)*(s-t);if(To[s*24+a]&&i<e)e=i,n=s*24+a}Nn[t*24+o]=n}var eo={name:"Pixel globe",desc:"A pixel earth turns on its axis: deep blue seas under a glowing lat/long grid, pale continents drifting past, a bright rim on the lit side and a blue halo.",tags:["ui","globe","earth","web","logo","loop"],size:[136,136],origin:[68,72],duration:12,loop:!0,fps:30,bg:"dark",options:{palette:["#020818","#06173f","#0b2a6e","#1647a8","#2b6fe0","#5aa2ff","#a8d4ff","#ffffff"],land:["#0b3a3a","#126a5a","#24a07a","#5cd39a","#b6f5c8"],r:44,seed:3}},En=y("#020611");function Cn(t){return(o,n)=>{let e=t.r,s=o/e,a=n/e,i=s*s+a*a;if(i>1)return null;return[s,a,Math.sqrt(1-i)]}}function In(t,o,n){let e=V(n.palette,8);t.glow(0,0,n.r*1.9,e[3],0.22),t.glow(0,0,n.r*1.25,e[4],0.18)}function On(t,o,n){let e=V(n.palette,8),s=V(n.land,5),a=n.r,i=Cn(n),r=o/eo.duration*S,c=-0.55,h=-0.6,f=0.58;t.circle(0,0,a+1.4,En),t.shade(-a-1,-a-1,a+1,a+1,(u,p,d)=>{let g=i(u,p);if(!g)return 0;let[k,m,w]=g,D=0.32,F=m*Math.cos(D)-w*Math.sin(D),B=m*Math.sin(D)+w*Math.cos(D),z=Math.atan2(k,B)+r,E=Math.asin(A(-F,-1,1)),R=(z/S%1+1)%1,Y=k*-0.55+m*-0.6+w*0.58,W=go(R*6,E*2.2+4,6,0,n.seed,4)+0.1*Math.cos(E*3),At=W>0.12,Yt=Math.abs(R*12%1-0.5)>0.47,Tt=Math.abs((E/(Math.PI/6)%1+1)%1-0.5)>0.44,dt=Pn(k,m)>0.86,U=A(0.42+Y*0.8,0,1),Ft=Math.abs(Y)<0.12?Math.floor(u)+Math.floor(p)&1?0.07:-0.07:0;U=A(U+Ft,0,1);let X;if(At)X=s[U>0.93?4:A(Math.floor(U*3.7+(W>0.3?0.4:0)),0,3)];else X=e[A(1+Math.floor(U*4.2),1,5)];if((Yt||Tt)&&!At)X=e[A(3+Math.floor(U*3.2),3,6)],d.k=0.25*U,d.l=e[5];if(dt&&Y>0.15)X=e[6],d.k=0.35,d.l=e[5];return X}),t.circle(-a*0.42,-a*0.46,3.2,e[6],0.55),t.px(-a*0.46,-a*0.5,N),t.px(-a*0.42,-a*0.5,N),t.px(-a*0.46,-a*0.46,e[7]),t.glow(-a*0.42,-a*0.46,10,e[6],0.35),Io(o,eo.duration,22,n.seed,(u)=>u.range(1.4,2.6),(u,p,d)=>{let g=d.range(-2.6,-0.5),k=a+2+u*d.range(6,14),m=Math.cos(g)*k+Math.sin(u*3+d.range(0,S))*1.5,w=Math.sin(g)*k-u*4,D=1-u/p;t.dot(m,w,D>0.6?e[7]:e[6],D*1.2),t.glow(m+0.5,w+0.5,3,e[5],0.3*D)});let l=o/3%1;if(l<0.1)oo(t,a*0.62,-a*0.62,5*Math.sin(l/0.1*Math.PI),N,e[6])}var Pn=(t,o)=>t*t+o*o;var Ns=y("#100e17");var Es=y("#0b0814");function Ko(t,o,n,e,s,a=0.4,i=Qt(s,0.8)){let r=Math.round(e),c=Math.floor(o),h=Math.floor(n);if(r<0)return;for(let f=1;f<=r;f++){let l=f===r&&r>1?i:s;t.px(c+f,h,l),t.px(c-f,h,l),t.px(c,h+f,l),t.px(c,h-f,l)}t.px(c,h,r>0?N:s),t.glow(c+0.5,h+0.5,3+r*2.5,s,a)}var Ln={name:"Collect burst",desc:"The moment of pickup: a white flash and a cross of light, a thin ring snapping out ahead of a softer one, twinkles thrown wide on curving paths that brake, hang and wink out.",tags:["pickup","collect","burst","sparkle","reward","one-shot"],size:[112,108],origin:[56,94],duration:1.35,loop:!1,fps:30,bg:"ground",options:{palette:["#1a0516","#3d0a33","#701560","#b0228f","#f53cd1","#ff86e6","#ffd2f6","#ffffff"],seed:3}},j=-30;function Sn(t){let o=V(t.palette,8),n=new rt(t.seed),e=new Jt;e.add(0,j,36,o[5],0.85,0.32),e.add(0,j,14,N,0.75,0.08);let s=Array.from({length:14},(r,c)=>{let h=c/14*S+n.range(-0.2,0.2),f=n.range(145,225)*(c%3===0?1.12:0.85);return{x:0,y:j,a:h,sp:f,turn:(c%2?1:-1)*n.range(2.5,5),life:n.range(0.75,1.15),age:0,size:c%3===0?2.6:n.range(1.2,2),tr:[],c:c%4===0?N:c%2?o[6]:o[5],ph:n.range(0,S)}}),a=Array.from({length:7},()=>({x:n.range(-8,8),y:j+n.range(-4,6),vy:-n.range(12,30),life:n.range(0.5,0.9),d:n.range(0.05,0.25),w:n.range(0,S)})),i=0;return{update(r){i+=r;for(let c of s){if(c.age>c.life)continue;if(c.age+=r,c.tr.unshift([c.x,c.y]),c.tr.length>4)c.tr.pop();if(c.a+=c.turn*r*Math.max(0,1-c.age*1.5),c.sp-=c.sp*4.3*r,c.x+=Math.cos(c.a)*c.sp*r,c.y+=Math.sin(c.a)*c.sp*r+6*c.age*r,c.y>-2)c.y=-2,c.a=-Math.abs(c.a),c.sp*=0.5}e.update(r)},draw(r){if(i<0.07)r.circle(0,j,5.5*(1-i/0.07)+1,N);if(i<0.16){let f=1-i/0.16,l=26*Ct.outCubic(Math.min(1,i/0.03+0.4))*f;for(let[u,p,d]of[[1,0,1],[-1,0,1],[0,1,0.6],[0,-1,0.6]])r.line(0,j,u*l*d,j+p*l*d,(g)=>g<0.3?N:g<0.65?o[6]:o[5],(g)=>(g<0.5?1:(1-g)*2)*(0.5+f));r.glow(0,j,20*f+4,o[5],0.6*f)}let c=i/0.32;if(c<1){let f=3+23*Ct.outExpo(c);r.ring(0,j,f,1,c<0.3?N:o[6],1.3-c*1.2),r.glowRing(0,j,f,4,o[5],0.4*(1-c))}let h=(i-0.04)/0.5;if(h>0&&h<1){let f=2+16*Ct.outCubic(h);r.ring(0,j,f,Math.max(1,2.6*(1-h)),o[5],1-h)}for(let f of s){if(f.age>f.life)continue;let l=1-f.age/f.life,u=0.65+0.35*Math.sin(f.age*26+f.ph);if(f.tr.forEach(([p,d],g)=>g>0&&r.dot(p,d,g<2?o[5]:o[4],(1-g/4)*l*1.4)),l<0.3&&Math.sin(f.age*40+f.ph)<0)continue;Ko(r,f.x,f.y,Math.round(f.size*u*Math.min(1,l*2.5)),f.c,0.45*l)}for(let f of a){let l=i-f.d;if(l<0||l>f.life)continue;let u=1-l/f.life,p=f.x+Math.sin(l*6+f.w)*1.5,d=f.y+f.vy*l;r.dot(p,d,u>0.5?o[6]:o[5],u*1.5),r.glow(p+0.5,d+0.5,3,o[5],0.3*u)}e.draw(r)}}}window.PFX={createFrame:mt,clearFrame:Lt,createFx:yt,composite:to,globe:so,collect:ao};})();
+</script>
+<script>
+/* ================= deck ================= */
+const slides=[...document.querySelectorAll('.slide')];
+const N=slides.length;
+const DUR=[7,8,8,11,11,10,8,9,9,9]; // 합계 90초
+const SCRIPT=[
+ "게임공학과 박준서입니다. 다리로 밟아서 데이터를 긁어모으는 크롤러 액션 게임, CRAWL.EXE를 소개합니다.",
+ "플레이어는 웹페이지 속 크롤러가 되어, 마우스 하나로 기어 다니며 데이터를 발로 밟아 모읍니다.",
+ "데이터를 목표만큼 모으면 출구가 열리고, 다리를 모두 잃으면 게임 오버입니다.",
+ "핵심은 살아 있는 다리입니다. 몸통만 조종하면 다리가 스스로 걷고, 데이터는 발이 착지하는 순간에만 주울 수 있습니다.",
+ "크롤러는 세 종류입니다. 기본인 사각형은 마우스 방향으로 기고, 삼각형은 클릭한 곳까지 질주하고, 원형은 미끄러지며 굴러서 다리로 데이터를 쓸어 담습니다.",
+ "다리 파츠를 먹으면 마디와 다리가 함께 늘어납니다. 원형만은 다리만 늘어서, 마찰이 커지는 대신 느려집니다.",
+ "스테이지는 웹페이지마다 새 요소를 하나씩 더하며, 2주 차에 세 개, 4주 차에 여섯 개와 보스를 완성합니다.",
+ "매번 다른 걸음, 발끝 판정의 긴장감, 모양마다 다른 조작, 다리 하나하나의 선택이 이 게임의 차별점입니다.",
+ "개발은 4주입니다. 첫 주에 다리 시스템, 2주 차에 플레이 가능한 버전, 이후 2주는 확장에 씁니다.",
+ "개발은 Claude와 기능 단위로 반복합니다. 설계와 판단은 제가, 구현과 디버깅은 함께 하고, 과정을 모두 기록하겠습니다. 감사합니다."
+];
+let cur=0;
+const TABS=['title','intro','loop','legs','crawlers','parts','stages','fun','schedule','ai'];
+const stage=document.getElementById('stage');
+function fit(){const s=Math.min(innerWidth/1280,innerHeight/720);stage.style.transform=`translate(-50%,-50%) scale(${s})`;}
+addEventListener('resize',fit);fit();
+const pad=n=>String(n).padStart(2,'0');
+function go(i){
+  cur=Math.max(0,Math.min(N-1,i));
+  slides.forEach((s,k)=>s.classList.toggle('active',k===cur));
+  document.getElementById('pageno').textContent=pad(cur+1)+' / '+pad(N);
+  const tk=document.getElementById('tb-task');
+  if(!tk.dataset.ok){tk.innerHTML=TABS.map((t,i)=>`<span class="tab" data-i="${i}">${i}:${t}</span>`).join('');tk.dataset.ok=1;
+    tk.querySelectorAll('.tab').forEach(e=>e.onclick=()=>go(+e.dataset.i));}
+  tk.querySelectorAll('.tab').forEach((e,i)=>e.classList.toggle('on',i===cur));
+  document.getElementById('progress').style.width=((cur+1)/N*100)+'%';
+  const nt=document.getElementById('notes');
+  nt.querySelector('.meta').textContent=`${cur+1}/${N} · 약 ${DUR[cur]}초`;
+  nt.querySelector('.txt').textContent=SCRIPT[cur];
+}
+let auto=null;
+function toggleAuto(){ if(auto){auto=null;return;} auto={t0:performance.now()};go(0); }
+function tickClock(now){
+  const el=document.getElementById('clock');
+  if(auto){
+    const t=(now-auto.t0)/1000;
+    if(t>=90){auto=null;el.textContent='01:30 끝';return;}
+    let acc=0,idx=N-1;for(let i=0;i<N;i++){acc+=DUR[i];if(t<acc){idx=i;break;}}
+    if(idx!==cur)go(idx);
+    el.textContent=`● ${pad(Math.floor(t/60))}:${pad(Math.floor(t%60))} / 01:30`;
+  }else if(!el.textContent.includes('끝')||Math.random()<.002){
+    const d=new Date();let h=d.getHours();const ap=h<12?'오전':'오후';h=h%12||12;
+    el.textContent=`${ap} ${h}:${pad(d.getMinutes())}`;
+  }
+}
+addEventListener('keydown',e=>{
+  const k=e.key;
+  if(k==='ArrowRight'||k==='PageDown'||k===' '){e.preventDefault();go(cur+1)}
+  else if(k==='ArrowLeft'||k==='PageUp'){e.preventDefault();go(cur-1)}
+  else if(k==='Home')go(0); else if(k==='End')go(N-1);
+  else if(k==='p'||k==='P')toggleAuto();
+  else if(k==='n'||k==='N'){const n=document.getElementById('notes');n.style.display=n.style.display==='block'?'none':'block'}
+  else if(k==='f'||k==='F'){document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen().catch(()=>{})}
+  else if(k==='h'||k==='H')document.body.classList.toggle('clean');
+});
+document.getElementById('prev').onclick=()=>go(cur-1);
+document.getElementById('next').onclick=()=>go(cur+1);
+let hintT=0;const hint=()=>{document.body.classList.add('hint');clearTimeout(hintT);hintT=setTimeout(()=>document.body.classList.remove('hint'),2500)};
+addEventListener('mousemove',e=>{if(e.clientY<60)hint()});hint();
+
+/* ================= gantt (4 weeks, half-week cells) ================= */
+(function(){
+  const g=document.getElementById('gantt');
+  const rows=[
+    ['W1','기획서 · 코드 구조 설계','AI 구조 초안',1,1,'',''],
+    ['W1','몸통 이동 · 다리 IK · 스텝','AI 수식 구현',1,2,'key','◆ 다리 완성'],
+    ['W2','발 판정 · 다리 파츠 · 적 3종','AI 판정 코드',3,4,'',''],
+    ['W2','사각형 크롤러 · 스테이지 1–3','',4,4,'','◆ 플레이 가능 버전'],
+    ['W3','삼각형 돌진 · 원형 구르기','AI 이동 로직',5,6,'ext',''],
+    ['W3-4','스테이지 4–6 · 보스','AI 배치 초안',6,7,'ext',''],
+    ['W4','사운드 · UI · 밸런스 · 버그','AI 원인 분석',7,8,'','◆ 최종'],
+  ];
+  let h='<div class="h lbl">작업</div>';
+  ['W1','W2','W3','W4'].forEach((w,i)=>h+=`<div class="h${i>1?' ph2':''}" style="grid-column:span 2">${w}</div>`);
+  rows.forEach((r,i)=>{
+    const row=i+2;
+    h+=`<div class="lb" style="grid-row:${row};grid-column:1"><span class="w">${r[0]}</span>${r[1]}${r[2]?`<span class="ai">${r[2]}</span>`:''}</div>`;
+    h+=`<div class="b ${r[5]}" style="grid-row:${row};grid-column:${r[3]+1}/${r[4]+2}">${r[6]?`<span class="ms"${r[4]===8?' style="left:auto;right:calc(100% + 8px)"':''}>${r[6]}</span>`:''}</div>`;
+  });
+  g.innerHTML=h;
+})();
+
+/* ================= crawler sim (vector lines) ================= */
+const TAU=Math.PI*2;
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const angDiff=(a,b)=>{let d=b-a;while(d>Math.PI)d-=TAU;while(d<-Math.PI)d+=TAU;return d};
+const ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+const LINE='#d8e6ff', FILL='#0b1a40', ACC='#ff8c2a', LINK='#7fd0ff', OK='#6fd36a';
+
+class Crawler{
+  constructor(x,y,o={}){
+    this.o=o; this.sc=o.scale||1; this.n=o.segs||4; this.sp=(o.spacing||19)*this.sc;
+    this.maxSpeed=o.speed||130; this.turn=o.turn||4; this.minSpeed=o.minSpeed||0;
+    this.ink=o.ink||LINE; this.fill=o.fill||FILL; this.glow=o.glow||0;
+    this.shape=o.shape||'box'; this.mode=o.mode||'walk'; this.taper=o.taper??.06; this.r0=(o.r||9)*this.sc;
+    this.heading=o.heading??rnd(0,TAU);
+    this.vx=0; this.vy=0; this.onStep=o.onStep||null;
+    this.goal=null; this.spin=0;
+    this.segs=[];
+    for(let i=0;i<this.n;i++)this.segs.push({x:x-Math.cos(this.heading)*i*this.sp,y:y-Math.sin(this.heading)*i*this.sp,r:this.r0*(1-i*this.taper)});
+    this.trail=this.segs.map(s=>({x:s.x,y:s.y}));
+    this.legs=[];
+    if(this.mode==='roll')this.setSpokes(o.legs||4);
+    else this.segs.forEach((s,i)=>this.addPair(i));
+  }
+  mkLeg(extra,k=1){
+    const L1=rnd(15,24)*this.sc*k, L2=rnd(17,30)*this.sc*k;
+    return Object.assign({L1,L2,reach:(L1+L2)*rnd(.62,.78),thr:rnd(11,20)*this.sc,dur:rnd(.07,.13)*(this.o.stepK||1),stepping:false,t:0,foot:null},extra);
+  }
+  addPair(si){
+    const t=this.n>1?si/(this.n-1):.5;
+    for(const side of [-1,1]){const l=this.mkLeg({si,side,off:.9+t*1.2+rnd(-.2,.2)},this.o.legScale||1);this.legs.push(l);l.foot=this.desired(l).des;}
+  }
+  grow(){ // a leg part: one more segment and one more pair of legs
+    const a=this.segs[this.n-1],ang=this.segAngle(this.n-1);
+    this.segs.push({x:a.x-Math.cos(ang)*this.sp,y:a.y-Math.sin(ang)*this.sp,r:this.r0*(1-this.n*this.taper)});this.n++;
+    this.addPair(this.n-1);
+  }
+  shrink(to){while(this.n>to){this.segs.pop();this.n--;this.legs=this.legs.filter(l=>l.si<this.n);}}
+  setSpokes(n){
+    this.legs=[];for(let k=0;k<n;k++){const l=this.mkLeg({spoke:k*TAU/n,side:k%2?1:-1},this.o.legScale||1);this.legs.push(l);l.foot=this.desired(l).des;}
+    this.nLegs=n;
+  }
+  segAngle(i){if(i===0)return this.heading;const a=this.segs[i-1],b=this.segs[i];return Math.atan2(a.y-b.y,a.x-b.x)}
+  desired(l){
+    const s=this.segs[l.si||0];
+    if(l.spoke!==undefined){
+      const A=this.spin+l.spoke,base={x:s.x+Math.cos(A)*s.r,y:s.y+Math.sin(A)*s.r};
+      return {base,des:{x:base.x+Math.cos(A)*l.reach+this.vx*.1,y:base.y+Math.sin(A)*l.reach+this.vy*.1}};
+    }
+    const a=this.segAngle(l.si);
+    const base={x:s.x+Math.cos(a+l.side*Math.PI/2)*s.r*.8,y:s.y+Math.sin(a+l.side*Math.PI/2)*s.r*.8};
+    const d=a+l.side*l.off;
+    return {base,des:{x:base.x+Math.cos(d)*l.reach+this.vx*.08,y:base.y+Math.sin(d)*l.reach+this.vy*.08}};
+  }
+  follow(){
+    if(this.mode==='dash'){ // every segment sits on the head's own path
+      const h=this.segs[0],T=this.trail,last=T[0];
+      if(Math.hypot(h.x-last.x,h.y-last.y)>1.5)T.unshift({x:h.x,y:h.y});
+      let i=1,acc=0,j=0;
+      while(i<this.n&&j<T.length-1){
+        const a=T[j],b=T[j+1],d=Math.hypot(b.x-a.x,b.y-a.y);
+        while(i<this.n&&acc+d>=i*this.sp){const u=(i*this.sp-acc)/(d||1);this.segs[i].x=a.x+(b.x-a.x)*u;this.segs[i].y=a.y+(b.y-a.y)*u;i++;}
+        acc+=d;j++;
+      }
+      if(T.length>j+4)T.length=j+4;
+      return;
+    }
+    for(let i=1;i<this.n;i++){
+      const a=this.segs[i-1],b=this.segs[i];const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1;
+      b.x=a.x+dx/d*this.sp;b.y=a.y+dy/d*this.sp;
+    }
+  }
+  stepLegs(dt){
+    let stepping=this.legs.filter(l=>l.stepping).length;
+    const maxStep=Math.max(1,Math.floor(this.legs.length/2));
+    this.legs.forEach((l,i)=>{
+      const {des}=this.desired(l);l._des=des;
+      if(l.stepping){
+        l.t+=dt/l.dur;
+        if(l.t>=1){l.stepping=false;l.foot={...l.to};stepping--;this.onStep&&this.onStep(l.foot,l);}
+        else{const e=ease(l.t);l.foot={x:l.from.x+(l.to.x-l.from.x)*e,y:l.from.y+(l.to.y-l.from.y)*e};}
+      }else{
+        const d=Math.hypot(l.foot.x-des.x,l.foot.y-des.y),opp=this.legs[i^1];
+        if(d>l.thr*5){l.foot={...des};}
+        else if(d>l.thr&&stepping<maxStep&&!(opp&&opp.stepping)){
+          l.stepping=true;l.t=0;l.from={...l.foot};l.to={x:des.x+this.vx*.09,y:des.y+this.vy*.09};stepping++;
+        }
+      }
+    });
+  }
+  // mouse-direction driving, used by BOX and (with sliding physics) ORB
+  update(dt,tx,ty){
+    const h=this.segs[0];
+    if(this.mode==='dash')return this.updateDash(dt);
+    if(this.mode==='roll')return this.updateRoll(dt,tx,ty);
+    const dx=tx-h.x,dy=ty-h.y,dist=Math.hypot(dx,dy);
+    const diff=dist>3?angDiff(this.heading,Math.atan2(dy,dx)):0;
+    this.heading+=clamp(diff,-this.turn*dt,this.turn*dt);
+    let spd=Math.max(this.minSpeed,Math.min(this.maxSpeed,dist*2.2))*(.35+.65*Math.max(0,Math.cos(diff)));
+    if(dist<3&&!this.minSpeed)spd=0;
+    const k=Math.min(1,dt*6),tvx=Math.cos(this.heading)*spd,tvy=Math.sin(this.heading)*spd;
+    this.vx+=(tvx-this.vx)*k;this.vy+=(tvy-this.vy)*k;
+    h.x+=this.vx*dt;h.y+=this.vy*dt;
+    this.follow();this.stepLegs(dt);
+  }
+  // TRI: a click sets a goal; it snaps round and sprints straight there, no steering until it arrives
+  click(x,y){if(this.goal)return false;const h=this.segs[0];this.goal={x,y};this.heading=Math.atan2(y-h.y,x-h.x);return true;}
+  updateDash(dt){
+    const h=this.segs[0];
+    if(this.goal){
+      const dx=this.goal.x-h.x,dy=this.goal.y-h.y,d=Math.hypot(dx,dy),v=this.maxSpeed;
+      if(d<=v*dt){h.x=this.goal.x;h.y=this.goal.y;this.goal=null;}
+      else{h.x+=Math.cos(this.heading)*v*dt;h.y+=Math.sin(this.heading)*v*dt;}
+      this.vx=Math.cos(this.heading)*v;this.vy=Math.sin(this.heading)*v;
+    }else{this.vx*=.8;this.vy*=.8;}
+    this.follow();this.stepLegs(dt);
+  }
+  // ORB: rolls; low friction slides, more legs = more friction but slower
+  updateRoll(dt,tx,ty){
+    const h=this.segs[0],n=this.nLegs;
+    const mu=.15+.1*n, acc=520/(1+.08*n), vmax=380/(1+.1*n); // low friction: it glides; more legs = more grip, lower top speed
+    const dx=tx-h.x,dy=ty-h.y,d=Math.hypot(dx,dy)||1;
+    const push=d>8?1:0;
+    this.vx+=dx/d*acc*push*dt;this.vy+=dy/d*acc*push*dt;
+    const f=Math.max(0,1-mu*dt);this.vx*=f;this.vy*=f;
+    {const v=Math.hypot(this.vx,this.vy);if(v>vmax){this.vx*=vmax/v;this.vy*=vmax/v;}}
+    h.x+=this.vx*dt;h.y+=this.vy*dt;
+    const sp=Math.hypot(this.vx,this.vy);
+    if(sp>2)this.heading=Math.atan2(this.vy,this.vx);
+    this.spin+=sp/h.r*dt*.35*(this.vx>=0?1:-1);
+    this.stepLegs(dt); // feet stay planted and step with IK as the rim turns under them
+  }
+  draw(c,debug){
+    c.save();c.lineCap='round';c.lineJoin='round';
+    if(this.glow){c.shadowColor='rgba(127,208,255,.55)';c.shadowBlur=this.glow;}
+    const ink=this.ink, s1=Math.min(1.4,this.sc);
+    for(const l of this.legs){
+      const {base}=this.desired(l);
+      const f=l.foot;let dx=f.x-base.x,dy=f.y-base.y;
+      let d=clamp(Math.hypot(dx,dy),Math.abs(l.L1-l.L2)+.01,l.L1+l.L2-.01);
+      const a0=Math.atan2(dy,dx);
+      const al=Math.acos(clamp((l.L1*l.L1+d*d-l.L2*l.L2)/(2*l.L1*d),-1,1));
+      const ka=a0+l.side*al;const kn={x:base.x+Math.cos(ka)*l.L1,y:base.y+Math.sin(ka)*l.L1};
+      if(debug&&l._des){c.save();c.shadowBlur=0;c.strokeStyle=ACC;c.globalAlpha=.6;c.setLineDash([3,3]);c.lineWidth=1;
+        c.beginPath();c.arc(l._des.x,l._des.y,l.thr,0,TAU);c.stroke();c.restore();}
+      c.strokeStyle=ink;c.lineWidth=1.5*s1;
+      c.beginPath();c.moveTo(base.x,base.y);c.lineTo(kn.x,kn.y);c.lineTo(f.x,f.y);c.stroke();
+      c.fillStyle=ink;const ks=3.4*this.sc;c.fillRect(kn.x-ks/2,kn.y-ks/2,ks,ks);
+      if(l.stepping){c.beginPath();c.arc(f.x,f.y,3.4*this.sc,0,TAU);c.fillStyle=this.fill;c.fill();c.lineWidth=1.3;c.stroke();}
+      else{c.beginPath();c.arc(f.x,f.y,2.3*this.sc,0,TAU);c.fillStyle=l.spoke!==undefined?LINK:ink;c.fill();}
+    }
+    c.strokeStyle=ink;c.lineWidth=1.2;
+    if(this.n>1){c.beginPath();this.segs.forEach((s,i)=>i?c.lineTo(s.x,s.y):c.moveTo(s.x,s.y));c.stroke();}
+    for(let i=this.n-1;i>=0;i--){
+      const s=this.segs[i],a=this.segAngle(i);c.save();c.translate(s.x,s.y);c.rotate(this.shape==='orb'?this.spin:a);
+      c.beginPath();
+      if(this.shape==='tri'){const R=s.r*1.25;c.moveTo(R,0);c.lineTo(-R*.6,R*.85);c.lineTo(-R*.6,-R*.85);c.closePath();}
+      else if(this.shape==='orb'){c.arc(0,0,s.r,0,TAU);}
+      else{const q=s.r*.85;c.rect(-q,-q,2*q,2*q);}
+      c.fillStyle=this.fill;c.fill();c.lineWidth=1.6;c.strokeStyle=ink;c.stroke();
+      if(i===0){
+        c.fillStyle=ACC;
+        if(this.shape==='orb'){c.beginPath();c.moveTo(0,0);c.lineTo(s.r,0);c.strokeStyle=ACC;c.lineWidth=2;c.stroke();c.beginPath();c.arc(0,0,s.r*.3,0,TAU);c.fill();}
+        else{const q=s.r*.42;c.fillRect(-q/2,-q/2,q,q);}
+      }else{c.fillStyle=ink;c.fillRect(-1,-1,2,2);}
+      c.restore();
+    }
+    if(this.shape!=='orb'){const h=this.segs[0],a=this.heading;
+      for(const sd of [-1,1]){const aa=a+sd*.45,L=h.r*2.1,ex=h.x+Math.cos(aa)*L,ey=h.y+Math.sin(aa)*L;
+        c.beginPath();c.moveTo(h.x+Math.cos(aa)*h.r,h.y+Math.sin(aa)*h.r);c.lineTo(ex,ey);c.lineWidth=1.2;c.stroke();
+        c.fillStyle=ink;c.beginPath();c.arc(ex,ey,1.8,0,TAU);c.fill();}}
+    c.restore();
+  }
+}
+
+function setupCanvas(cv,W,H){
+  W=W||parseFloat(cv.style.width)||cv.parentElement.clientWidth;H=H||parseFloat(cv.style.height)||cv.parentElement.clientHeight;
+  cv.style.width=W+'px';cv.style.height=H+'px';
+  const dpr=2;cv.width=W*dpr;cv.height=H*dpr;const c=cv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);
+  return {c,w:W,h:H};
+}
+function mouseTracker(el,W,H){
+  const m={x:0,y:0,t:-1e9};
+  el.addEventListener('mousemove',e=>{const r=el.getBoundingClientRect();m.x=(e.clientX-r.left)*(W/r.width);m.y=(e.clientY-r.top)*(H/r.height);m.t=performance.now();});
+  return m;
+}
+function wanderer(box){
+  const w={x:rnd(box[0],box[2]),y:rnd(box[1],box[3])};
+  w.next=(hx,hy,near=30)=>{if(Math.hypot(w.x-hx,w.y-hy)<near){w.x=rnd(box[0],box[2]);w.y=rnd(box[1],box[3]);}return w;};
+  return w;
+}
+const sims=[];
+
+/* --- title: pixelfx globe + line crawlers --- */
+(function(){
+  const gcv=document.getElementById('cv-globe'),gctx=gcv.getContext('2d');
+  const frame=PFX.createFrame(136,136),img=new ImageData(136,136);
+  const globe=PFX.createFx(PFX.globe,{x:68,y:72});
+  const cv=document.getElementById('cv-title-lines');
+  const {c,w,h}=setupCanvas(cv,1280,680);
+  const ms=mouseTracker(document.getElementById('stage'),1280,720);
+  const S=476/136, GX=690+68*S, GY=70+72*S, GR=44*S;
+  const logo=new Crawler(GX,GY-GR*.6,{shape:'box',segs:5,scale:1.5,speed:150,r:9,glow:8,heading:0});
+  const roam=new Crawler(300,560,{shape:'box',segs:3,scale:.9,speed:150,r:8});
+  const wr=wanderer([80,470,620,620]);
+  let th=-1.9;
+  sims.push({slide:0,step(dt){
+    globe.update(dt);th+=dt*.42;
+    logo.update(dt,GX+Math.cos(th)*GR*.72,GY+Math.sin(th)*GR*.5-GR*.08);
+    const useM=performance.now()-ms.t<2500, hr=roam.segs[0];
+    const t=useM?ms:wr.next(hr.x,hr.y);roam.update(dt,t.x,t.y);
+  },draw(){
+    PFX.clearFrame(frame);globe.draw(frame,'back');globe.draw(frame,'front');
+    PFX.composite(frame,img.data,null);gctx.putImageData(img,0,0);
+    c.clearRect(0,0,w,h);roam.draw(c);logo.draw(c);
+  }});
+})();
+
+/* --- core: debug view + collect with feet (+ pixelfx collect burst) --- */
+(function(){
+  const cv=document.getElementById('cv-core');const {c,w,h}=setupCanvas(cv);
+  const pcv=document.getElementById('cv-core-px'),pctx=pcv.getContext('2d');
+  const PW=298,PH=216,pframe=PFX.createFrame(PW,PH),pimg=new ImageData(PW,PH);
+  const BLUE=["#04102e","#0a2a6e","#1647a8","#2b6fe0","#5aa2ff","#8fd3ff","#d4ecff","#ffffff"];
+  const bursts=[],taps=[],bits=[];let count=0;
+  const ms=mouseTracker(cv,w,h);
+  const words=['href','<p>','token','img','0x1F','cookie','meta','link','title','data','src','user'];
+  const spawn=()=>({x:rnd(60,w-60),y:rnd(60,h-50),w:words[Math.floor(rnd(0,words.length))],side:Math.random()<.5?-1:1});
+  for(let i=0;i<7;i++)bits.push(spawn());
+  const cr=new Crawler(w/2,h/2,{shape:'box',segs:3,scale:1.25,speed:115,r:9,minSpeed:50,onStep:(f)=>{
+    taps.push({x:f.x,y:f.y,t:0});
+    for(let i=bits.length-1;i>=0;i--){const b=bits[i];
+      if(Math.hypot(b.x-f.x,b.y-f.y)<18){
+        bursts.push(PFX.createFx(PFX.collect,{x:b.x/2,y:b.y/2+30,palette:BLUE,seed:count+1}));
+        bits.splice(i,1);count++;document.getElementById('core-count').textContent='수집 '+count;
+        setTimeout(()=>bits.push(spawn()),800);}}
+  }});
+  let tgt=null,tgtT=0;
+  sims.push({slide:3,step(dt){
+    const useM=performance.now()-ms.t<2500;const hd=cr.segs[0];let tx,ty;
+    if(useM){tx=ms.x;ty=ms.y;}
+    else{
+      tgtT+=dt;
+      if(!tgt||!bits.includes(tgt)||tgtT>4){let best=null,bd=1e9;for(const b of bits){const d=Math.hypot(b.x-hd.x,b.y-hd.y);if(d<bd&&d>20){bd=d;best=b;}}tgt=best;tgtT=0;}
+      if(tgt){const ang=Math.atan2(tgt.y-hd.y,tgt.x-hd.x)+tgt.side*Math.PI/2;tx=tgt.x+Math.cos(ang)*24;ty=tgt.y+Math.sin(ang)*24;
+        if(Math.hypot(tx-hd.x,ty-hd.y)<12){tgt.side*=-1;tgtT=3.2;}}
+      else{tx=w/2;ty=h/2;}
+    }
+    cr.update(dt,clamp(tx,30,w-30),clamp(ty,30,h-30));
+    taps.forEach(t=>t.t+=dt);while(taps.length&&taps[0].t>.5)taps.shift();
+    for(let i=bursts.length-1;i>=0;i--){bursts[i].update(dt);if(bursts[i].done())bursts.splice(i,1);}
+  },draw(){
+    c.clearRect(0,0,w,h);
+    c.fillStyle='rgba(127,170,255,.12)';for(let x=10;x<w;x+=20)for(let y=10;y<h;y+=20)c.fillRect(x,y,1.5,1.5);
+    c.font='600 13px "JetBrains Mono", monospace';c.textAlign='center';
+    for(const b of bits){c.fillStyle=LINK;c.fillText(b.w,b.x,b.y+4);const tw=c.measureText(b.w).width;c.fillRect(b.x-tw/2,b.y+7,tw,1);
+      c.strokeStyle=LINK;c.globalAlpha=.22;c.beginPath();c.arc(b.x,b.y,18,0,TAU);c.stroke();c.globalAlpha=1;}
+    for(const t of taps){c.strokeStyle=LINE;c.globalAlpha=.35*(1-t.t/.5);c.lineWidth=1;c.beginPath();c.arc(t.x,t.y,4+t.t*18,0,TAU);c.stroke();}
+    c.globalAlpha=1;cr.draw(c,true);
+    PFX.clearFrame(pframe);for(const b of bursts){b.draw(pframe,'back');b.draw(pframe,'front');}
+    PFX.composite(pframe,pimg.data,null);pctx.putImageData(pimg,0,0);
+  }});
+})();
+
+/* --- crawler types (slide 5) --- */
+(function(){
+  const H=250;
+  const make=(i)=>{const cv=document.getElementById('cv-c'+i);const W=cv.parentElement.clientWidth||376;return {cv,...setupCanvas(cv,W,H)};};
+  const dots=(c,w,h)=>{c.fillStyle='rgba(127,170,255,.10)';for(let x=8;x<w;x+=16)for(let y=8;y<h;y+=16)c.fillRect(x,y,1.2,1.2);};
+  const ring=(c,r)=>{const k=r.t/.5;c.strokeStyle=r.c||LINE;c.globalAlpha=(1-k)*.85;c.lineWidth=1.5;c.beginPath();c.arc(r.x,r.y,r.r0+k*r.r1,0,TAU);c.stroke();c.globalAlpha=1;};
+  const tickRings=(rs,dt)=>{rs.forEach(r=>r.t+=dt);while(rs.length&&rs[0].t>.5)rs.shift();};
+
+  // BOX: the basic crawler; every leg part adds a segment and a pair of legs
+  {const {c,w,h}=make(0);const ps=[];
+   const cr=new Crawler(w/2,h/2,{shape:'box',segs:2,r:10,scale:.85,spacing:22,speed:85,turn:3.5});
+   const wd=wanderer([50,45,w-50,h-45]);let gt=0;
+   const caps=[];const spawnCap=()=>caps.push({x:rnd(40,w-40),y:rnd(40,h-40)});spawnCap();
+   sims.push({slide:4,step(dt){
+     const hd=cr.segs[0];const cap=caps[0];
+     const t=cap?cap:wd.next(hd.x,hd.y);cr.update(dt,t.x,t.y);
+     if(cap&&Math.hypot(cap.x-hd.x,cap.y-hd.y)<16){caps.shift();
+       if(cr.n>=6){cr.shrink(2);ps.push({x:hd.x,y:hd.y-16,t:0,s:'리셋',c:LINK});}
+       else{cr.grow();ps.push({x:hd.x,y:hd.y-16,t:0,s:'+1 마디 · +2 다리',c:OK});}
+       document.getElementById('hud-c0').textContent=`마디 ${cr.n} · 다리 ${cr.legs.length}`;
+       setTimeout(spawnCap,600);}
+     ps.forEach(p=>p.t+=dt);while(ps.length&&ps[0].t>1)ps.shift();
+   },draw(){
+     c.clearRect(0,0,w,h);dots(c,w,h);
+     for(const cp of caps){c.save();c.strokeStyle=OK;c.lineWidth=1.5;c.translate(cp.x,cp.y);c.strokeRect(-6,-6,12,12);
+       c.beginPath();c.moveTo(-3,0);c.lineTo(3,0);c.moveTo(0,-3);c.lineTo(0,3);c.stroke();c.restore();}
+     cr.draw(c);
+     c.font='12px Galmuri11, "Noto Sans KR"';c.textAlign='center';
+     for(const p of ps){c.globalAlpha=1-p.t;c.fillStyle=p.c;c.fillText(p.s,p.x,p.y-p.t*18);}c.globalAlpha=1;
+   }});}
+
+  // TRI: click a point, it sprints straight there; body follows the head's exact path
+  {const {c,w,h}=make(1);const rings=[];
+   const cr=new Crawler(w*.3,h*.5,{shape:'tri',mode:'dash',segs:6,r:9,scale:.8,spacing:24,speed:330,taper:.07,stepK:.55,heading:0});
+   let idle=0,lastGoal=null;
+   sims.push({slide:4,step(dt){
+     if(!cr.goal){idle+=dt;
+       if(idle>.55){const hd=cr.segs[0];let x,y;
+         do{x=rnd(30,w-30);y=rnd(30,h-30);}while(Math.hypot(x-hd.x,y-hd.y)<110);
+         cr.click(x,y);lastGoal={x,y};rings.push({x,y,t:0,r0:4,r1:16,c:ACC});idle=0;}}
+     cr.update(dt);tickRings(rings,dt);
+   },draw(){
+     c.clearRect(0,0,w,h);dots(c,w,h);
+     if(cr.goal){const hd=cr.segs[0];c.save();c.strokeStyle=ACC;c.globalAlpha=.55;c.setLineDash([5,4]);c.lineWidth=1.4;
+       c.beginPath();c.moveTo(hd.x,hd.y);c.lineTo(cr.goal.x,cr.goal.y);c.stroke();c.setLineDash([]);
+       c.globalAlpha=.9;c.beginPath();c.arc(cr.goal.x,cr.goal.y,6,0,TAU);c.moveTo(cr.goal.x-10,cr.goal.y);c.lineTo(cr.goal.x+10,cr.goal.y);
+       c.moveTo(cr.goal.x,cr.goal.y-10);c.lineTo(cr.goal.x,cr.goal.y+10);c.stroke();c.restore();}
+     // the path the body is following
+     c.save();c.strokeStyle=LINK;c.globalAlpha=.25;c.lineWidth=1;c.beginPath();cr.trail.forEach((p,i)=>i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y));c.stroke();c.restore();
+     rings.forEach(r=>ring(c,r));cr.draw(c);
+   }});}
+
+  // ORB: rolls and slides; legs sweep data as they turn; more legs = more grip, less speed
+  {const {c,w,h}=make(2);
+   const cr=new Crawler(w/2,h/2,{shape:'orb',mode:'roll',segs:1,r:15,scale:1,legs:4,legScale:.7});
+   const wd=wanderer([50,45,w-50,h-45]);const trail=[];let phase=0,pt=0;
+   const bits=[];for(let i=0;i<10;i++)bits.push({x:rnd(20,w-20),y:rnd(20,h-20),on:1});
+   cr.onStep=f=>{for(const b of bits)if(b.on&&Math.hypot(f.x-b.x,f.y-b.y)<13){b.on=0;b.t=0;}};
+   const setLegs=n=>{cr.setSpokes(n);document.getElementById('hud-c2').innerHTML=`다리 ${n} · <b>${n<6?'미끄러움':n<9?'보통':'꽉 잡음 · 느림'}</b>`;};
+   sims.push({slide:4,step(dt){
+     pt+=dt;if(pt>5){pt=0;phase=(phase+1)%3;setLegs([4,7,10][phase]);}
+     const hd=cr.segs[0];const t=wd.next(hd.x,hd.y,40);cr.update(dt,t.x,t.y);
+     hd.x=clamp(hd.x,18,w-18);hd.y=clamp(hd.y,18,h-18);if(hd.x<=18||hd.x>=w-18)cr.vx*=-.5;if(hd.y<=18||hd.y>=h-18)cr.vy*=-.5;
+     trail.unshift({x:hd.x,y:hd.y});if(trail.length>60)trail.pop();
+     for(const b of bits)if(!b.on){b.t+=dt;if(b.t>.35&&!b.moved){b.moved=1;setTimeout(()=>{b.x=rnd(20,w-20);b.y=rnd(20,h-20);b.on=1;b.moved=0;},1200);}}
+   },draw(){
+     c.clearRect(0,0,w,h);dots(c,w,h);
+     c.save();for(let i=1;i<trail.length;i++){c.strokeStyle=LINK;c.globalAlpha=.25*(1-i/trail.length);c.lineWidth=cr.segs[0].r*1.2*(1-i/trail.length);
+       c.beginPath();c.moveTo(trail[i-1].x,trail[i-1].y);c.lineTo(trail[i].x,trail[i].y);c.stroke();}c.restore();
+     for(const b of bits){if(b.on){c.fillStyle=LINK;c.fillRect(b.x-2,b.y-2,4,4);}
+       else if(b.t<.35){c.strokeStyle=OK;c.globalAlpha=1-b.t/.35;c.beginPath();c.arc(b.x,b.y,3+b.t*30,0,TAU);c.stroke();c.globalAlpha=1;}}
+     cr.draw(c);
+   }});}
+})();
+
+/* --- title boot log (typed) --- */
+const BOOT=[['ps','C:\\> '],['','crawl.exe --wake\n'],['ok','[ OK ] '],['','body: box x5 · legs: 10 attached\n'],
+  ['ok','[ OK ] '],['','ik solver ready · step threshold set\n'],['wa','[ .. ] '],['','crawling the web']];
+let bootI=0,bootC=0,bootT=0;
+sims.push({slide:0,step(dt){bootT+=dt;if(bootT<.028||bootI>=BOOT.length)return;bootT=0;
+  bootC++;if(bootC>BOOT[bootI][1].length){bootI++;bootC=0;}},draw(){
+  const el=document.getElementById('boot');let h='';
+  for(let i=0;i<=Math.min(bootI,BOOT.length-1);i++){const [cl,tx]=BOOT[i];const part=i<bootI?tx:tx.slice(0,bootC);
+    h+=cl?`<span class="${cl}">${part}</span>`:part.replace(/</g,'&lt;');}
+  if(el._h!==h){el.innerHTML=h+'<span class="cur"></span>';el._h=h;}}});
+
+/* --- loop --- */
+let last=performance.now();
+function frameLoop(now){
+  const dt=Math.min(.033,(now-last)/1000);last=now;
+  tickClock(now);
+  for(const s of sims){if(s.slide===cur){s.step(dt);s.draw();}}
+  requestAnimationFrame(frameLoop);
+}
+go(0);requestAnimationFrame(frameLoop);
+</script>
+</body>
+</html>
