@@ -9,7 +9,7 @@
 import time
 from pico2d import clear_canvas, update_canvas
 
-MAX_FRAME_TIME = 0.05   # 20fps 이하로 떨어지면 게임이 느려지는 쪽을 택함 (S01-2에서 config로)
+import config
 
 running = False
 stack = []          # 모드 스택. 맨 위(stack[-1])가 현재 모드
@@ -81,7 +81,7 @@ def run(start_mode, *args):
             apply_pending()
 
             now = time.perf_counter()
-            frame_time = min(now - current_time, MAX_FRAME_TIME)  # 이번 프레임 소요 시간 (상한 적용)
+            frame_time = min(now - current_time, config.MAX_FRAME_TIME)  # 이번 프레임 소요 시간 (상한 적용)
             current_time = now
     finally:
         # 정상 종료든 에러든 남은 모드 모두 정리
