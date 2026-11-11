@@ -1,5 +1,5 @@
 # 플레이 화면 — 지금은 빈 화면. ESC 또는 창 닫기로 종료.
-from pico2d import get_events, clear_canvas, update_canvas
+from pico2d import get_events
 from sdl2 import SDL_QUIT, SDL_KEYDOWN, SDLK_ESCAPE
 
 import game_framework
@@ -26,8 +26,8 @@ def update():
 
 
 def draw():
-    clear_canvas()
-    update_canvas()
+    # 화면 지우기·표시는 game_framework가 한다. 여기서는 그리기만.
+    pass
 
 
 def pause():
