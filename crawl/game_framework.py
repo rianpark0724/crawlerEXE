@@ -14,6 +14,7 @@ import config
 running = False
 stack = []          # 모드 스택. 맨 위(stack[-1])가 현재 모드
 frame_time = 0.0    # 직전 프레임에 걸린 시간(초). 이동량 = 속도 × frame_time
+fps = 0.0          # 최근 FPS_INTERVAL초 동안의 평균 프레임 수 (표시용)
 pending = []        # 이번 프레임 끝에 적용할 전환 예약 목록
 
 
@@ -63,12 +64,13 @@ def apply_pending():
 
 
 def run(start_mode, *args):
-    global running, frame_time
+    global running, frame_time, fps
     running = True
     stack.append(start_mode)
     start_mode.init(*args)
 
     current_time = time.perf_counter()
+    fps_frames, fps_start = 0, current_time   # FPS 측정용: 센 프레임 수, 측정 시작 시각
     try:
         while running:
             mode = stack[-1]
@@ -83,6 +85,11 @@ def run(start_mode, *args):
             now = time.perf_counter()
             frame_time = min(now - current_time, config.MAX_FRAME_TIME)  # 이번 프레임 소요 시간 (상한 적용)
             current_time = now
+
+            fps_frames += 1
+            if now - fps_start >= config.FPS_INTERVAL:
+                fps = fps_frames / (now - fps_start)   # 실제 시간 기준 (frame_time 상한과 무관)
+                fps_frames, fps_start = 0, now
     finally:
         # 정상 종료든 에러든 남은 모드 모두 정리
         while len(stack) > 0:

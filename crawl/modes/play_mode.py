@@ -5,7 +5,7 @@ from sdl2 import SDL_QUIT, SDL_KEYDOWN, SDLK_ESCAPE
 
 import config
 import game_framework
-from ui.draw import draw_line, draw_circle, draw_rect
+from ui.draw import draw_line, draw_circle, draw_rect, fill_rect, draw_text
 
 spin = 0.0   # 테스트: 계속 도는 선의 각도(라디안)
 
@@ -40,6 +40,8 @@ def draw_cross(x, y, color):
 
 def draw():
     # 화면 지우기·표시는 game_framework가 한다. 여기서는 그리기만.
+    fill_rect(0, 0, config.SCREEN_W, config.SCREEN_H, config.COLOR_BG)   # 남색 배경
+
     colors = [config.COLOR_WHITE, config.COLOR_ORANGE, config.COLOR_SKY]   # 테스트 색 3가지
 
     # [테스트] 왼쪽: 15° 간격 24방향 선, 색 3가지 번갈아 + 끝점 십자
@@ -67,6 +69,9 @@ def draw():
         draw_circle(640 + k * 140, 180, rad, w, colors[k])
     for k, w in enumerate([1, 2, 4]):
         draw_rect(1010 + k * 90, 130, 70, 100, w, colors[k])
+
+    if config.SHOW_FPS:   # 왼쪽 위 FPS·프레임 시간 (디버그)
+        draw_text(10, config.SCREEN_H - 14, 'FPS %5.1f  dt %5.1f ms' % (game_framework.fps, game_framework.frame_time * 1000), config.COLOR_GRAY)
 
 
 def pause():

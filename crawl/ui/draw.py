@@ -3,16 +3,19 @@
 # 좌표는 화면 좌표(원점 왼쪽 아래, y 위로 증가).
 import math
 import os
-from pico2d import load_image, SDL_SetTextureColorMod
+import pico2d
+from pico2d import load_image, load_font, SDL_SetTextureColorMod
 
 import config
 
 pixel = None   # 1×1 흰 픽셀 이미지. open_canvas() 뒤 load()에서 읽는다.
+font = None    # 기본 글꼴 — pico2d에 함께 설치되는 ConsolaMalgun(영문 고정폭 + 한글)
 
 
 def load():
-    global pixel
+    global pixel, font
     pixel = load_image(os.path.join(config.IMAGE_DIR, 'pixel.png'))
+    font = load_font(os.path.join(os.path.dirname(pico2d.__file__), 'data', 'ConsolaMalgun.ttf'), config.FONT_SIZE)
 
 
 def set_color(color, alpha):
@@ -52,3 +55,14 @@ def draw_rect(x, y, w, h, width=1, color=config.COLOR_WHITE, alpha=1.0):
     draw_line(x - hw, y + h, x + w + hw, y + h, width, color, alpha)    # 위
     draw_line(x, y, x, y + h, width, color, alpha)                      # 왼쪽
     draw_line(x + w, y, x + w, y + h, width, color, alpha)              # 오른쪽
+
+
+def fill_rect(x, y, w, h, color=config.COLOR_WHITE, alpha=1.0):
+    # 꽉 찬 사각형. (x, y)는 왼쪽 아래 모서리
+    set_color(color, alpha)
+    pixel.draw_to_origin(x, y, w, h)
+
+
+def draw_text(x, y, text, color=config.COLOR_WHITE):
+    # 글자. (x, y)는 글줄의 왼쪽, 세로 가운데
+    font.draw(x, y, text, color)
