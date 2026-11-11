@@ -20,6 +20,9 @@ COLOR_RED    = (240, 70, 70)     # 피격, 잃은 다리
 COLOR_GREEN  = (90, 220, 120)    # 디버그: 무적, 착지
 COLOR_YELLOW = (250, 220, 80)    # 디버그: 목표 지점
 
+# ── 그리기 ────────────────────────────
+CIRCLE_SIDES = 24         # 원 윤곽을 몇 개의 선으로 근사할지
+
 # ── 경로 ──────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))     # crawl/ 폴더 (어디서 실행해도 같은 경로)
 IMAGE_DIR = os.path.join(BASE_DIR, 'assets', 'images')
