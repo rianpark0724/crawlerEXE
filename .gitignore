@@ -1,0 +1,5 @@
+# 저장소 루트용 (게임 코드 쪽 규칙은 crawl/.gitignore)
+.idea/
+.vscode/
+Thumbs.db
+desktop.ini
