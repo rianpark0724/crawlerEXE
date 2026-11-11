@@ -1,5 +1,6 @@
 # 모든 수치 상수 — PRD의 '초기값'은 전부 여기에 둔다.
 # 길이 px · 시간 초 · 각도 라디안 · 색 (R, G, B) 0–255
+import os
 
 # ── 화면 ──────────────────────────────
 SCREEN_W = 1280
@@ -18,3 +19,7 @@ COLOR_SKY    = (90, 200, 255)    # 데이터 조각
 COLOR_RED    = (240, 70, 70)     # 피격, 잃은 다리
 COLOR_GREEN  = (90, 220, 120)    # 디버그: 무적, 착지
 COLOR_YELLOW = (250, 220, 80)    # 디버그: 목표 지점
+
+# ── 경로 ──────────────────────────────
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))     # crawl/ 폴더 (어디서 실행해도 같은 경로)
+IMAGE_DIR = os.path.join(BASE_DIR, 'assets', 'images')

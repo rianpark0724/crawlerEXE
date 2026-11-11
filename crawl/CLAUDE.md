@@ -32,8 +32,8 @@ assets/              이미지 · 사운드
 - 수치를 코드에 직접 쓰지 말고 `config.py` 상수로 둔다.
 
 ## pico2d에서 주의할 점
-- 선 그리기 함수가 없다. `ui/draw.py`의 `draw_line(x1, y1, x2, y2, width, color)`을 쓴다(1×1 흰 픽셀 이미지를 늘리고 회전해 `composite_draw`로 그림). 색은 이미지 `opacify`가 아니라 색별 픽셀 이미지로 처리.
-- 이미지는 `load_image`를 모듈 로드 시 한 번만. 매 프레임 로드 금지.
+- 선 그리기 함수가 없다. `ui/draw.py`의 `draw_line(x1, y1, x2, y2, width, color)`을 쓴다(1×1 흰 픽셀 이미지를 늘리고 회전해 `composite_draw`로 그림). 흰 픽셀 하나에 그릴 때 색을 입힌다(`SDL_SetTextureColorMod`), 투명도는 `opacify`.
+- 이미지는 `load_image`를 `open_canvas()` 뒤에 한 번만(모듈마다 `load()` 함수를 두고 main에서 호출). 매 프레임 로드 금지.
 
 ## 협업 규칙 (AI 협업이 과제의 핵심)
 1. **요청 하나 = 커밋 하나.** `docs/COMMITS.md`의 번호(예: S04-2) 단위로 일한다. 그 커밋 범위 밖 파일은 건드리지 않는다. 커밋마다 게임이 실행되는 상태를 유지하고, 끝나면 그 행의 메시지 형식으로 커밋 메시지를 제안한다.
