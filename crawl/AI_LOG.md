@@ -20,3 +20,14 @@
 - 결과: docs/PRD.md, CLAUDE.md, 폴더 구조
 - 내가 바꾼 것: 우클릭 공통 무적 규칙, 사각형 WAVE(머리→꼬리 파동 + 고정 마디), 삼각형 FOLD 연출, 스크롤 방식 채택
 - 확인: 결정 기록은 PRD 20장
+
+## 2026-11-11 · S01 프로젝트 뼈대
+- 요청: 수업 프레임워크로 창·모드 뼈대, config, 선·원·사각 그리기, 배경·FPS (커밋 단위로 진행)
+- 결과: game_framework(모드 스택), config.py, ui/draw.py(draw_line·circle·rect·fill_rect·text), 테스트 화면
+- 내가 바꾼 것:
+  - 프레임워크 검증 요청 → 원본(S01-1)과 보강(S01-1a)을 커밋으로 분리
+    (frame_time 상한, 전환 예약, init 인자, vsync, perf_counter, try/finally)
+  - 선 색 방식: 색별 이미지 대신 흰 픽셀 + ColorMod(A안) 선택 → CLAUDE.md·PRD 20장 반영
+  - 이미지 로드는 open_canvas 뒤 load()로 (pico2d가 창이 있어야 이미지를 읽음)
+- 이해 확인: 선 = 1×1 픽셀을 (길이+1)×두께로 늘리고 atan2 각도로 회전. 색은 흰색에 곱해서 입힘
+- 확인: 24방향 선이 끝점에 닿음, 3색·두께 1–4px·반투명, 남색 배경, FPS 60 · 커밋 7090968 8154064 8407791 571c4d2 17a97fd d144b16
