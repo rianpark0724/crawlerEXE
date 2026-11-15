@@ -151,6 +151,20 @@ SCROLL_MIN_THUMB = 24     # 막대 최소 길이 (아주 긴 페이지에서도 
 SCROLL_TRACK = (28, 31, 36)    # 트랙 색
 SCROLL_THUMB = (110, 116, 126) # 막대 색
 
+# ── HUD 브라우저 띠 (PRD 12) ──────────
+# 화면 맨 위 한 줄. 사이트가 바뀌어도 모양이 같은 '크롤러의 브라우저' — 페이지는 이 띠 아래로 보인다
+HUD_BAR_H = 36            # 띠 높이 (이만큼 페이지가 보이는 창이 줄어듦)
+HUD_BAR_BG = (24, 26, 30)       # 띠 바탕 (사이트 색과 상관없이 고정)
+HUD_BAR_LINE = (58, 62, 70)     # 띠 아래 경계선, 입력칸 테두리
+HUD_FIELD_BG = (12, 14, 17)     # 주소칸·목표칸 안쪽
+HUD_FIELD_H = 24          # 입력칸 높이
+HUD_FONT = 14             # 띠 글자
+HUD_URL_X, HUD_URL_W = 118, 430       # 주소칸 위치·폭
+HUD_GOAL_X, HUD_GOAL_W = 562, 210     # 목표칸 위치·폭
+HUD_LABEL = (130, 136, 148)     # 이름표 글자 (crawl://, 방문 등)
+HUD_DONE = COLOR_GREEN    # 채운 조건 (방문 수·이 문서 수집 수)
+DEBUG_PANEL_TOP = HUD_BAR_H + 8   # F1 수치 판을 띠 아래부터 그림
+
 # ── 몸통 공통 (PRD 5.1) ───────────────
 SEG_SPACING = 19          # 마디 사이 거리
 

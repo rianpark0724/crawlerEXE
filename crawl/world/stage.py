@@ -68,6 +68,10 @@ class Page:
                 return group
         return None
 
+    def eaten_count(self):
+        # 이 문서에서 먹은 링크 수 (HUD '이 문서 n/N', 출구 조건)
+        return sum(group['eaten'] for group in self.groups.values())
+
     def update(self, dt):
         for group in self.groups.values():
             group['age'] += dt

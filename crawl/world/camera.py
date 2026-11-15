@@ -6,12 +6,14 @@ import config
 
 class Camera:
     def __init__(self, page_height):
-        self.max_y = max(0, page_height - config.SCREEN_H)   # 카메라가 갈 수 있는 가장 위 (페이지 맨 위가 화면 위끝)
+        # 페이지가 보이는 창 = 화면에서 위쪽 HUD 띠를 뺀 부분
+        view_h = config.SCREEN_H - config.HUD_BAR_H
+        self.max_y = max(0, page_height - view_h)             # 카메라가 갈 수 있는 가장 위 (페이지 맨 위가 띠 바로 아래)
         self.y = self.max_y                                   # 페이지 맨 위에서 시작
-        # 데드존: 화면 가운데 CAM_DEADZONE 비율 구간 (화면 y). 머리가 이 안에 있으면 카메라는 가만히
-        margin = config.SCREEN_H * (1 - config.CAM_DEADZONE) / 2
+        # 데드존: 창 가운데 CAM_DEADZONE 비율 구간 (화면 y). 머리가 이 안에 있으면 카메라는 가만히
+        margin = view_h * (1 - config.CAM_DEADZONE) / 2
         self.dead_low = margin                                # 데드존 아래 경계
-        self.dead_high = config.SCREEN_H - margin             # 데드존 위 경계
+        self.dead_high = view_h - margin                      # 데드존 위 경계
 
     def update(self, head_y, dt):
         # 머리가 데드존을 벗어나면, 머리가 데드존 경계에 오도록 하는 카메라 위치를 목표로 부드럽게 따라간다

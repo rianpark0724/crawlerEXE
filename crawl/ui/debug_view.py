@@ -66,6 +66,7 @@ def draw(camera, body, mouse, target, page, extra):
         '[F1] debug',
     ]
     h = 18 * len(lines) + 8
-    fill_rect(0, config.SCREEN_H - h, 470, h, (0, 0, 0), 0.55)
+    top = config.SCREEN_H - config.DEBUG_PANEL_TOP     # HUD 상태 줄 아래부터
+    fill_rect(0, top - h, 470, h, (0, 0, 0), 0.55)
     for i, text in enumerate(lines):
-        draw_text(10, config.SCREEN_H - 14 - 18 * i, text, config.COLOR_WHITE)
+        draw_text(10, top - 14 - 18 * i, text, config.COLOR_WHITE)

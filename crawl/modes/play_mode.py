@@ -8,7 +8,7 @@ import game_framework
 from crawler.body import Body
 from world.camera import Camera
 from world.stage import Page, load_site
-from ui.hud import draw_scrollbar
+from ui.hud import draw_scrollbar, draw_bar
 from ui.draw import draw_line, fill_rect
 from ui import debug_view
 
@@ -22,14 +22,16 @@ site = None                   # 지금 사이트 (설정 + 문서들, dict)
 data_count = 0                # 먹은 데이터(링크) 수 — 문서를 넘어가도 유지
 frontier = []                 # 방문 대기열: 먹었지만 아직 안 간 문서 제목들 (PRD 11.3)
 visited = []                  # 방문한 문서 제목들 (순서대로)
+goal = None                   # 이번 판 목표 {'page': 문서, 'keyword': 키워드}
 
 
 def init(site_id=config.FIRST_STAGE):
-    global mouse_x, mouse_y, target_x, target_y, body, camera, page, left_down, site, data_count, frontier, visited
+    global mouse_x, mouse_y, target_x, target_y, body, camera, page, left_down, site, data_count, frontier, visited, goal
     left_down = False
     site = load_site(site_id)
     page = Page(site['docs'][site['start']], set(site['docs']))   # 시작 문서. 링크 색은 사이트의 문서 제목으로 정함
     data_count, frontier, visited = 0, [], [site['start']]
+    goal = site['targets'][0]                       # 임시: 첫 후보 (S05-7에서 무작위로 뽑음)
     camera = Camera(page.height)                    # 페이지 맨 위에서 시작
     mouse_x, mouse_y = config.SCREEN_W / 2, config.SCREEN_H / 2   # 첫 마우스 이벤트 전에는 화면 가운데
     target_x, target_y = camera.to_world(mouse_x, mouse_y)
@@ -97,6 +99,8 @@ def draw():
     page.draw(camera)
     body.draw(camera)
     draw_scrollbar(camera, page.height)   # HUD — 화면 좌표
+    draw_bar(site['url'] + page.title, goal['keyword'], len(visited), site['min_pages'],
+             page.eaten_count(), site['page_quota'], data_count)
 
     debug_view.draw(camera, body, (mouse_x, mouse_y), (target_x, target_y), page,
                     'data %d  queue %s' % (data_count, ', '.join(frontier) or '-'))   # F1
