@@ -21,6 +21,8 @@ class Leg:
         self.body_h = config.BODY_HEIGHT # 지금 몸(어깨) 높이 (착지 반동으로 바뀜 — Body가 정함)
         self.landed = False              # 이번 프레임에 착지했는지 (Body가 읽고 지움)
         self.lift_scale = 1.0            # 발 들어 올리는 높이 배율 (질주 중 커짐 — Body가 정함)
+        self.air = 0.0                   # WAVE: 이 다리의 마디가 공중에 뜬 높이 (0 = 땅 위 — Body가 정함)
+        self.in_air = False              # 지난 프레임에 공중이었는지 (착지 순간을 알기 위해)
         self.step_time = random.uniform(*config.LEG_STEP_TIME_RANGE)    # 한 걸음에 걸리는 시간
         self.tilt_random = random.uniform(-config.LEG_TILT_RANDOM, config.LEG_TILT_RANDOM)   # 다리 방향 흔들림
         self.placed = False              # 발을 처음 바닥에 놓았는지
@@ -90,6 +92,21 @@ class Leg:
         self.from_x, self.from_y = self.foot_x, self.foot_y
 
     def update_step(self, dt):
+        # WAVE 공중: 걸음을 멈추고 발을 어깨 아래로 접어 올린 채 같이 날아간다
+        if self.air > 0:
+            self.stepping = False
+            self.in_air = True
+            self.foot_x = self.shoulder_x + (self.ideal_x - self.shoulder_x) * config.WAVE_LEG_TUCK
+            self.foot_y = self.shoulder_y + (self.ideal_y - self.shoulder_y) * config.WAVE_LEG_TUCK
+            self.lift = self.air * config.WAVE_FOOT_LIFT
+            return
+        if self.in_air:
+            # 방금 내려앉음: 발을 이상적 위치에 딛고 착지 이벤트 (링크 위에 내려앉으면 먹힘)
+            self.in_air = False
+            self.foot_x, self.foot_y = self.ideal_x, self.ideal_y
+            self.lift = 0.0
+            self.landed = True
+            return
         # 순간이동처럼 너무 멀어지면 걷지 않고 바로 옮긴다
         if self.distance() > self.threshold_now() * config.LEG_TELEPORT:
             self.foot_x, self.foot_y = self.ideal_x, self.ideal_y
@@ -160,10 +177,11 @@ class Leg:
         sx, sy = project(camera, self.shoulder_x, self.shoulder_y, self.body_h)
         kx, ky = project(camera, self.knee_x, self.knee_y, self.knee_z)
         fx, fy = project(camera, self.foot_x, self.foot_y, self.lift)
-        draw_line(sx, sy, kx, ky, config.LEG_WIDTH, config.COLOR_LEG)          # 허벅지
-        draw_line(kx, ky, fx, fy, config.LEG_WIDTH_SHIN, config.COLOR_LEG)     # 종아리 (조금 가늘게)
+        a = config.WAVE_GHOST if self.air > 0 else 1.0                         # WAVE 공중 다리는 마디처럼 흐리게
+        draw_line(sx, sy, kx, ky, config.LEG_WIDTH, config.COLOR_LEG, a)       # 허벅지
+        draw_line(kx, ky, fx, fy, config.LEG_WIDTH_SHIN, config.COLOR_LEG, a)  # 종아리 (조금 가늘게)
         j = config.LEG_JOINT
-        fill_rect(kx - j / 2, ky - j / 2, j, j, config.COLOR_LEG)              # 무릎 관절
+        fill_rect(kx - j / 2, ky - j / 2, j, j, config.COLOR_LEG, a)           # 무릎 관절
 
 
 def project(camera, x, y, z):

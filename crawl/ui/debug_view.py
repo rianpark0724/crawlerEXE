@@ -40,11 +40,11 @@ def draw(camera, body, mouse, target, page, extra):
         dot = config.COLOR_GREEN if leg.stepping else config.COLOR_WHITE  # 초록 = 걷는 중
         fill_rect(fx - 2, fy - 2, 4, 4, dot)
     # WAVE: 무적인 마디를 초록 상자로 (머리 → 꼬리로 번지는 것이 보임)
-    lift = body.height * config.VIEW_TILT
     for i, seg in enumerate(body.segs):
         if body.invincible(i):
             sx, sy = camera.to_screen(seg.x + seg.ox, seg.y + seg.oy)
             size = body.seg_size(i) + 8
+            lift = (body.height + body.air(i)) * config.VIEW_TILT
             draw_rect_rotated(sx, sy + lift, size, size, seg.angle, 2, config.COLOR_GREEN)
     # 먹을 수 있는 링크의 판정 상자 (조각 상자 + COLLECT_MARGIN)
     m = config.COLLECT_MARGIN

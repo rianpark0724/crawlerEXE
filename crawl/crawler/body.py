@@ -52,6 +52,13 @@ class Body:
         start = i * config.WAVE_STEP
         return start <= self.wave_t < start + config.WAVE_HOLD
 
+    def air(self, i):
+        # 마디 i가 공중에 뜬 높이: 공중 시간 동안 포물선 sin(π × 진행)으로 0 → WAVE_JUMP_H → 0
+        if not self.invincible(i):
+            return 0.0
+        u = (self.wave_t - i * config.WAVE_STEP) / config.WAVE_HOLD
+        return config.WAVE_JUMP_H * math.sin(math.pi * u)
+
     def start_wave(self, target_x, target_y):
         # 우클릭: 파동 중이 아니고 재사용 대기가 끝났으면 커서 쪽으로 점프 돌진 시작. 시작했으면 True
         if self.wave_t is not None or self.wave_cool > 0:
@@ -170,9 +177,11 @@ class Body:
             seg.oy = math.sin(seg.angle + math.pi / 2) * sway
             tilt = config.LEG_TILT * (1 - 2 * i / (n - 1)) if n > 1 else 0.0
             sweep = config.SPRINT_SWEEP * self.sprint_frac()                      # 질주 중엔 다리를 뒤로 젖힘
+            air = self.air(i)
             for leg in seg.legs:
                 leg.stride = 1 + (config.SPRINT_STRIDE - 1) * self.sprint_frac()   # 질주: 보폭 커짐
-                leg.body_h = self.height                                          # 지금 몸 높이 (반동)
+                leg.air = air                                                     # WAVE 공중 높이 (뜬 마디의 다리는 접힘)
+                leg.body_h = self.height + air                                    # 지금 몸 높이 (반동 + 점프)
                 leg.lift_scale = 1 + config.SPRINT_LIFT * self.sprint_frac()      # 질주 중엔 발을 더 높이 차올림
                 leg.update_pose(seg, self.seg_size(i), tilt - sweep, tilt)
         legs = self.all_legs()
@@ -183,7 +192,7 @@ class Body:
         #     동시에 걷는 다리는 전체의 절반까지, 같은 마디 반대쪽 다리가 걷는 중이면 기다린다 (번갈아 걷기)
         stepping = sum(1 for leg in legs if leg.stepping)
         limit = max(1, len(legs) // 2)
-        waiting = [leg for leg in legs if leg.wants_step()]
+        waiting = [leg for leg in legs if leg.air == 0 and leg.wants_step()]   # 공중 다리는 걷지 않음
         waiting.sort(key=lambda leg: (leg.overstretched(), leg.distance()), reverse=True)   # 다 펴진 다리가 가장 먼저
         for leg in waiting:
             if stepping >= limit:
@@ -215,7 +224,7 @@ class Body:
         for i, seg in enumerate(self.segs):
             size = self.seg_size(i)
             sx, sy = camera.to_screen(seg.x + seg.ox, seg.y + seg.oy)
-            k = self.height / config.BODY_HEIGHT                                  # 높이에 비례해 그림자가 멀어짐
+            k = (self.height + self.air(i)) / config.BODY_HEIGHT                  # 높이에 비례해 그림자가 멀어짐 (점프하면 멀리)
             fill_rect_rotated(sx + config.SHADOW_DX * k, sy + config.SHADOW_DY * k, size + 2, size + 2, seg.angle,
                               (0, 0, 0), config.SHADOW_ALPHA)
         self.effects.draw_ground(camera)       # 흙먼지 (바닥)
@@ -223,15 +232,15 @@ class Body:
         # 2. 다리 (마디 아래에)
         for leg in self.all_legs():
             leg.draw(camera)
-        # 3. 마디: 꼬리부터 그려서 머리가 맨 위에 오게 한다. 몸은 height만큼 떠 있으니 그만큼 화면 위로
-        lift = self.height * config.VIEW_TILT
+        # 3. 마디: 꼬리부터 그려서 머리가 맨 위에 오게 한다. 몸은 height(+점프 높이)만큼 떠 있으니 그만큼 화면 위로
         for i in range(len(self.segs) - 1, -1, -1):
             seg = self.segs[i]
             size = self.seg_size(i)
             sx, sy = camera.to_screen(seg.x + seg.ox, seg.y + seg.oy)
-            self.draw_segment(sx, sy + lift, size, seg.angle, self.invincible(i))
+            self.draw_segment(sx, sy + (self.height + self.air(i)) * config.VIEW_TILT, size, seg.angle, self.invincible(i))
         # 머리 앞쪽 가장자리 근처에 주황 점 — 어느 쪽이 앞인지 표시
         head = self.segs[0]
+        lift = (self.height + self.air(0)) * config.VIEW_TILT
         hx, hy = camera.to_screen(head.x + head.ox, head.y + head.oy)
         r = config.BOX_HEAD_SIZE / 2 - config.BOX_EYE_SIZE / 2 - 1     # 중심에서 점까지 거리
         fill_rect_rotated(hx + math.cos(head.angle) * r, hy + lift + math.sin(head.angle) * r,
