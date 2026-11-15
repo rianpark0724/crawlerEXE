@@ -3,6 +3,7 @@
 import math
 
 import config
+from crawler.leg import Leg
 from ui.draw import fill_rect_rotated, draw_line
 
 
@@ -11,14 +12,21 @@ class Segment:
     def __init__(self, x, y, angle):
         self.x, self.y = x, y
         self.angle = angle      # 라디안. 앞(머리 쪽)을 향함
+        self.legs = [Leg(+1), Leg(-1)]   # 다리 한 쌍 (왼쪽, 오른쪽)
 
 
 class Body:
     def __init__(self, x, y):
         # 머리는 아래(-π/2)를 보고, 나머지 마디는 그 위쪽에 SEG_SPACING 간격으로 줄지어 시작
         self.segs = [Segment(x, y + i * config.SEG_SPACING, -math.pi / 2) for i in range(config.BOX_START_SEGS)]
-        self.legs = config.BOX_START_LEGS            # 다리 수 (S04 전까지 임시 값)
         self.speed = 0.0                             # 이번 프레임 머리 속도 (디버그 표시용)
+        self.update_legs()                           # 발을 처음 위치에 놓는다
+
+    def all_legs(self):
+        return [leg for seg in self.segs for leg in seg.legs]
+
+    def seg_size(self, i):
+        return config.BOX_HEAD_SIZE if i == 0 else config.BOX_SEG_SIZE
 
     def update(self, target_x, target_y, dt):
         head = self.segs[0]
@@ -28,6 +36,7 @@ class Body:
             # 커서 위에 도착: 회전도 전진도 하지 않는다 (가까우면 방향이 크게 흔들려 떨기 때문)
             self.speed = 0.0
             self.follow()
+            self.update_legs()
             return
 
         # 1. 커서 쪽으로 회전 — 초당 BOX_TURN_SPEED rad 까지만
@@ -38,7 +47,7 @@ class Body:
         head.angle = (head.angle + math.pi) % (2 * math.pi) - math.pi     # 각도를 -π ~ π 로 유지
 
         # 2. 바라보는 방향으로 전진
-        self.speed = config.BOX_BASE_SPEED + config.BOX_SPEED_PER_PAIR * (self.legs / 2)   # 120 + 8 × 다리 쌍
+        self.speed = config.BOX_BASE_SPEED + config.BOX_SPEED_PER_PAIR * (len(self.all_legs()) / 2)   # 120 + 8 × 다리 쌍
         self.speed = min(self.speed, dist * config.BOX_SLOW_FACTOR)        # 커서 가까이 가면 감속
         self.speed *= max(config.BOX_MIN_FACING, math.cos(diff))           # 커서와 다른 방향을 볼수록 느리게 (뒤돌 때 거의 제자리 회전)
         head.x += math.cos(head.angle) * self.speed * dt
@@ -46,6 +55,16 @@ class Body:
 
         # 3. 나머지 마디는 앞 마디에 끌려온다 (거리 제약)
         self.follow()
+        # 4. 다리
+        self.update_legs()
+
+    def update_legs(self):
+        # 다리 기울기: 머리 마디 +LEG_TILT(앞) → 꼬리 마디 -LEG_TILT(뒤)로 고르게 나눈다
+        n = len(self.segs)
+        for i, seg in enumerate(self.segs):
+            tilt = config.LEG_TILT * (1 - 2 * i / (n - 1)) if n > 1 else 0.0
+            for leg in seg.legs:
+                leg.update(seg, self.seg_size(i), tilt)
 
     def follow(self):
         # 머리에서 꼬리 순서로: 마디 i를 마디 i-1에서 정확히 SEG_SPACING 떨어진 곳으로 당긴다
@@ -60,16 +79,21 @@ class Body:
             seg.angle = math.atan2(dy, dx)                   # 앞 마디를 바라봄
 
     def draw(self, camera):
-        # 1. 그림자를 먼저 전부 깐다 (몸 위에 그림자가 겹치지 않게)
+        # 1. 그림자를 먼저 전부 깐다 (몸·다리 위에 그림자가 겹치지 않게)
+        for leg in self.all_legs():
+            leg.draw_shadow(camera)
         for i, seg in enumerate(self.segs):
-            size = config.BOX_HEAD_SIZE if i == 0 else config.BOX_SEG_SIZE
+            size = self.seg_size(i)
             sx, sy = camera.to_screen(seg.x, seg.y)
             fill_rect_rotated(sx + config.SHADOW_DX, sy + config.SHADOW_DY, size + 2, size + 2, seg.angle,
                               (0, 0, 0), config.SHADOW_ALPHA)
-        # 2. 마디: 꼬리부터 그려서 머리가 맨 위에 오게 한다
+        # 2. 다리 (마디 아래에)
+        for leg in self.all_legs():
+            leg.draw(camera)
+        # 3. 마디: 꼬리부터 그려서 머리가 맨 위에 오게 한다
         for i in range(len(self.segs) - 1, -1, -1):
             seg = self.segs[i]
-            size = config.BOX_HEAD_SIZE if i == 0 else config.BOX_SEG_SIZE
+            size = self.seg_size(i)
             sx, sy = camera.to_screen(seg.x, seg.y)
             self.draw_segment(sx, sy, size, seg.angle)
         # 머리 앞쪽 가장자리 근처에 주황 점 — 어느 쪽이 앞인지 표시
