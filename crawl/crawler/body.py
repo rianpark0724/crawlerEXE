@@ -77,7 +77,7 @@ class Body:
         stepping = sum(1 for leg in legs if leg.stepping)
         limit = max(1, len(legs) // 2)
         waiting = [leg for leg in legs if leg.wants_step()]
-        waiting.sort(key=lambda leg: leg.distance(), reverse=True)
+        waiting.sort(key=lambda leg: (leg.overstretched(), leg.distance()), reverse=True)   # 다 펴진 다리가 가장 먼저
         for leg in waiting:
             if stepping >= limit:
                 break
@@ -113,17 +113,18 @@ class Body:
         # 2. 다리 (마디 아래에)
         for leg in self.all_legs():
             leg.draw(camera)
-        # 3. 마디: 꼬리부터 그려서 머리가 맨 위에 오게 한다
+        # 3. 마디: 꼬리부터 그려서 머리가 맨 위에 오게 한다. 몸은 BODY_HEIGHT만큼 떠 있으니 그만큼 화면 위로
+        lift = config.BODY_HEIGHT * config.VIEW_TILT
         for i in range(len(self.segs) - 1, -1, -1):
             seg = self.segs[i]
             size = self.seg_size(i)
             sx, sy = camera.to_screen(seg.x, seg.y)
-            self.draw_segment(sx, sy, size, seg.angle)
+            self.draw_segment(sx, sy + lift, size, seg.angle)
         # 머리 앞쪽 가장자리 근처에 주황 점 — 어느 쪽이 앞인지 표시
         head = self.segs[0]
         hx, hy = camera.to_screen(head.x, head.y)
         r = config.BOX_HEAD_SIZE / 2 - config.BOX_EYE_SIZE / 2 - 1     # 중심에서 점까지 거리
-        fill_rect_rotated(hx + math.cos(head.angle) * r, hy + math.sin(head.angle) * r,
+        fill_rect_rotated(hx + math.cos(head.angle) * r, hy + lift + math.sin(head.angle) * r,
                           config.BOX_EYE_SIZE, config.BOX_EYE_SIZE, head.angle, config.COLOR_ORANGE)
 
     def draw_segment(self, x, y, size, angle):
