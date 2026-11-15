@@ -15,6 +15,7 @@ from world.camera import Camera
 from world.stage import Page, load_site, pick_goal, mark_goal
 from world.crawl_page import CrawlPage
 from world.objects import place_parts
+from world.collision import leg_hit
 from ui.hud import draw_scrollbar, draw_bar
 from ui.draw import draw_line, draw_rect, draw_circle, fill_rect, draw_static_text, text_width
 from ui import debug_view
@@ -40,6 +41,8 @@ next_doc = None               # 이번 프레임에 다 채운 칸 (할 일, 칸
 opening = None                # 새 창이 열리는 중: {'action', 'name'(창 제목), 'url', 'rect'(시작 칸, 월드), 'color', 't'}
 play_time = 0.0               # 플레이 시간 (출구 깜빡임 등)
 fade = 0.0                    # 문서를 옮긴 뒤 남은 밝아짐 시간
+hit_stop = 0.0                # 피격 순간 멈칫이 남은 시간 (이동안 게임이 멈춤)
+shake = 0.0                   # 화면 흔들림이 남은 시간
 charge = {'key': None, 'n': 0, 'time': 0.0}     # 칸 채우기: 어느 칸을, 몇 번 연속 밟았는지, 마지막 착지 시각
 
 
@@ -64,8 +67,10 @@ def show_page(new_page):
     page = new_page
     camera = Camera(page.height)                    # 페이지 맨 위에서 시작
     target_x, target_y = camera.to_world(mouse_x, mouse_y)
-    count = len(body.segs) if body is not None else config.BOX_START_SEGS
-    body = Body(*page.spawn(), count)               # 맨 위에서 다시 나타남 — 자란 마디 수는 유지 (잃은 다리 유지는 S08)
+    if body is None:
+        body = Body(*page.spawn())                  # 새 판: 시작 몸
+    else:
+        body.place(*page.spawn())                   # 문서 이동: 같은 몸을 맨 위에 다시 세움 (자란 마디·잃은 다리 유지)
     body.on_land = on_land                          # 착지 이벤트 연결
     fade = config.PAGE_FADE_TIME
 
@@ -151,6 +156,20 @@ def handle_events():
             left_down = False
         elif event.type == SDL_MOUSEBUTTONDOWN and event.button == SDL_BUTTON_RIGHT:
             body.start_wave(target_x, target_y)       # □ WAVE 점프 돌진 (재사용 대기 중이면 무시)
+
+
+def check_hits():
+    # 위험 지점에 닿은 다리를 자른다 (PRD 5.4). WAVE로 공중에 뜬(무적) 마디의 다리는 안 잘림
+    # 잘리면: 멈칫(히트스톱) + 화면 흔들림
+    global hit_stop, shake
+    for x, y, r in page.hazards:
+        for i, seg in enumerate(body.segs):
+            if body.invincible(i):
+                continue
+            for leg in list(seg.legs):
+                if leg_hit(leg, x, y, r):
+                    body.cut_leg(leg, x, y)
+                    hit_stop, shake = config.HIT_STOP, config.SHAKE_TIME
 
 
 def toggle_hazard(x, y):
@@ -251,7 +270,11 @@ def go_to(title, back):
 
 
 def update():
-    global target_x, target_y, next_doc, play_time, fade, opening, messages, clear_timer
+    global target_x, target_y, next_doc, play_time, fade, opening, messages, clear_timer, hit_stop, shake
+    shake = max(0.0, shake - game_framework.frame_time)
+    if hit_stop > 0:
+        hit_stop -= game_framework.frame_time           # 피격 멈칫: 이 동안 아무것도 움직이지 않음
+        return
     if opening is not None:
         # 새 창이 열리는 동안은 게임이 멈춘다. 다 열리면 할 일(문서 옮기기 등)을 한다
         opening['t'] += game_framework.frame_time
@@ -265,6 +288,7 @@ def update():
     body.update(target_x, target_y, game_framework.frame_time, left_down)
     camera.update(body.segs[0].y, game_framework.frame_time)
     page.update(game_framework.frame_time)
+    check_hits()
     for part in page.parts:
         part.locked = not body.can_grow()             # 최대면 파츠를 흐리게 (주울 수 없음)
     debug_view.update(game_framework.frame_time)
@@ -321,6 +345,10 @@ def draw_cursor():
 def draw():
     # 화면 지우기·표시는 game_framework가 한다. 여기서는 그리기만.
     fill_rect(0, 0, config.SCREEN_W, config.SCREEN_H, config.COLOR_BG)   # 남색 배경
+    # 화면 흔들림: 그리는 동안만 카메라를 위아래로 흔들고 HUD 전에 되돌린다 (갈수록 잦아듦)
+    camera_y = camera.y
+    if shake > 0:
+        camera.y += math.sin(shake * config.SHAKE_FREQ) * config.SHAKE_AMP * shake / config.SHAKE_TIME
     if isinstance(page, CrawlPage):
         page.draw(camera, exit_fill())                # crawl:// 페이지: 글줄 + 메뉴 칸
     else:
@@ -342,6 +370,7 @@ def draw():
         draw_opening()
     if fade > 0:                          # 문서를 막 옮겼으면 배경색에서 밝아진다
         fill_rect(0, 0, config.SCREEN_W, config.SCREEN_H, config.COLOR_BG, fade / config.PAGE_FADE_TIME)
+    camera.y = camera_y                               # 흔들림 되돌림 (HUD·스크롤바는 흔들지 않음)
     markers = []
     if not isinstance(page, CrawlPage):
         exit_y = page.exit_rect[1] + page.exit_rect[3] / 2

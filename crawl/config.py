@@ -145,6 +145,25 @@ GHOST_MIN_SPRINT = 0.5    # 질주 정도가 이 이상일 때만 잔상
 PUFF_LIFE = 0.35          # 흙먼지가 사라지는 시간
 PUFF_SPREAD = 9           # 흙먼지가 퍼지는 거리 (px)
 PUFF_ALPHA = 0.6          # 흙먼지 진하기
+CUT_LIFE = 1.3            # 잘린 다리가 날아가 바닥에서 꼼지락거리다 사라지는 시간 (초)
+CUT_FLY_SPEED = 170       # 잘린 다리가 위험 지점 반대쪽으로 튕겨 나가는 속도 (px/s)
+CUT_FLY_UP = 150          # 위로 튀어 오르는 속도 (px/s, 높이 방향)
+CUT_GRAVITY = 900         # 잘린 다리를 끌어내리는 중력 (px/s²)
+CUT_SPIN = 14             # 날아가는 동안 도는 빠르기 (rad/s, 방향은 무작위)
+CUT_GROUND_FRICTION = 6   # 바닥에 떨어진 뒤 미끄러짐이 멈추는 빠르기
+SPARK_COUNT = 7           # 잘린 자리에서 튀는 불꽃 수
+SPARK_SPEED = 260         # 불꽃 속도 (px/s)
+SPARK_LIFE = 0.22         # 불꽃 수명 (초)
+SPARK_LEN = 0.035         # 불꽃 선 길이 = 속도 × 이 값 (빠를수록 긴 꼬리)
+HIT_STOP = 0.07           # 잘리는 순간 게임이 멈칫하는 시간 (초) — 타격감
+SHAKE_TIME = 0.25         # 화면 흔들림 시간 (초)
+SHAKE_AMP = 6             # 화면 흔들림 폭 (px, 갈수록 잦아듦)
+SHAKE_FREQ = 55           # 화면 흔들림 빠르기
+HIT_FLASH = 0.15          # 맞은 마디가 빨갛게 번쩍이는 시간 (초)
+HIT_POP = 90              # 맞으면 몸이 순간 들썩이는 세기 (몸 높이 속도에 더함)
+CUT_FADE = 0.3            # 그중 마지막 이만큼 흐려짐
+CUT_WIGGLE = 18           # 잘린 다리 꼼지락 빠르기
+CUT_WIGGLE_AMP = 4        # 꼼지락 폭 (px) — 시간이 갈수록 잦아듦
 PUFF_MIN_SPRINT = 0.3     # 질주 정도가 이 이상일 때만 흙먼지
 
 # ── 걸음에 맞춘 몸 움직임 ─────────────

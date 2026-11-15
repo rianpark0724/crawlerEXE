@@ -16,6 +16,7 @@ class Segment:
         self.vx = self.vy = 0.0  # 이번 프레임 이동 속도 (px/s) — 다리가 앞으로 미리 딛는 데 사용
         self.ox = self.oy = 0.0  # 좌우 쏠림 (디딘 다리 쪽으로). 그리기와 어깨 위치에 더한다
         self.squash = 0.0        # WAVE 착지 후 납작함이 남은 시간
+        self.flash = 0.0         # 피격 후 빨갛게 번쩍임이 남은 시간
         self.legs = [Leg(+1), Leg(-1)]   # 다리 한 쌍 (왼쪽, 오른쪽)
         self.legs[0].partner, self.legs[1].partner = self.legs[1], self.legs[0]   # 서로 반대쪽 다리
 
@@ -45,6 +46,34 @@ class Body:
 
     def seg_size(self, i):
         return config.BOX_HEAD_SIZE if i == 0 else config.BOX_SEG_SIZE
+
+    def place(self, x, y):
+        # 문서를 옮길 때: 몸을 (x, y)에 다시 세운다 — 마디 수·남은 다리는 그대로 (잃은 다리를 문서 간에 유지)
+        for i, seg in enumerate(self.segs):
+            seg.x, seg.y, seg.angle = x, y + i * config.SEG_SPACING, -math.pi / 2
+            seg.vx = seg.vy = 0.0
+            seg.squash = 0.0
+            for leg in seg.legs:
+                leg.placed = False                      # 다음 자세 계산 때 발을 이상적 위치에 바로 놓음
+                leg.stepping = leg.in_air = leg.landed = leg.from_air = False
+                leg.lift = 0.0
+        self.gaps = [config.SEG_SPACING] * len(self.segs)
+        self.speed, self.height, self.height_v = 0.0, config.BODY_HEIGHT, 0.0
+        self.wave_t, self.stun = None, 0.0
+        self.effects = Effects()
+        self.update_legs(0.0)
+
+    def cut_leg(self, leg, from_x, from_y):
+        # 다리 하나 잘림 (PRD 5.4): 몸에서 떼고, (from_x, from_y)(위험 지점) 반대쪽으로 튕겨 날아가게.
+        # 맞은 마디는 빨갛게 번쩍이고 몸이 순간 들썩인다
+        for seg in self.segs:
+            if leg in seg.legs:
+                seg.legs.remove(leg)
+                seg.flash = config.HIT_FLASH
+                for other in seg.legs:
+                    other.partner = None                # 짝이 없어졌으니 혼자 걷는다
+        self.height_v += config.HIT_POP
+        self.effects.add_cut(leg, leg.knee_x - from_x, leg.knee_y - from_y)
 
     def can_grow(self):
         # 마디가 최대(6)보다 적어야 다리 파츠를 주울 수 있다
@@ -117,6 +146,7 @@ class Body:
         self.stun = max(0.0, self.stun - dt)
         for seg in self.segs:
             seg.squash = max(0.0, seg.squash - dt)
+            seg.flash = max(0.0, seg.flash - dt)
         if self.wave_t is not None:
             before = self.wave_t
             self.wave_t += dt
@@ -220,8 +250,9 @@ class Body:
         n = len(self.segs)
         for i, seg in enumerate(self.segs):
             # 좌우 쏠림: 한쪽 다리가 들리면 몸이 반대쪽(디딘 쪽)으로. 왼쪽(+) 다리가 들리면 오른쪽으로
-            left, right = seg.legs
-            sway = config.BODY_SWAY * (right.lift - left.lift) / config.LEG_LIFT
+            left = sum(leg.lift for leg in seg.legs if leg.side > 0)            # 다리를 잃었으면 그쪽은 0
+            right = sum(leg.lift for leg in seg.legs if leg.side < 0)
+            sway = config.BODY_SWAY * (right - left) / config.LEG_LIFT
             seg.ox = math.cos(seg.angle + math.pi / 2) * sway
             seg.oy = math.sin(seg.angle + math.pi / 2) * sway
             tilt = config.LEG_TILT * (1 - 2 * i / (n - 1)) if n > 1 else 0.0
@@ -246,7 +277,7 @@ class Body:
         for leg in waiting:
             if stepping >= limit:
                 break
-            if leg.partner.stepping:
+            if leg.partner is not None and leg.partner.stepping:
                 continue
             leg.start_step()
             stepping += 1
@@ -288,6 +319,7 @@ class Body:
             fill_rect_rotated(sx + config.SHADOW_DX * k, sy + config.SHADOW_DY * k, size * along + 2, size * across + 2, seg.angle,
                               (0, 0, 0), config.SHADOW_ALPHA)
         self.effects.draw_ground(camera)       # 흙먼지 (바닥)
+        self.effects.draw_cuts(camera)         # 잘린 다리 (바닥)
         self.effects.draw_ghosts(camera)       # 질주 잔상
         # 2. 다리 (마디 아래에)
         for leg in self.all_legs():
@@ -305,7 +337,8 @@ class Body:
             seg = self.segs[i]
             size = self.seg_size(i)
             sx, sy = camera.to_screen(seg.x + seg.ox, seg.y + seg.oy)
-            draw_segment(sx, sy + (self.height + self.air(i)) * config.VIEW_TILT, size, seg.angle, self.invincible(i), *self.shape(i))
+            draw_segment(sx, sy + (self.height + self.air(i)) * config.VIEW_TILT, size, seg.angle, self.invincible(i), *self.shape(i),
+                         flash=seg.flash / config.HIT_FLASH)
         # 머리 앞쪽 가장자리 근처에 주황 점 — 어느 쪽이 앞인지 표시
         head = self.segs[0]
         lift = (self.height + self.air(0)) * config.VIEW_TILT
@@ -319,11 +352,12 @@ class Body:
             fill_rect_rotated(ex, ey, config.BOX_EYE_SIZE, config.BOX_EYE_SIZE, head.angle, config.COLOR_ORANGE)
 
 
-def draw_segment(x, y, size, angle, ghost=False, along=1.0, across=1.0):
+def draw_segment(x, y, size, angle, ghost=False, along=1.0, across=1.0, flash=0.0):
     # 크롤러 마디 그리기 — Body와 다리 파츠(world/objects.py)가 같이 쓴다 (파츠가 크롤러 조각처럼 보이게)
     # 입체감 있는 사각 마디 하나 (화면 좌표). 빛은 LIGHT_DIR(왼쪽 위)에서 온다고 본다
     # ghost = WAVE로 공중에 뜬(무적) 마디: 전체를 WAVE_GHOST배로 흐리게 → 유령처럼 비침
     # along, across = 바라보는 방향 길이·폭 배율 (WAVE 공중엔 길쭉, 착지 땐 납작 — 평소 1, 1 = 정사각형)
+    # flash = 피격 번쩍임 0~1 (빨간 덧칠 진하기)
     lx, ly = config.LIGHT_DIR
     a = config.WAVE_GHOST if ghost else 1.0
     w, hgt = size * along, size * across
@@ -348,3 +382,5 @@ def draw_segment(x, y, size, angle, ghost=False, along=1.0, across=1.0):
         f = config.EDGE_DARK + (1 - config.EDGE_DARK) * lit   # 밝기 배율
         color = (int(config.COLOR_WHITE[0] * f), int(config.COLOR_WHITE[1] * f), int(config.COLOR_WHITE[2] * f))
         draw_line(x1, y1, x2, y2, 1, color, a)
+    if flash > 0:
+        fill_rect_rotated(x, y, w, hgt, angle, config.COLOR_RED, 0.8 * flash)   # 피격: 빨갛게 번쩍
