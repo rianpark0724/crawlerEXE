@@ -117,6 +117,7 @@ class Page:
         self.exit_rect = layout.exit_rect   # 다음 문서 상자 (x, 아래 y, w, h) — 페이지 출구
         self.goals = layout.goals           # 목표 키워드 조각 (x, y, w, h) — 목표 문서에만 있음
         self.time = 0.0                     # 키워드 반짝임용
+        self.parts = []                     # 다리 파츠 (play_mode가 사이트 설정 개수대로 무작위 배치)
         # 링크 하나(여러 조각일 수 있음)마다: 가리키는 문서, 먹었는지, 먹은 뒤 지난 시간(번쩍임용)
         self.groups = {}
         for x, y, w, h, text, target, lid in self.links:
@@ -133,6 +134,13 @@ class Page:
                 group['age'] = 0.0
                 self.bursts.append([x, y, 0.0])
                 return group
+        return None
+
+    def part_at(self, x, y):
+        # 발 착지 (x, y)에 있는 아직 안 주운 파츠 (없으면 None)
+        for part in self.parts:
+            if part.hit(x, y):
+                return part
         return None
 
     def goal_at(self, x, y):
@@ -156,6 +164,8 @@ class Page:
 
     def update(self, dt):
         self.time += dt
+        for part in self.parts:
+            part.update(dt)
         for group in self.groups.values():
             group['age'] += dt
         for b in self.bursts:
@@ -206,6 +216,9 @@ class Page:
                 glow = 0.75 + 0.25 * math.sin(self.time * config.GOAL_PULSE)
                 draw_static_text(x, y - camera.y, text, size, config.COLOR_GOLD, glow, 'bold')
                 draw_line(x, y - camera.y - 2, x + text_width(text, size, 'bold'), y - camera.y - 2, 2, config.COLOR_GOLD, glow)
+        for part in self.parts:                    # 다리 파츠 (페이지 글 위, 크롤러 아래)
+            if not part.taken and bottom - 20 <= part.y <= top + 20:
+                part.draw(camera)
         # 수집 이펙트: 착지한 자리에서 링크 색 원이 퍼지며 사라짐
         for x, y, age in self.bursts:
             k = age / config.COLLECT_FX_TIME

@@ -38,5 +38,21 @@
   "page_quota": 3,
   "par_time": 150,
   "dark": false,
-  "pages": {}
+  "pages": {
+    "웹페이지": {
+      "parts": {
+        "plain": 1
+      }
+    },
+    "데이터": {
+      "parts": {
+        "plain": 1
+      }
+    },
+    "스파이더": {
+      "parts": {
+        "plain": 1
+      }
+    }
+  }
 }

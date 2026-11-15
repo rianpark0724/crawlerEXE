@@ -43,6 +43,15 @@ LINK_ALPHA   = 1.0               # 아직 안 먹은 파란 링크 밝기 — �
 COLLECT_MARGIN = 8        # 링크 단어 상자 바깥으로 이만큼까지 착지하면 먹음 (px). 4는 자꾸 빗나가고 12는 너무 넉넉해서 8
 COLLECT_FX_TIME = 0.4     # 먹은 링크가 번쩍였다 보라로 가라앉는 시간, 수집 원이 퍼지는 시간
 COLLECT_FX_R = 22         # 수집 원이 퍼지는 크기 (px)
+
+# ── 다리 파츠 (PRD 7, 8) ──
+PART_REACH = 22           # 파츠 다리: 마디 중심에서 발까지 (바닥)
+PART_KNEE_Z = 12          # 파츠 다리: 무릎 높이 (크롤러 다리처럼 위로 솟음)
+PART_WIGGLE = 6           # 다리 꼼지락 빠르기
+PART_WIGGLE_ANGLE = 0.35  # 꼼지락 폭 (rad)
+PART_PICK_R = 14          # 발이 상자 중심에서 이 거리 안에 착지하면 주움
+PART_AVOID = 40           # 무작위 배치 때 링크·키워드·출구에서 떨어질 거리
+PART_SPAWN_GAP = 160      # 시작 위치에서 이만큼 아래부터 배치
 GOAL_PULSE = 4.0          # 목표 키워드가 반짝이는 빠르기
 SHORT_MSG_TIME = 1.5      # '크롤링이 부족합니다' 글이 떠 있는 시간 (초)
 SHORT_MSG_RISE = 30       # 그동안 위로 떠오르는 거리 (px)

@@ -24,6 +24,9 @@ class CrawlPage:
     def goal_at(self, x, y):
         return False
 
+    def part_at(self, x, y):
+        return None
+
     def eat_at(self, x, y):
         return None
 

@@ -13,6 +13,7 @@ from crawler.body import Body
 from world.camera import Camera
 from world.stage import Page, load_site, pick_goal, mark_goal
 from world.crawl_page import CrawlPage
+from world.objects import place_parts
 from ui.hud import draw_scrollbar, draw_bar
 from ui.draw import draw_line, draw_rect, draw_circle, fill_rect, draw_static_text, text_width
 from ui import debug_view
@@ -73,6 +74,8 @@ def open_doc(title):
         if title == goal['page']:
             doc = mark_goal(doc, goal['keyword'])   # 목표 문서: 키워드 자리 중 하나를 뽑아 금색 키워드로
         pages[title] = Page(doc, set(site['docs']))  # 링크 색은 사이트의 문서 제목으로 정함
+        counts = site['pages'].get(title, {}).get('parts', {})   # 이 문서의 파츠 종류별 개수 (사이트 JSON)
+        pages[title].parts = place_parts(pages[title], counts)  # 위치는 무작위 (처음 열 때 한 번)
     if title not in visited:
         visited.append(title)                       # 방문 수 (HUD 방문 k/K)
     if title in frontier:
@@ -155,6 +158,11 @@ def on_land(leg):
             clear_timer, clear_spot = config.CLEAR_DELAY, page.goals[0]
         elif not messages:                            # 모자라면 알림만 (키워드는 남아 다시 먹을 수 있음)
             messages.append([leg.foot_x, leg.foot_y + 20, '크롤링이 부족합니다 (방문 %d/%d)' % (len(visited), site['min_pages']), 0.0])
+        return
+    part = page.part_at(leg.foot_x, leg.foot_y)
+    if part is not None:
+        part.taken = True                             # 다리 파츠 획득 (성장은 S07-2)
+        page.bursts.append([part.x, part.y, 0.0])
         return
     group = page.eat_at(leg.foot_x, leg.foot_y)
     if group is not None:

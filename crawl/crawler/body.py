@@ -290,7 +290,7 @@ class Body:
             seg = self.segs[i]
             size = self.seg_size(i)
             sx, sy = camera.to_screen(seg.x + seg.ox, seg.y + seg.oy)
-            self.draw_segment(sx, sy + (self.height + self.air(i)) * config.VIEW_TILT, size, seg.angle, self.invincible(i), *self.shape(i))
+            draw_segment(sx, sy + (self.height + self.air(i)) * config.VIEW_TILT, size, seg.angle, self.invincible(i), *self.shape(i))
         # 머리 앞쪽 가장자리 근처에 주황 점 — 어느 쪽이 앞인지 표시
         head = self.segs[0]
         lift = (self.height + self.air(0)) * config.VIEW_TILT
@@ -303,31 +303,33 @@ class Body:
         else:
             fill_rect_rotated(ex, ey, config.BOX_EYE_SIZE, config.BOX_EYE_SIZE, head.angle, config.COLOR_ORANGE)
 
-    def draw_segment(self, x, y, size, angle, ghost=False, along=1.0, across=1.0):
-        # 입체감 있는 사각 마디 하나 (화면 좌표). 빛은 LIGHT_DIR(왼쪽 위)에서 온다고 본다
-        # ghost = WAVE로 공중에 뜬(무적) 마디: 전체를 WAVE_GHOST배로 흐리게 → 유령처럼 비침
-        # along, across = 바라보는 방향 길이·폭 배율 (WAVE 공중엔 길쭉, 착지 땐 납작 — 평소 1, 1 = 정사각형)
-        lx, ly = config.LIGHT_DIR
-        a = config.WAVE_GHOST if ghost else 1.0
-        w, hgt = size * along, size * across
-        # 반투명 몸 채움
-        fill_rect_rotated(x, y, w, hgt, angle, config.COLOR_BODY, config.BOX_BODY_ALPHA * a)
-        # 윗면 하이라이트: 작은 밝은 사각형을 빛 쪽으로 살짝 옮겨 겹침 → 볼록해 보임
-        hs = config.BOX_HIGHLIGHT_SIZE
-        shift = size * config.BOX_HIGHLIGHT_SHIFT
-        fill_rect_rotated(x + lx * shift, y + ly * shift, w * hs, hgt * hs, angle, config.COLOR_BODY_LIGHT, config.BOX_HIGHLIGHT_ALPHA * a)
-        # 테두리: 네 변을 각각 빛을 받는 정도에 따라 밝게/어둡게
-        c, s = math.cos(angle), math.sin(angle)
-        hw, hh = w / 2, hgt / 2
-        corners = []
-        for px, py in [(-hw, -hh), (hw, -hh), (hw, hh), (-hw, hh)]:
-            corners.append((x + px * c - py * s, y + px * s + py * c))    # 회전 변환
-        for k in range(4):
-            x1, y1 = corners[k]
-            x2, y2 = corners[(k + 1) % 4]
-            edge = math.hypot(x2 - x1, y2 - y1) or 1
-            nx, ny = (y2 - y1) / edge, -(x2 - x1) / edge          # 변의 바깥쪽 방향 (단위 벡터)
-            lit = (nx * lx + ny * ly + 1) / 2                     # 빛을 받는 정도 0(등진 쪽) ~ 1(정면)
-            f = config.EDGE_DARK + (1 - config.EDGE_DARK) * lit   # 밝기 배율
-            color = (int(config.COLOR_WHITE[0] * f), int(config.COLOR_WHITE[1] * f), int(config.COLOR_WHITE[2] * f))
-            draw_line(x1, y1, x2, y2, 1, color, a)
+
+def draw_segment(x, y, size, angle, ghost=False, along=1.0, across=1.0):
+    # 크롤러 마디 그리기 — Body와 다리 파츠(world/objects.py)가 같이 쓴다 (파츠가 크롤러 조각처럼 보이게)
+    # 입체감 있는 사각 마디 하나 (화면 좌표). 빛은 LIGHT_DIR(왼쪽 위)에서 온다고 본다
+    # ghost = WAVE로 공중에 뜬(무적) 마디: 전체를 WAVE_GHOST배로 흐리게 → 유령처럼 비침
+    # along, across = 바라보는 방향 길이·폭 배율 (WAVE 공중엔 길쭉, 착지 땐 납작 — 평소 1, 1 = 정사각형)
+    lx, ly = config.LIGHT_DIR
+    a = config.WAVE_GHOST if ghost else 1.0
+    w, hgt = size * along, size * across
+    # 반투명 몸 채움
+    fill_rect_rotated(x, y, w, hgt, angle, config.COLOR_BODY, config.BOX_BODY_ALPHA * a)
+    # 윗면 하이라이트: 작은 밝은 사각형을 빛 쪽으로 살짝 옮겨 겹침 → 볼록해 보임
+    hs = config.BOX_HIGHLIGHT_SIZE
+    shift = size * config.BOX_HIGHLIGHT_SHIFT
+    fill_rect_rotated(x + lx * shift, y + ly * shift, w * hs, hgt * hs, angle, config.COLOR_BODY_LIGHT, config.BOX_HIGHLIGHT_ALPHA * a)
+    # 테두리: 네 변을 각각 빛을 받는 정도에 따라 밝게/어둡게
+    c, s = math.cos(angle), math.sin(angle)
+    hw, hh = w / 2, hgt / 2
+    corners = []
+    for px, py in [(-hw, -hh), (hw, -hh), (hw, hh), (-hw, hh)]:
+        corners.append((x + px * c - py * s, y + px * s + py * c))    # 회전 변환
+    for k in range(4):
+        x1, y1 = corners[k]
+        x2, y2 = corners[(k + 1) % 4]
+        edge = math.hypot(x2 - x1, y2 - y1) or 1
+        nx, ny = (y2 - y1) / edge, -(x2 - x1) / edge          # 변의 바깥쪽 방향 (단위 벡터)
+        lit = (nx * lx + ny * ly + 1) / 2                     # 빛을 받는 정도 0(등진 쪽) ~ 1(정면)
+        f = config.EDGE_DARK + (1 - config.EDGE_DARK) * lit   # 밝기 배율
+        color = (int(config.COLOR_WHITE[0] * f), int(config.COLOR_WHITE[1] * f), int(config.COLOR_WHITE[2] * f))
+        draw_line(x1, y1, x2, y2, 1, color, a)
