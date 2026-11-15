@@ -3,7 +3,36 @@
   "url": "/wiki/",
   "pages_dir": "wiki",
   "start": "웹 크롤러",
-  "targets": [{"page": "백신", "keyword": "격리"}],
+  "targets": [
+    {
+      "page": "백신",
+      "keyword": "격리"
+    },
+    {
+      "page": "방화벽",
+      "keyword": "차단"
+    },
+    {
+      "page": "로봇 배제 표준",
+      "keyword": "금지"
+    },
+    {
+      "page": "쿠키",
+      "keyword": "부스러기"
+    },
+    {
+      "page": "캐시",
+      "keyword": "기억"
+    },
+    {
+      "page": "스팸 봇",
+      "keyword": "광고"
+    },
+    {
+      "page": "404",
+      "keyword": "실종"
+    }
+  ],
   "min_pages": 3,
   "min_hops": 2,
   "page_quota": 3,

@@ -7,6 +7,7 @@
 #   [[!단어]]        항상 빨간 링크 (없는 문서)
 #   **단어**         굵게
 #   [1], [출처 필요]   각주 표시 (작게, 위로)
+#   {{키워드|대체어}}  목표 키워드가 들어갈 수 있는 자리. 뽑힌 자리만 키워드(S05-7), 나머지는 대체어
 #
 # 그리기 목록 항목: (종류, 아래 y, 위 y, ...값)  — 아래·위 y는 화면 밖 건너뛰기용
 #   ('text', lo, hi, x, y, 글, 크기, 글꼴, 색)    y는 글의 아래
@@ -20,7 +21,17 @@ import config
 from ui.draw import text_width, text_height
 
 # 링크: [[!?대상(|표시글)?]] / 굵게: **글** / 각주: [숫자] [출처 필요]
-TOKEN = re.compile(r'\[\[(!?)([^\]|]+?)(?:\|(.+?))?\]\]|\*\*(.+?)\*\*|\[(\d+|출처 필요)\]')
+TOKEN = re.compile(r'\[\[(!?)([^\]|]+?)(?:\|(.+?))?\]\]|\*\*(.+?)\*\*|\[(\d+|출처 필요)\]|\{\{(.+?)\|(.+?)\}\}')
+
+# 문서 JSON에서 생략할 수 있는 항목의 기본값
+DOC_DEFAULTS = {
+    'languages': '1개 언어',
+    'hatnote': '',
+    'categories': [],
+    'edited': '이 문서는 2026년 11월 16일 (월) 03:12에 마지막으로 편집되었습니다.',
+    'notice': '이 문서는 CRAWL.EXE 속 가상의 문서이며, 실제 위키백과 문서가 아닙니다.',
+    'footer_links': ['개인정보처리방침', '위키백과 소개', '면책 조항', '모바일 보기'],
+}
 
 
 def parse(markup, titles):
@@ -36,8 +47,10 @@ def parse(markup, titles):
             spans.append((shown, 'link' if blue else 'red', target))
         elif m.group(4) is not None:
             spans.append((m.group(4), 'b', None))
-        else:
+        elif m.group(5) is not None:
             spans.append(('[' + m.group(5) + ']', 'ref', None))
+        else:
+            spans.append((m.group(7), 'n', None))       # 키워드 자리: 지금은 대체어로 (S05-7에서 뽑힌 자리만 키워드)
         pos = m.end()
     if pos < len(markup):
         spans.append((markup[pos:], 'n', None))
@@ -146,6 +159,7 @@ class WikiLayout:
 
     # ── 페이지 전체 ──
     def build(self, doc):
+        doc = dict(DOC_DEFAULTS, **doc)            # 생략한 항목은 기본값으로
         top = self.height
         self.header(top)
         self.toc(doc, top - config.WIKI_HEADER_H - 28)
@@ -227,7 +241,8 @@ class WikiLayout:
         y -= 8
         self.text(x, y - 16, '위키백과, 우리 모두의 백과사전.', config.WIKI_FONT_SMALL, 'ui', config.WIKI_SUBTLE)
         y -= 28
-        y = self.paragraph(doc['hatnote'], x + 24, y, r - x - 24, color=config.WIKI_SUBTLE)   # 안내문 (들여쓰기)
+        if doc['hatnote']:
+            y = self.paragraph(doc['hatnote'], x + 24, y, r - x - 24, color=config.WIKI_SUBTLE)   # 안내문 (들여쓰기)
         return y - 10
 
     def figure(self, fig, y):
