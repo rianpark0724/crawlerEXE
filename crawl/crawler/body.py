@@ -30,6 +30,8 @@ class Body:
         self.height_v = 0.0                          # 몸 높이 변화 속도
         self.effects = Effects()                     # 질주 잔상·흙먼지
         self.on_land = None                          # 발이 착지할 때 부를 함수 on_land(leg) — 수집 판정 (play_mode가 연결)
+        self.wave_t = None                           # □ WAVE: 파동이 시작된 뒤 지난 시간 (None = 파동 중 아님)
+        self.wave_cool = 0.0                         # WAVE 재사용까지 남은 시간
         self.update_legs(0.0)                        # 발을 처음 위치에 놓는다
 
     def all_legs(self):
@@ -37,6 +39,27 @@ class Body:
 
     def seg_size(self, i):
         return config.BOX_HEAD_SIZE if i == 0 else config.BOX_SEG_SIZE
+
+    def wave_length(self):
+        # 파동 전체 시간: 마지막 마디가 굳기 시작하는 시각 + 무적 시간
+        return (len(self.segs) - 1) * config.WAVE_STEP + config.WAVE_HOLD
+
+    def start_wave(self):
+        # 우클릭: 파동 중이 아니고 재사용 대기가 끝났으면 시작. 시작했으면 True
+        if self.wave_t is not None or self.wave_cool > 0:
+            return False
+        self.wave_t = 0.0
+        return True
+
+    def update_wave(self, dt):
+        # 파동 시간 진행, 끝나면 재사용 대기 시작
+        if self.wave_t is not None:
+            self.wave_t += dt
+            if self.wave_t >= self.wave_length():
+                self.wave_t = None
+                self.wave_cool = config.WAVE_COOLDOWN
+        else:
+            self.wave_cool = max(0.0, self.wave_cool - dt)
 
     def sprint_frac(self):
         # 질주 정도 0(걷기) ~ 1(최고 속도 질주)
@@ -48,6 +71,7 @@ class Body:
         goal = config.SPRINT_SPEED if sprint else 1.0
         rate = config.SPRINT_ACCEL if goal > self.sprint_k else config.SPRINT_DECEL
         self.sprint_k += (goal - self.sprint_k) * min(1, rate * dt)
+        self.update_wave(dt)
         before = [(seg.x, seg.y) for seg in self.segs]
         self.move_head(target_x, target_y, dt)   # 1~2. 머리 회전·전진
         self.follow()                            # 3. 나머지 마디는 앞 마디에 끌려온다 (거리 제약)

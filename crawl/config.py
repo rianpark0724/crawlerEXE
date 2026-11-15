@@ -106,6 +106,10 @@ SPRINT_LAND_KICK = 2.5    # 질주 중 착지 반동 배율
 SPRINT_CROUCH = 2.5       # 몸을 이만큼 낮춤 (px)
 SPRINT_SWEEP = 0.35       # 다리를 뒤로 젖힘 (rad, 약 20°)
 SPRINT_LIFT = 0.8         # 발을 ×(1 + 이 값) 높이 차올림
+# ── □ WAVE 무적 파동 (PRD 6.1.3) ──
+WAVE_STEP = 0.08          # 무적이 다음 마디로 번지는 간격 (초) — 마디 i는 i × 0.08초에 굳기 시작
+WAVE_HOLD = 0.7           # 마디 하나가 무적인 시간 (초) — 마디 9개 이하면 몸 전체가 동시에 무적인 순간이 있음
+WAVE_COOLDOWN = 1.5       # 파동이 꼬리까지 끝난 뒤 다시 쓸 수 있을 때까지 (초)
 GHOST_INTERVAL = 0.05     # 잔상 남기는 간격 (초)
 GHOST_LIFE = 0.2          # 잔상이 사라지는 시간
 GHOST_ALPHA = 0.3         # 잔상 진하기

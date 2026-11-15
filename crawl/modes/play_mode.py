@@ -5,7 +5,7 @@ import random
 
 from pico2d import get_events
 from sdl2 import (SDL_QUIT, SDL_KEYDOWN, SDLK_ESCAPE, SDLK_F1, SDL_MOUSEMOTION,
-                  SDL_MOUSEBUTTONDOWN, SDL_MOUSEBUTTONUP, SDL_BUTTON_LEFT)
+                  SDL_MOUSEBUTTONDOWN, SDL_MOUSEBUTTONUP, SDL_BUTTON_LEFT, SDL_BUTTON_RIGHT)
 
 import config
 import game_framework
@@ -141,6 +141,8 @@ def handle_events():
             left_down = True
         elif event.type == SDL_MOUSEBUTTONUP and event.button == SDL_BUTTON_LEFT:
             left_down = False
+        elif event.type == SDL_MOUSEBUTTONDOWN and event.button == SDL_BUTTON_RIGHT:
+            body.start_wave()                         # □ WAVE (재사용 대기 중이면 무시)
 
 
 def on_land(leg):

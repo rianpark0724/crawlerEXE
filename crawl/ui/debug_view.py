@@ -62,6 +62,8 @@ def draw(camera, body, mouse, target, page, extra):
         'mouse screen %4d %4d  world %4d %4d  camera.y %5.1f' % (mouse[0], mouse[1], target[0], target[1], camera.y),
         'head %4d %4d  angle %5.2f  speed %5.1f%s' % (head.x, head.y, head.angle, body.speed, '  sprint x%.2f  h %.1f' % (body.sprint_k, body.height)),
         'gaps %s   legs %d  stepping %d' % (gaps, len(legs), sum(leg.stepping for leg in legs)),
+        'wave %s' % ('%.2f / %.2fs' % (body.wave_t, body.wave_length()) if body.wave_t is not None
+                     else ('cooldown %.1fs' % body.wave_cool if body.wave_cool > 0 else 'ready')),
         extra,
         '[F1] debug',
     ]
