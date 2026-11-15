@@ -12,6 +12,9 @@ class Leg:
         self.l1 = config.LEG_L1          # 허벅지 길이 (S04-5에서 다리마다 무작위)
         self.l2 = config.LEG_L2          # 종아리 길이
         self.reach = config.LEG_REACH    # 이상적 발 거리 = (l1 + l2) × reach
+        self.threshold = config.LEG_THRESHOLD   # 발이 이상적 위치에서 이만큼 벗어나면 걸음
+        self.placed = False              # 발을 처음 바닥에 놓았는지
+        self.steps = 0                   # 걸음 수 (확인용)
         self.shoulder_x = self.shoulder_y = 0.0
         self.ideal_x = self.ideal_y = 0.0
         self.foot_x = self.foot_y = 0.0  # 발 위치 (월드)
@@ -28,10 +31,16 @@ class Leg:
         # 거미형 무릎: 앞으로 기운 다리(머리 쪽)는 무릎도 앞으로, 나머지는 뒤로 꺾는다
         self.bend = -self.side if tilt > 0 else self.side
         dist = (self.l1 + self.l2) * self.reach
-        self.ideal_x = self.shoulder_x + math.cos(leg_angle) * dist     # 이상적 발 위치
-        self.ideal_y = self.shoulder_y + math.sin(leg_angle) * dist
-        # S04-1: 발은 아직 이상적 위치에 그대로 붙어 다닌다 (S04-3에서 바닥에 고정)
-        self.foot_x, self.foot_y = self.ideal_x, self.ideal_y
+        # 이상적 발 위치 = 어깨에서 다리 방향으로 dist + 마디 속도 × LEG_LEAD초 (가는 쪽으로 미리 딛기)
+        self.ideal_x = self.shoulder_x + math.cos(leg_angle) * dist + seg.vx * config.LEG_LEAD
+        self.ideal_y = self.shoulder_y + math.sin(leg_angle) * dist + seg.vy * config.LEG_LEAD
+        if not self.placed:
+            self.foot_x, self.foot_y = self.ideal_x, self.ideal_y        # 처음엔 바로 이상적 위치에
+            self.placed = True
+        # 발은 바닥에 고정. 이상적 위치에서 임계 거리보다 멀어지면 걸음 (S04-3: 아직 한 번에 옮김)
+        if math.hypot(self.ideal_x - self.foot_x, self.ideal_y - self.foot_y) > self.threshold:
+            self.foot_x, self.foot_y = self.ideal_x, self.ideal_y
+            self.steps += 1
         self.solve_knee()
 
     def solve_knee(self):

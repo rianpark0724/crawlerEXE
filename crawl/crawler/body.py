@@ -12,6 +12,7 @@ class Segment:
     def __init__(self, x, y, angle):
         self.x, self.y = x, y
         self.angle = angle      # 라디안. 앞(머리 쪽)을 향함
+        self.vx = self.vy = 0.0  # 이번 프레임 이동 속도 (px/s) — 다리가 앞으로 미리 딛는 데 사용
         self.legs = [Leg(+1), Leg(-1)]   # 다리 한 쌍 (왼쪽, 오른쪽)
 
 
@@ -29,14 +30,20 @@ class Body:
         return config.BOX_HEAD_SIZE if i == 0 else config.BOX_SEG_SIZE
 
     def update(self, target_x, target_y, dt):
-        head = self.segs[0]
+        before = [(seg.x, seg.y) for seg in self.segs]
+        self.move_head(target_x, target_y, dt)   # 1~2. 머리 회전·전진
+        self.follow()                            # 3. 나머지 마디는 앞 마디에 끌려온다 (거리 제약)
+        for seg, (px, py) in zip(self.segs, before):
+            if dt > 0:
+                seg.vx, seg.vy = (seg.x - px) / dt, (seg.y - py) / dt   # 마디 속도 = 이번 프레임 이동량 / 시간
+        self.update_legs()                       # 4. 다리
 
+    def move_head(self, target_x, target_y, dt):
+        head = self.segs[0]
         dist = math.hypot(target_x - head.x, target_y - head.y)    # 커서까지 거리
         if dist < config.BOX_STOP_DIST:
             # 커서 위에 도착: 회전도 전진도 하지 않는다 (가까우면 방향이 크게 흔들려 떨기 때문)
             self.speed = 0.0
-            self.follow()
-            self.update_legs()
             return
 
         # 1. 커서 쪽으로 회전 — 초당 BOX_TURN_SPEED rad 까지만
@@ -52,11 +59,6 @@ class Body:
         self.speed *= max(config.BOX_MIN_FACING, math.cos(diff))           # 커서와 다른 방향을 볼수록 느리게 (뒤돌 때 거의 제자리 회전)
         head.x += math.cos(head.angle) * self.speed * dt
         head.y += math.sin(head.angle) * self.speed * dt
-
-        # 3. 나머지 마디는 앞 마디에 끌려온다 (거리 제약)
-        self.follow()
-        # 4. 다리
-        self.update_legs()
 
     def update_legs(self):
         # 다리 기울기: 머리 마디 +LEG_TILT(앞) → 꼬리 마디 -LEG_TILT(뒤)로 고르게 나눈다
