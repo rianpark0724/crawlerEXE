@@ -1,10 +1,11 @@
 # 플레이 화면 — 사이트(스테이지)를 읽어 시작 문서를 페이지로 만들고, 크롤러가 커서를 따라 걷는다. F1 디버그 뷰.
 # 문서 이동: 페이지 끝 '다음 문서' 상자의 칸을 발로 밟는다 (PRD 11.3-3). 모든 상호작용은 크롤러로.
 # 클리어: 키워드 자리에서 창이 열려 crawl://complete 결과 페이지로 — 크롤러는 화면에서 사라지지 않는다 (PRD 12).
+import math
 import random
 
 from pico2d import get_events
-from sdl2 import (SDL_QUIT, SDL_KEYDOWN, SDLK_ESCAPE, SDLK_F1, SDL_MOUSEMOTION,
+from sdl2 import (SDL_QUIT, SDL_KEYDOWN, SDLK_ESCAPE, SDLK_F1, SDLK_F2, SDL_MOUSEMOTION,
                   SDL_MOUSEBUTTONDOWN, SDL_MOUSEBUTTONUP, SDL_BUTTON_LEFT, SDL_BUTTON_RIGHT)
 
 import config
@@ -138,6 +139,8 @@ def handle_events():
             game_framework.quit()
         elif event.type == SDL_KEYDOWN and event.key == SDLK_F1:
             debug_view.toggle()
+        elif event.type == SDL_KEYDOWN and event.key == SDLK_F2:
+            toggle_hazard(*camera.to_world(mouse_x, mouse_y))   # 시험용 위험 지점 만들기/지우기 (S08) — 누른 순간의 커서 자리
         elif event.type == SDL_MOUSEMOTION:
             # 마우스 이벤트 y는 위가 0 → 아래가 0인 pico2d 좌표로 뒤집는다
             mouse_x = event.x
@@ -148,6 +151,26 @@ def handle_events():
             left_down = False
         elif event.type == SDL_MOUSEBUTTONDOWN and event.button == SDL_BUTTON_RIGHT:
             body.start_wave(target_x, target_y)       # □ WAVE 점프 돌진 (재사용 대기 중이면 무시)
+
+
+def toggle_hazard(x, y):
+    # F2: (x, y)에 위험 지점이 있으면 지우고, 없으면 만든다 — 적이 생기기 전(S09) 피격 시험용
+    r = config.HIT_TEST_R
+    for h in page.hazards:
+        if math.hypot(h[0] - x, h[1] - y) <= h[2]:
+            page.hazards.remove(h)
+            return
+    page.hazards.append([x, y, r])
+
+
+def draw_hazards():
+    # 위험 지점: 빨간 원 두 겹이 숨쉬듯 (바닥에 그려진 판정 범위 그대로)
+    pulse = 0.5 + 0.5 * math.sin(play_time * 5)
+    for x, y, r in page.hazards:
+        sx, sy = camera.to_screen(x, y)
+        fill_rect(sx - 2, sy - 2, 4, 4, config.COLOR_RED)
+        draw_circle(sx, sy, r, 2, config.COLOR_RED, 0.8)
+        draw_circle(sx, sy, r + 3 * pulse, 1, config.COLOR_RED, 0.3)
 
 
 def on_land(leg):
@@ -303,6 +326,7 @@ def draw():
     else:
         page.draw(camera)
         page.draw_exit(camera, exit_choices(), exit_need(), play_time, exit_fill())
+    draw_hazards()
     if cleared and clear_spot is not None and clear_timer > 0:
         # 키워드를 먹은 순간: 키워드 자리에서 금색 원 두 겹이 퍼진다
         x, y, w, h = clear_spot

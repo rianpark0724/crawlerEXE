@@ -16,6 +16,7 @@ class CrawlPage:
         self.slots = slots
         # 위키 Page와 같은 이름 — 이 페이지에는 먹을 링크·키워드가 없다
         self.links, self.groups, self.goals = [], {}, []
+        self.hazards = []                          # F2 시험용 위험 지점 (이 페이지에서도 시험 가능)
         self.time = 0.0
 
     def spawn(self):
