@@ -154,13 +154,6 @@ class Page:
         return [(bx + pad + (i % cols) * (w + gap), top - (i // cols + 1) * h - (i // cols) * gap, w, h)
                 for i in range(n)]
 
-    def exit_at(self, x, y, choices):
-        # 발이 (x, y)에 착지: 칸 안이면 그 칸의 번호, 아니면 None. 여유 없이 칸 안이어야 한다
-        for i, (sx, sy, w, h) in enumerate(self.slot_rects(len(choices))):
-            if sx <= x <= sx + w and sy <= y <= sy + h:
-                return i
-        return None
-
     def update(self, dt):
         self.time += dt
         for group in self.groups.values():

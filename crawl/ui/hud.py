@@ -46,7 +46,7 @@ def draw_field(x, w, cy):
 
 def draw_bar(url, goal, visited, min_pages, eaten, quota, data, loading=None):
     # 위쪽 띠: [CRAWL.EXE] [crawl:// 주소] [🔍 목표 키워드]  ……  방문 k/K  문서 n/N  DATA 07
-    # loading: 새 창을 여는 중이면 0~1 — 띠 아래에 로딩 막대
+    # loading: 새 창을 여는 중이면 0~1 — 띠 아래에 로딩 막대. eaten이 None이면 '문서 n/N'을 뺀다 (crawl:// 페이지)
     bottom = view_h()
     cy = bottom + config.HUD_BAR_H / 2                  # 띠의 세로 가운데
     fill_rect(0, bottom, config.SCREEN_W, config.HUD_BAR_H, config.HUD_BAR_BG)
@@ -68,7 +68,7 @@ def draw_bar(url, goal, visited, min_pages, eaten, quota, data, loading=None):
     def count(label, n, need):
         return [(label + ' ', config.HUD_LABEL, False),
                 ('%d/%d' % (n, need), config.HUD_DONE if n >= need else config.WIKI_TEXT, True), ('     ', None, False)]
-    parts = count('방문', visited, min_pages) + count('문서', eaten, quota) + \
+    parts = count('방문', visited, min_pages) + (count('문서', eaten, quota) if eaten is not None else []) + \
         [('DATA ', config.HUD_LABEL, False), ('%02d' % data, config.COLOR_SKY, True)]
     width = sum(text_width(t, config.HUD_FONT, 'bold' if b else 'ui') for t, c, b in parts)
     x = config.SCREEN_W - config.SCROLL_W - 16 - width

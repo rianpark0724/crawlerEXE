@@ -46,7 +46,17 @@ COLLECT_FX_R = 22         # 수집 원이 퍼지는 크기 (px)
 GOAL_PULSE = 4.0          # 목표 키워드가 반짝이는 빠르기
 SHORT_MSG_TIME = 1.5      # '크롤링이 부족합니다' 글이 떠 있는 시간 (초)
 SHORT_MSG_RISE = 30       # 그동안 위로 떠오르는 거리 (px)
-CLEAR_W, CLEAR_H = 520, 210   # CLEAR 판 크기
+CLEAR_DELAY = 0.6         # 키워드를 먹고 탈출 창이 열리기까지 (그동안 금색 원이 퍼지고 크롤러는 계속 걸음)
+CLEAR_FX_R = 70           # 키워드 자리에서 퍼지는 금색 원 크기
+
+# ── 크롤러 브라우저 자체 페이지 crawl://… (PRD 12) ──
+CRAWL_SPAWN_FROM_TOP = 70 # 크롤러가 나타나는 곳: 페이지 맨 위에서 이만큼 아래
+CRAWL_TEXT_TOP = 170      # 첫 글줄 위치: 맨 위에서 이만큼 아래
+CRAWL_LINE_GAP = 22       # 글줄 사이 간격
+CRAWL_GRID = 32           # 바탕 점 격자 간격
+CRAWL_SLOT_W, CRAWL_SLOT_H = 260, 64   # 칸 크기
+CRAWL_SLOT_GAP = 40       # 칸 사이 간격
+CRAWL_SLOT_Y = 150        # 칸 아래 y (페이지 아래쪽)
 
 # ── 페이지 출구 = 다음 문서 상자 (PRD 11.3-3) ──
 EXIT_ROWS, EXIT_COLS = 1, 5   # 칸 배치: 한 줄 5칸 (방문 대기열 4 + 뒤로). 두 줄이면 아래 칸에 가다 위 칸을 밟게 됨
