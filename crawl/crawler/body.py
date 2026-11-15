@@ -23,6 +23,7 @@ class Body:
         # 머리는 아래(-π/2)를 보고, 나머지 마디는 그 위쪽에 SEG_SPACING 간격으로 줄지어 시작
         self.segs = [Segment(x, y + i * config.SEG_SPACING, -math.pi / 2) for i in range(config.BOX_START_SEGS)]
         self.speed = 0.0                             # 이번 프레임 머리 속도 (디버그 표시용)
+        self.sprint = False                          # 좌클릭 질주 중인지
         self.update_legs(0.0)                        # 발을 처음 위치에 놓는다
 
     def all_legs(self):
@@ -31,7 +32,8 @@ class Body:
     def seg_size(self, i):
         return config.BOX_HEAD_SIZE if i == 0 else config.BOX_SEG_SIZE
 
-    def update(self, target_x, target_y, dt):
+    def update(self, target_x, target_y, dt, sprint=False):
+        self.sprint = sprint
         before = [(seg.x, seg.y) for seg in self.segs]
         self.move_head(target_x, target_y, dt)   # 1~2. 머리 회전·전진
         self.follow()                            # 3. 나머지 마디는 앞 마디에 끌려온다 (거리 제약)
@@ -63,6 +65,8 @@ class Body:
         legs = self.all_legs()
         lifted = sum(leg.lift for leg in legs) / (config.LEG_LIFT * max(1, len(legs) // 2))
         self.speed *= 1 + config.BODY_SURGE * (0.5 - lifted)               # 평균 속도는 그대로, ×(1 ± SURGE/2) 사이에서 출렁
+        if self.sprint:
+            self.speed *= config.SPRINT_SPEED                              # 좌클릭 질주
         head.x += math.cos(head.angle) * self.speed * dt
         head.y += math.sin(head.angle) * self.speed * dt
 
@@ -77,6 +81,7 @@ class Body:
             seg.oy = math.sin(seg.angle + math.pi / 2) * sway
             tilt = config.LEG_TILT * (1 - 2 * i / (n - 1)) if n > 1 else 0.0
             for leg in seg.legs:
+                leg.stride = config.SPRINT_STRIDE if self.sprint else 1.0   # 질주: 보폭 커짐
                 leg.update_pose(seg, self.seg_size(i), tilt)
         legs = self.all_legs()
         # (2) 걷는 중인 다리 진행 (착지·순간이동 처리)

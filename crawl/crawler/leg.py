@@ -17,6 +17,7 @@ class Leg:
         self.l2 = random.uniform(*config.LEG_L2_RANGE)                  # 종아리 길이
         self.reach = random.uniform(*config.LEG_REACH_RANGE)            # 이상적 발 거리 = (l1 + l2) × reach
         self.threshold = random.uniform(*config.LEG_THRESHOLD_RANGE)    # 발이 이상적 위치에서 이만큼 벗어나면 걸음
+        self.stride = 1.0                # 임계 거리 배율 (질주 중 SPRINT_STRIDE — Body가 정함)
         self.step_time = random.uniform(*config.LEG_STEP_TIME_RANGE)    # 한 걸음에 걸리는 시간
         self.tilt_random = random.uniform(-config.LEG_TILT_RANDOM, config.LEG_TILT_RANDOM)   # 다리 방향 흔들림
         self.placed = False              # 발을 처음 바닥에 놓았는지
@@ -74,7 +75,11 @@ class Leg:
 
     def wants_step(self):
         # 이상적 위치에서 임계 거리보다 벗어났거나, 다리가 다 펴질 만큼 멀어졌으면 걷고 싶다
-        return not self.stepping and (self.distance() > self.threshold or self.overstretched())
+        return not self.stepping and (self.distance() > self.threshold_now() or self.overstretched())
+
+    def threshold_now(self):
+        # 지금 쓰는 임계 거리 = 다리 고유값 × 배율 (질주하면 커져서 보폭이 커지고 발 위치가 덜 정확해짐)
+        return self.threshold * self.stride
 
     def start_step(self):
         self.stepping = True
@@ -83,7 +88,7 @@ class Leg:
 
     def update_step(self, dt):
         # 순간이동처럼 너무 멀어지면 걷지 않고 바로 옮긴다
-        if self.distance() > self.threshold * config.LEG_TELEPORT:
+        if self.distance() > self.threshold_now() * config.LEG_TELEPORT:
             self.foot_x, self.foot_y = self.ideal_x, self.ideal_y
             self.stepping = False
             self.lift = 0.0

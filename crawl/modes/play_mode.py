@@ -1,6 +1,7 @@
-# 플레이 화면 — 크롤러가 커서를 따라 걷고 카메라가 세로로 스크롤. F1 디버그 뷰(S04-6).
+# 플레이 화면 — 크롤러가 커서를 따라 걷고(좌클릭 질주) 카메라가 세로로 스크롤. F1 디버그 뷰.
 from pico2d import get_events
-from sdl2 import SDL_QUIT, SDL_KEYDOWN, SDLK_ESCAPE, SDLK_F1, SDL_MOUSEMOTION
+from sdl2 import (SDL_QUIT, SDL_KEYDOWN, SDLK_ESCAPE, SDLK_F1, SDL_MOUSEMOTION,
+                  SDL_MOUSEBUTTONDOWN, SDL_MOUSEBUTTONUP, SDL_BUTTON_LEFT)
 
 import config
 import game_framework
@@ -14,12 +15,14 @@ from ui import debug_view
 mouse_x, mouse_y = 0.0, 0.0   # 커서 위치 (화면 좌표, y 위로 증가) — 커서 그리기용
 target_x, target_y = 0.0, 0.0 # 커서 위치 (월드 좌표) — 크롤러 목표
 body = None                   # 크롤러 몸
+left_down = False             # 좌클릭을 누르고 있는지 (질주)
 camera = None
 page = None
 
 
 def init():
-    global mouse_x, mouse_y, target_x, target_y, body, camera, page
+    global mouse_x, mouse_y, target_x, target_y, body, camera, page, left_down
+    left_down = False
     page = Page(config.TEST_PAGE_HEIGHT, load_doc('crawler'))
     camera = Camera(page.height)                    # 페이지 맨 위에서 시작
     mouse_x, mouse_y = config.SCREEN_W / 2, config.SCREEN_H / 2   # 첫 마우스 이벤트 전에는 화면 가운데
@@ -35,7 +38,7 @@ def finish():
 
 
 def handle_events():
-    global mouse_x, mouse_y
+    global mouse_x, mouse_y, left_down
     for event in get_events():
         if event.type == SDL_QUIT:
             game_framework.quit()
@@ -47,13 +50,17 @@ def handle_events():
             # 마우스 이벤트 y는 위가 0 → 아래가 0인 pico2d 좌표로 뒤집는다
             mouse_x = event.x
             mouse_y = config.SCREEN_H - 1 - event.y
+        elif event.type == SDL_MOUSEBUTTONDOWN and event.button == SDL_BUTTON_LEFT:
+            left_down = True
+        elif event.type == SDL_MOUSEBUTTONUP and event.button == SDL_BUTTON_LEFT:
+            left_down = False
 
 
 def update():
     global target_x, target_y
     # 커서의 월드 좌표는 매 프레임 다시 계산한다 — 마우스를 가만히 둬도 카메라가 움직이면 가리키는 곳이 바뀐다
     target_x, target_y = camera.to_world(mouse_x, mouse_y)
-    body.update(target_x, target_y, game_framework.frame_time)
+    body.update(target_x, target_y, game_framework.frame_time, left_down)
     camera.update(body.segs[0].y, game_framework.frame_time)
 
 

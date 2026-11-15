@@ -21,7 +21,7 @@ def draw(camera, body, mouse, target):
         ix, iy = camera.to_screen(leg.ideal_x, leg.ideal_y)
         fx, fy = camera.to_screen(leg.foot_x, leg.foot_y)
         ring = config.COLOR_RED if leg.overstretched() else config.COLOR_YELLOW
-        draw_circle(ix, iy, leg.threshold, 1, ring, 0.7)                 # 이 원 밖으로 발이 나가면 걸음
+        draw_circle(ix, iy, leg.threshold_now(), 1, ring, 0.7)           # 이 원 밖으로 발이 나가면 걸음 (질주 중엔 ×1.4)
         draw_line(fx, fy, ix, iy, 1, config.COLOR_GRAY, 0.8)
         dot = config.COLOR_GREEN if leg.stepping else config.COLOR_WHITE  # 초록 = 걷는 중
         fill_rect(fx - 2, fy - 2, 4, 4, dot)
@@ -35,7 +35,7 @@ def draw(camera, body, mouse, target):
     lines = [
         'FPS %5.1f  dt %5.1f ms' % (game_framework.fps, game_framework.frame_time * 1000),
         'mouse screen %4d %4d  world %4d %4d  camera.y %5.1f' % (mouse[0], mouse[1], target[0], target[1], camera.y),
-        'head %4d %4d  angle %5.2f  speed %5.1f' % (head.x, head.y, head.angle, body.speed),
+        'head %4d %4d  angle %5.2f  speed %5.1f%s' % (head.x, head.y, head.angle, body.speed, '  SPRINT' if body.sprint else ''),
         'gaps %s   legs %d  stepping %d' % (gaps, len(legs), sum(leg.stepping for leg in legs)),
         '[F1] debug',
     ]
