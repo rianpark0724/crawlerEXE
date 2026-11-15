@@ -5,7 +5,7 @@ import json
 import os
 
 import config
-from ui.draw import draw_line, draw_rect, fill_rect, draw_static_text, get_image
+from ui.draw import draw_line, draw_rect, draw_circle, fill_rect, draw_static_text, get_image
 from world.wiki_layout import WikiLayout
 
 
@@ -49,7 +49,31 @@ class Page:
         layout.build(doc)
         self.title = doc['title']
         self.items = layout.items      # 그리기 목록 (월드 좌표)
-        self.links = layout.links      # 파란 링크 조각 (x, y, w, h, 글, 대상 문서, 링크 번호) — 데이터 조각 (S05-4)
+        self.links = layout.links      # 파란 링크 조각 (x, y, w, h, 글, 대상 문서, 링크 번호) — 데이터 조각
+        # 링크 하나(여러 조각일 수 있음)마다: 가리키는 문서, 먹었는지, 먹은 뒤 지난 시간(번쩍임용)
+        self.groups = {}
+        for x, y, w, h, text, target, lid in self.links:
+            self.groups.setdefault(lid, {'target': target, 'eaten': False, 'age': 0.0})
+        self.bursts = []               # 수집 이펙트 [x, y, 나이]
+
+    def eat_at(self, x, y):
+        # 발이 (x, y)에 착지: 아직 안 먹은 링크 조각 상자(+여유) 안이면 그 링크를 먹고 돌려준다
+        m = config.COLLECT_MARGIN
+        for px, py, w, h, text, target, lid in self.links:
+            group = self.groups[lid]
+            if not group['eaten'] and px - m <= x <= px + w + m and py - m <= y <= py + h + m:
+                group['eaten'] = True
+                group['age'] = 0.0
+                self.bursts.append([x, y, 0.0])
+                return group
+        return None
+
+    def update(self, dt):
+        for group in self.groups.values():
+            group['age'] += dt
+        for b in self.bursts:
+            b[2] += dt
+        self.bursts = [b for b in self.bursts if b[2] < config.COLLECT_FX_TIME]
 
     def spawn(self):
         # 시작 위치: 문서 맨 위 가운데
@@ -78,6 +102,21 @@ class Page:
             elif kind == 'image':
                 x, y, w, h, name = item[3:]
                 self.draw_image(x, y - camera.y, w, h, name, a)
+            elif kind == 'link':
+                x, y, text, size, lid = item[3:]
+                group = self.groups[lid]
+                if group['eaten']:
+                    # 먹은 링크: 하얗게 번쩍였다가 방문한 링크 색(보라)으로, 페이지 밝기로 가라앉음
+                    k = min(1.0, group['age'] / config.COLLECT_FX_TIME)
+                    color = tuple(int(w + (v - w) * k) for w, v in zip(config.COLOR_WHITE, config.WIKI_VISITED))
+                    draw_static_text(x, y - camera.y, text, size, color, 1 + (a - 1) * k)
+                else:
+                    # 먹을 수 있는 링크: 페이지 글보다 밝게 (밟을 수 있다는 표시)
+                    draw_static_text(x, y - camera.y, text, size, config.WIKI_LINK, config.LINK_ALPHA)
+        # 수집 이펙트: 착지한 자리에서 링크 색 원이 퍼지며 사라짐
+        for x, y, age in self.bursts:
+            k = age / config.COLLECT_FX_TIME
+            draw_circle(x, y - camera.y, 4 + config.COLLECT_FX_R * k, 2, config.WIKI_LINK, 1 - k)
 
     def draw_image(self, x, y, w, h, name, alpha):
         # 직접 만든 그림이 assets/images/에 있으면 그리고, 없으면 빈 자리 표시

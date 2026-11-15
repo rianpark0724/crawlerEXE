@@ -3,7 +3,7 @@ import math
 
 import config
 import game_framework
-from ui.draw import draw_line, draw_circle, fill_rect, draw_text
+from ui.draw import draw_line, draw_circle, draw_rect, fill_rect, draw_text
 
 on = config.DEBUG_START      # 켜져 있는지
 landings = []                # 착지 표시 [x, y, 나이] (월드 좌표)
@@ -27,7 +27,7 @@ def update(dt):
     landings = [item for item in landings if item[2] < config.DEBUG_LAND_TIME]
 
 
-def draw(camera, body, mouse, target):
+def draw(camera, body, mouse, target, page, extra):
     if not on:
         return
     # 다리: 이상적 위치(바닥)에 임계 거리 원, 발 → 이상적 위치 선, 발 점
@@ -39,6 +39,12 @@ def draw(camera, body, mouse, target):
         draw_line(fx, fy, ix, iy, 1, config.COLOR_GRAY, 0.8)
         dot = config.COLOR_GREEN if leg.stepping else config.COLOR_WHITE  # 초록 = 걷는 중
         fill_rect(fx - 2, fy - 2, 4, 4, dot)
+    # 먹을 수 있는 링크의 판정 상자 (조각 상자 + COLLECT_MARGIN)
+    m = config.COLLECT_MARGIN
+    for x, y, w, h, text, target_doc, lid in page.links:
+        if not page.groups[lid]['eaten']:
+            sx, sy = camera.to_screen(x - m, y - m)
+            draw_rect(sx, sy, w + 2 * m, h + 2 * m, 1, config.COLOR_SKY, 0.6)
     # 착지 순간: 초록 원이 퍼지며 사라짐
     for x, y, age in landings:
         k = age / config.DEBUG_LAND_TIME
@@ -56,6 +62,7 @@ def draw(camera, body, mouse, target):
         'mouse screen %4d %4d  world %4d %4d  camera.y %5.1f' % (mouse[0], mouse[1], target[0], target[1], camera.y),
         'head %4d %4d  angle %5.2f  speed %5.1f%s' % (head.x, head.y, head.angle, body.speed, '  sprint x%.2f  h %.1f' % (body.sprint_k, body.height)),
         'gaps %s   legs %d  stepping %d' % (gaps, len(legs), sum(leg.stepping for leg in legs)),
+        extra,
         '[F1] debug',
     ]
     h = 18 * len(lines) + 8

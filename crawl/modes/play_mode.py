@@ -19,13 +19,17 @@ left_down = False             # 좌클릭을 누르고 있는지 (질주)
 camera = None
 page = None
 site = None                   # 지금 사이트 (설정 + 문서들, dict)
+data_count = 0                # 먹은 데이터(링크) 수 — 문서를 넘어가도 유지
+frontier = []                 # 방문 대기열: 먹었지만 아직 안 간 문서 제목들 (PRD 11.3)
+visited = []                  # 방문한 문서 제목들 (순서대로)
 
 
 def init(site_id=config.FIRST_STAGE):
-    global mouse_x, mouse_y, target_x, target_y, body, camera, page, left_down, site
+    global mouse_x, mouse_y, target_x, target_y, body, camera, page, left_down, site, data_count, frontier, visited
     left_down = False
     site = load_site(site_id)
     page = Page(site['docs'][site['start']], set(site['docs']))   # 시작 문서. 링크 색은 사이트의 문서 제목으로 정함
+    data_count, frontier, visited = 0, [], [site['start']]
     camera = Camera(page.height)                    # 페이지 맨 위에서 시작
     mouse_x, mouse_y = config.SCREEN_W / 2, config.SCREEN_H / 2   # 첫 마우스 이벤트 전에는 화면 가운데
     target_x, target_y = camera.to_world(mouse_x, mouse_y)
@@ -61,8 +65,14 @@ def handle_events():
 
 
 def on_land(leg):
-    # 발이 착지한 순간 한 번 (S05-4에서 여기서 링크 수집 판정)
+    # 발이 착지한 순간 한 번: 그 자리의 파란 링크를 먹는다 (몸통은 먹지 못함 — 발 착지만 판정)
+    global data_count
     debug_view.note_landing(leg.foot_x, leg.foot_y)
+    group = page.eat_at(leg.foot_x, leg.foot_y)
+    if group is not None:
+        data_count += 1
+        if group['target'] not in visited and group['target'] not in frontier:
+            frontier.append(group['target'])          # 먹은 링크의 문서 → 방문 대기열
 
 
 def update():
@@ -71,6 +81,7 @@ def update():
     target_x, target_y = camera.to_world(mouse_x, mouse_y)
     body.update(target_x, target_y, game_framework.frame_time, left_down)
     camera.update(body.segs[0].y, game_framework.frame_time)
+    page.update(game_framework.frame_time)
     debug_view.update(game_framework.frame_time)
 
 
@@ -87,7 +98,8 @@ def draw():
     body.draw(camera)
     draw_scrollbar(camera, page.height)   # HUD — 화면 좌표
 
-    debug_view.draw(camera, body, (mouse_x, mouse_y), (target_x, target_y))   # F1
+    debug_view.draw(camera, body, (mouse_x, mouse_y), (target_x, target_y), page,
+                    'data %d  queue %s' % (data_count, ', '.join(frontier) or '-'))   # F1
     draw_cursor()
 
 

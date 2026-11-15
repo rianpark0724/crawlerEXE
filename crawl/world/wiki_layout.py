@@ -15,6 +15,7 @@
 #   ('rect', lo, hi, x, y, w, h, 색)            테두리
 #   ('fill', lo, hi, x, y, w, h, 색)            채움
 #   ('image', lo, hi, x, y, w, h, 파일 이름)
+#   ('link', lo, hi, x, y, 글, 크기, 링크 번호)   파란 링크 조각 — 먹었는지에 따라 색이 바뀌어 Page가 그린다
 import re
 
 import config
@@ -149,8 +150,9 @@ class WikiLayout:
                 if kind == 'ref':
                     self.text(cx, base + size * 0.45, text, config.WIKI_FONT_REF, 'ui', config.WIKI_LINK)   # 위첨자
                 elif kind == 'link':
-                    self.text(cx, base, text, size, 'ui', config.WIKI_LINK)
-                    self.links.append((cx, base, pw, text_height(size), text, target, self.link_count + n))
+                    lid = self.link_count + n
+                    self.items.append(('link', base, base + text_height(size), cx, base, text, size, lid))
+                    self.links.append((cx, base, pw, text_height(size), text, target, lid))
                 elif kind == 'red':
                     self.text(cx, base, text, size, 'ui', config.WIKI_REDLINK)
                 else:
