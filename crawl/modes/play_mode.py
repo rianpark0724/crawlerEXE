@@ -1,4 +1,4 @@
-# 플레이 화면 — 크롤러가 커서를 따라가고 카메라가 머리를 따라 세로로 스크롤(S03-3).
+# 플레이 화면 — 크롤러가 커서를 따라가고 카메라가 머리를 따라 세로로 스크롤. 커서 월드 좌표는 매 프레임 갱신(S03-4).
 import math
 from pico2d import get_events
 from sdl2 import SDL_QUIT, SDL_KEYDOWN, SDLK_ESCAPE, SDL_MOUSEMOTION
@@ -34,7 +34,7 @@ def finish():
 
 
 def handle_events():
-    global mouse_x, mouse_y, target_x, target_y
+    global mouse_x, mouse_y
     for event in get_events():
         if event.type == SDL_QUIT:
             game_framework.quit()
@@ -44,10 +44,12 @@ def handle_events():
             # 마우스 이벤트 y는 위가 0 → 아래가 0인 pico2d 좌표로 뒤집는다
             mouse_x = event.x
             mouse_y = config.SCREEN_H - 1 - event.y
-            target_x, target_y = camera.to_world(mouse_x, mouse_y)   # 화면 → 월드
 
 
 def update():
+    global target_x, target_y
+    # 커서의 월드 좌표는 매 프레임 다시 계산한다 — 마우스를 가만히 둬도 카메라가 움직이면 가리키는 곳이 바뀐다
+    target_x, target_y = camera.to_world(mouse_x, mouse_y)
     body.update(target_x, target_y, game_framework.frame_time)
     camera.update(body.segs[0].y, game_framework.frame_time)
 
