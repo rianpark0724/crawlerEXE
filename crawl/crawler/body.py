@@ -79,6 +79,24 @@ class Body:
         self.height_v += config.HIT_POP
         self.effects.add_cut(leg, leg.knee_x - from_x, leg.knee_y - from_y)
 
+    def lose_legs(self, count, from_x, from_y):
+        # 몸통 피격: 꼬리 쪽 마디의 다리부터 count개를 잃는다 (PRD 5.4)
+        lost = 0
+        for seg in reversed(self.segs):
+            for leg in list(seg.legs):
+                if lost == count:
+                    return
+                self.cut_leg(leg, from_x, from_y)
+                lost += 1
+
+    def leg_speed(self):
+        # 다리 수에 따른 속도 배율: 1–2개 ×0.6 / 3–5개 ×0.85 / 6–8개 ×1.0 / 9–12개 ×1.1
+        n = len(self.all_legs())
+        for most, k in config.LEG_SPEED_TABLE:
+            if n <= most:
+                return k
+        return config.LEG_SPEED_TABLE[-1][1]
+
     def imbalance(self):
         # 좌우 다리 수 차이 −1 ~ +1: +면 왼쪽(+side) 다리가 더 많음 → 오른쪽(없는 쪽)으로 끌려감
         left = sum(1 for leg in self.all_legs() if leg.side > 0)
@@ -281,6 +299,7 @@ class Body:
             lifted = sum(leg.lift for leg in legs) / (config.LEG_LIFT * max(1, len(legs) // 2))
             want_speed *= 1 + config.BODY_SURGE * (0.5 - lifted)               # 평균 속도는 그대로, ×(1 ± SURGE/2) 사이에서 출렁
             want_speed *= self.sprint_k                                        # 좌클릭 질주 (관성 있는 배율)
+            want_speed *= self.leg_speed()                                     # 다리 수 배율 (적으면 확 느려짐)
             # C: 짝 없는 다리가 걸음 중이면 절뚝이며 느려짐 / D: 다리 없이 끌리는 마디마다 느려짐
             if any(leg.partner is None and leg.stepping for leg in legs):
                 want_speed *= 1 - config.LIMP_SLOW

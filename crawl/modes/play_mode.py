@@ -15,7 +15,7 @@ from world.camera import Camera
 from world.stage import Page, load_site, pick_goal, mark_goal
 from world.crawl_page import CrawlPage
 from world.objects import place_parts
-from world.collision import leg_hit
+from world.collision import leg_hit, circle_circle
 from ui.hud import draw_scrollbar, draw_bar
 from ui.draw import draw_line, draw_rect, draw_circle, fill_rect, draw_static_text, text_width
 from ui import debug_view
@@ -165,6 +165,11 @@ def check_hits():
     for x, y, r in page.hazards:
         for i, seg in enumerate(body.segs):
             if body.invincible(i):
+                continue
+            if circle_circle(x, y, r, seg.x, seg.y, body.seg_size(i) / 2):
+                body.lose_legs(config.BODY_HIT_LEGS, x, y)  # 몸통 피격: 꼬리 쪽 다리부터 2개
+                seg.flash = config.HIT_FLASH                # 맞은 마디가 번쩍
+                hit_stop, shake = config.HIT_STOP, config.SHAKE_TIME
                 continue
             for leg in list(seg.legs):
                 if leg_hit(leg, x, y, r):
