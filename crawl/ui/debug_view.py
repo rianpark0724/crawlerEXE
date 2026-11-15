@@ -3,6 +3,7 @@ import math
 
 import config
 import game_framework
+from world.collision import leg_hit, circle_circle
 from ui.draw import draw_line, draw_circle, draw_rect, draw_rect_rotated, fill_rect, draw_text
 
 on = config.DEBUG_START      # 켜져 있는지
@@ -39,6 +40,21 @@ def draw(camera, body, mouse, target, page, extra):
         draw_line(fx, fy, ix, iy, 1, config.COLOR_GRAY, 0.8)
         dot = config.COLOR_GREEN if leg.stepping else config.COLOR_WHITE  # 초록 = 걷는 중
         fill_rect(fx - 2, fy - 2, 4, 4, dot)
+    # 충돌 시험: 커서 위치 원(HIT_TEST_R)에 닿은 다리는 빨간 선, 닿은 마디는 빨간 상자 (바닥 위치 기준)
+    tx, ty = target
+    sx, sy = camera.to_screen(tx, ty)
+    draw_circle(sx, sy, config.HIT_TEST_R, 1, config.COLOR_RED, 0.6)
+    for leg in body.all_legs():
+        if leg_hit(leg, tx, ty, config.HIT_TEST_R):
+            ax, ay = camera.to_screen(leg.shoulder_x, leg.shoulder_y)
+            kx, ky = camera.to_screen(leg.knee_x, leg.knee_y)
+            fx, fy = camera.to_screen(leg.foot_x, leg.foot_y)
+            draw_line(ax, ay, kx, ky, 2, config.COLOR_RED)
+            draw_line(kx, ky, fx, fy, 2, config.COLOR_RED)
+    for i, seg in enumerate(body.segs):
+        if circle_circle(tx, ty, config.HIT_TEST_R, seg.x, seg.y, body.seg_size(i) / 2):
+            px, py = camera.to_screen(seg.x, seg.y)
+            draw_rect_rotated(px, py, body.seg_size(i) + 4, body.seg_size(i) + 4, seg.angle, 1, config.COLOR_RED)
     # WAVE: 무적인 마디를 초록 상자로 (머리 → 꼬리로 번지는 것이 보임)
     for i, seg in enumerate(body.segs):
         if body.invincible(i):
