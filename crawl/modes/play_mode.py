@@ -30,6 +30,7 @@ def init(site_id=config.FIRST_STAGE):
     mouse_x, mouse_y = config.SCREEN_W / 2, config.SCREEN_H / 2   # 첫 마우스 이벤트 전에는 화면 가운데
     target_x, target_y = camera.to_world(mouse_x, mouse_y)
     body = Body(*page.spawn())                      # 문서 맨 위에서 시작
+    body.on_land = on_land                          # 착지 이벤트 연결
 
 
 def finish():
@@ -59,12 +60,18 @@ def handle_events():
             left_down = False
 
 
+def on_land(leg):
+    # 발이 착지한 순간 한 번 (S05-4에서 여기서 링크 수집 판정)
+    debug_view.note_landing(leg.foot_x, leg.foot_y)
+
+
 def update():
     global target_x, target_y
     # 커서의 월드 좌표는 매 프레임 다시 계산한다 — 마우스를 가만히 둬도 카메라가 움직이면 가리키는 곳이 바뀐다
     target_x, target_y = camera.to_world(mouse_x, mouse_y)
     body.update(target_x, target_y, game_framework.frame_time, left_down)
     camera.update(body.segs[0].y, game_framework.frame_time)
+    debug_view.update(game_framework.frame_time)
 
 
 def draw_cursor():

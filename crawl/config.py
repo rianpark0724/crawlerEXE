@@ -10,6 +10,8 @@ VSYNC = True              # 모니터 주사율에 맞춤
 # ── 프레임 ────────────────────────────
 MAX_FRAME_TIME = 0.05     # frame_time 상한. 20fps 이하로 떨어지면 게임이 느려지는 쪽을 택함
 DEBUG_START = False       # 시작할 때 F1 디버그 뷰를 켤지
+DEBUG_LAND_TIME = 0.3     # 디버그: 착지 원이 퍼지는 시간
+DEBUG_LAND_R = 15         # 디버그: 착지 원이 퍼지는 크기 (px)
 FPS_INTERVAL = 0.5        # FPS 숫자를 몇 초마다 갱신할지
 
 # ── 색상 ──────────────────────────────

@@ -29,6 +29,7 @@ class Body:
         self.height = config.BODY_HEIGHT             # 몸 높이 — 착지할 때마다 눌렸다 튀어 오름 (용수철)
         self.height_v = 0.0                          # 몸 높이 변화 속도
         self.effects = Effects()                     # 질주 잔상·흙먼지
+        self.on_land = None                          # 발이 착지할 때 부를 함수 on_land(leg) — 수집 판정 (play_mode가 연결)
         self.update_legs(0.0)                        # 발을 처음 위치에 놓는다
 
     def all_legs(self):
@@ -58,12 +59,14 @@ class Body:
         self.effects.update(dt, self)            # 6. 효과
 
     def update_height(self, dt):
-        # 착지한 발 수만큼 몸을 아래로 툭 친다 (질주 중엔 더 세게)
+        # 이번 프레임에 착지한 발: 착지 이벤트를 알리고, 그 수만큼 몸을 아래로 툭 친다 (질주 중엔 더 세게)
         landed = 0
         for leg in self.all_legs():
             if leg.landed:
                 landed += 1
                 leg.landed = False
+                if self.on_land is not None:
+                    self.on_land(leg)                                     # 착지 이벤트 (PRD 5.3: 착지하는 순간 한 번)
                 if self.sprint_frac() > config.PUFF_MIN_SPRINT:
                     self.effects.add_puff(leg.foot_x, leg.foot_y)        # 질주 중 착지 → 흙먼지
         kick = config.LAND_KICK * (1 + (config.SPRINT_LAND_KICK - 1) * self.sprint_frac())

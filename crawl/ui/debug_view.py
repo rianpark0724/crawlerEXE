@@ -6,11 +6,25 @@ import game_framework
 from ui.draw import draw_line, draw_circle, fill_rect, draw_text
 
 on = config.DEBUG_START      # 켜져 있는지
+landings = []                # 착지 표시 [x, y, 나이] (월드 좌표)
 
 
 def toggle():
     global on
     on = not on
+
+
+def note_landing(x, y):
+    # 착지 이벤트가 오면 그 자리에 퍼지는 원을 하나 만든다
+    if on:
+        landings.append([x, y, 0.0])
+
+
+def update(dt):
+    global landings
+    for item in landings:
+        item[2] += dt
+    landings = [item for item in landings if item[2] < config.DEBUG_LAND_TIME]
 
 
 def draw(camera, body, mouse, target):
@@ -25,6 +39,11 @@ def draw(camera, body, mouse, target):
         draw_line(fx, fy, ix, iy, 1, config.COLOR_GRAY, 0.8)
         dot = config.COLOR_GREEN if leg.stepping else config.COLOR_WHITE  # 초록 = 걷는 중
         fill_rect(fx - 2, fy - 2, 4, 4, dot)
+    # 착지 순간: 초록 원이 퍼지며 사라짐
+    for x, y, age in landings:
+        k = age / config.DEBUG_LAND_TIME
+        sx, sy = camera.to_screen(x, y)
+        draw_circle(sx, sy, 3 + config.DEBUG_LAND_R * k, 2, config.COLOR_GREEN, 1 - k)
     # 카메라 데드존 경계
     draw_line(0, camera.dead_low, config.SCREEN_W, camera.dead_low, 1, config.COLOR_GRAY, 0.4)
     draw_line(0, camera.dead_high, config.SCREEN_W, camera.dead_high, 1, config.COLOR_GRAY, 0.4)
