@@ -1,4 +1,4 @@
-# 플레이 화면 — 크롤러가 커서를 따라가고 카메라가 머리를 따라 세로로 스크롤. 커서 월드 좌표는 매 프레임 갱신(S03-4).
+# 플레이 화면 — 크롤러가 커서를 따라가고 카메라가 머리를 따라 세로로 스크롤, 오른쪽 스크롤바(S03-5).
 import math
 from pico2d import get_events
 from sdl2 import SDL_QUIT, SDL_KEYDOWN, SDLK_ESCAPE, SDL_MOUSEMOTION
@@ -8,6 +8,7 @@ import game_framework
 from crawler.body import Body
 from world.camera import Camera
 from world.stage import Page, load_doc
+from ui.hud import draw_scrollbar
 from ui.draw import draw_line, fill_rect, draw_text
 
 mouse_x, mouse_y = 0.0, 0.0   # 커서 위치 (화면 좌표, y 위로 증가) — 커서 그리기용
@@ -65,6 +66,7 @@ def draw():
     fill_rect(0, 0, config.SCREEN_W, config.SCREEN_H, config.COLOR_BG)   # 남색 배경
     page.draw(camera)
     body.draw(camera)
+    draw_scrollbar(camera, page.height)   # HUD — 화면 좌표
     draw_cursor()
 
     if config.SHOW_FPS:   # 왼쪽 위 FPS·프레임 시간 (디버그)
