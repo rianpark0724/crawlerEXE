@@ -14,6 +14,7 @@ class Segment:
         self.angle = angle      # 라디안. 앞(머리 쪽)을 향함
         self.vx = self.vy = 0.0  # 이번 프레임 이동 속도 (px/s) — 다리가 앞으로 미리 딛는 데 사용
         self.legs = [Leg(+1), Leg(-1)]   # 다리 한 쌍 (왼쪽, 오른쪽)
+        self.legs[0].partner, self.legs[1].partner = self.legs[1], self.legs[0]   # 서로 반대쪽 다리
 
 
 class Body:
@@ -21,7 +22,7 @@ class Body:
         # 머리는 아래(-π/2)를 보고, 나머지 마디는 그 위쪽에 SEG_SPACING 간격으로 줄지어 시작
         self.segs = [Segment(x, y + i * config.SEG_SPACING, -math.pi / 2) for i in range(config.BOX_START_SEGS)]
         self.speed = 0.0                             # 이번 프레임 머리 속도 (디버그 표시용)
-        self.update_legs()                           # 발을 처음 위치에 놓는다
+        self.update_legs(0.0)                        # 발을 처음 위치에 놓는다
 
     def all_legs(self):
         return [leg for seg in self.segs for leg in seg.legs]
@@ -36,7 +37,7 @@ class Body:
         for seg, (px, py) in zip(self.segs, before):
             if dt > 0:
                 seg.vx, seg.vy = (seg.x - px) / dt, (seg.y - py) / dt   # 마디 속도 = 이번 프레임 이동량 / 시간
-        self.update_legs()                       # 4. 다리
+        self.update_legs(dt)                     # 4. 다리
 
     def move_head(self, target_x, target_y, dt):
         head = self.segs[0]
@@ -60,13 +61,33 @@ class Body:
         head.x += math.cos(head.angle) * self.speed * dt
         head.y += math.sin(head.angle) * self.speed * dt
 
-    def update_legs(self):
-        # 다리 기울기: 머리 마디 +LEG_TILT(앞) → 꼬리 마디 -LEG_TILT(뒤)로 고르게 나눈다
+    def update_legs(self, dt):
+        # (1) 어깨·이상적 위치: 다리 기울기는 머리 마디 +LEG_TILT(앞) → 꼬리 마디 -LEG_TILT(뒤)로 고르게
         n = len(self.segs)
         for i, seg in enumerate(self.segs):
             tilt = config.LEG_TILT * (1 - 2 * i / (n - 1)) if n > 1 else 0.0
             for leg in seg.legs:
-                leg.update(seg, self.seg_size(i), tilt)
+                leg.update_pose(seg, self.seg_size(i), tilt)
+        legs = self.all_legs()
+        # (2) 걷는 중인 다리 진행 (착지·순간이동 처리)
+        for leg in legs:
+            leg.update_step(dt)
+        # (3) 새 걸음 시작: 이상적 위치에서 가장 멀리 벗어난 다리부터.
+        #     동시에 걷는 다리는 전체의 절반까지, 같은 마디 반대쪽 다리가 걷는 중이면 기다린다 (번갈아 걷기)
+        stepping = sum(1 for leg in legs if leg.stepping)
+        limit = max(1, len(legs) // 2)
+        waiting = [leg for leg in legs if leg.wants_step()]
+        waiting.sort(key=lambda leg: leg.distance(), reverse=True)
+        for leg in waiting:
+            if stepping >= limit:
+                break
+            if leg.partner.stepping:
+                continue
+            leg.start_step()
+            stepping += 1
+        # (4) 무릎
+        for leg in legs:
+            leg.solve_knee()
 
     def follow(self):
         # 머리에서 꼬리 순서로: 마디 i를 마디 i-1에서 정확히 SEG_SPACING 떨어진 곳으로 당긴다
