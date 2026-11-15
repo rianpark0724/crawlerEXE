@@ -40,6 +40,7 @@ class Body:
         self.wave_stun = 0.0                         # 이번 점프의 착지 경직 시간 (꺾은 각도로 정함)
         self.stun = 0.0                              # 남은 경직 시간 — 머리가 움직이지도 돌지도 않음
         self.dust_timer = 0.0                        # 다리 없이 끌리는 마디의 다음 먼지까지 남은 시간
+        self.iframe = 0.0                            # 피격 후 무적이 남은 시간 (깜빡임)
         self.stagger_v = 0.0                         # 비틀거림: 지금 머리를 꺾고 있는 회전 속도 (rad/s, 점점 사라짐)
         self.stagger_gap = 0.0                       # 다음 휘청임까지 남은 최소 시간
         self.gaps = [config.SEG_SPACING] * len(self.segs)   # 마디 i와 앞 마디 사이 간격 (평소 19, WAVE 중 늘어남). gaps[0]은 안 씀
@@ -78,6 +79,14 @@ class Body:
                     other.partner = None                # 짝이 없어졌으니 혼자 걷는다
         self.height_v += config.HIT_POP
         self.effects.add_cut(leg, leg.knee_x - from_x, leg.knee_y - from_y)
+
+    def hit_ok(self, i):
+        # 마디 i(와 그 다리)가 지금 맞을 수 있는지: 피격 무적도 WAVE 공중도 아니어야 함
+        return self.iframe <= 0 and not self.invincible(i)
+
+    def blink(self):
+        # 피격 무적 중 깜빡임: HIT_BLINK 간격으로 흐린 프레임
+        return self.iframe > 0 and int(self.iframe / config.HIT_BLINK) % 2 == 0
 
     def lose_legs(self, count, from_x, from_y):
         # 몸통 피격: 꼬리 쪽 마디의 다리부터 count개를 잃는다 (PRD 5.4)
@@ -187,6 +196,7 @@ class Body:
     def update_wave(self, dt):
         # 파동 시간 진행, 끝나면 재사용 대기 시작. 머리가 착지하는 순간 경직 시작
         self.stun = max(0.0, self.stun - dt)
+        self.iframe = max(0.0, self.iframe - dt)
         for seg in self.segs:
             seg.squash = max(0.0, seg.squash - dt)
             seg.flash = max(0.0, seg.flash - dt)
@@ -403,7 +413,7 @@ class Body:
         self.effects.draw_ghosts(camera)       # 질주 잔상
         # 2. 다리 (마디 아래에)
         for leg in self.all_legs():
-            leg.draw(camera)
+            leg.draw(camera, self.blink())
         # 늘어난 마디 사이 연결선: 가늘고 흐리게 (WAVE로 몸이 늘어났을 때만)
         for i in range(1, len(self.segs)):
             if self.gaps[i] > config.SEG_SPACING + 1:
@@ -417,7 +427,7 @@ class Body:
             seg = self.segs[i]
             size = self.seg_size(i)
             sx, sy = camera.to_screen(seg.x + seg.ox, seg.y + seg.oy)
-            draw_segment(sx, sy + self.seg_h(i) * config.VIEW_TILT, size, seg.angle, self.invincible(i), *self.shape(i),
+            draw_segment(sx, sy + self.seg_h(i) * config.VIEW_TILT, size, seg.angle, self.invincible(i) or self.blink(), *self.shape(i),
                          flash=seg.flash / config.HIT_FLASH)
         # 머리 앞쪽 가장자리 근처에 주황 점 — 어느 쪽이 앞인지 표시
         head = self.segs[0]

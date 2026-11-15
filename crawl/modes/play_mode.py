@@ -159,22 +159,24 @@ def handle_events():
 
 
 def check_hits():
-    # 위험 지점에 닿은 다리를 자른다 (PRD 5.4). WAVE로 공중에 뜬(무적) 마디의 다리는 안 잘림
-    # 잘리면: 멈칫(히트스톱) + 화면 흔들림
+    # 위험 지점에 닿은 다리를 자르거나(−1) 마디에 닿으면 다리 2개를 잃는다 (PRD 5.4)
+    # 한 번 맞으면 멈칫 + 화면 흔들림 + 1초 무적(깜빡임) — 무적 동안·WAVE 공중 마디는 안 맞음
     global hit_stop, shake
     for x, y, r in page.hazards:
         for i, seg in enumerate(body.segs):
-            if body.invincible(i):
+            if not body.hit_ok(i):
                 continue
             if circle_circle(x, y, r, seg.x, seg.y, body.seg_size(i) / 2):
                 body.lose_legs(config.BODY_HIT_LEGS, x, y)  # 몸통 피격: 꼬리 쪽 다리부터 2개
                 seg.flash = config.HIT_FLASH                # 맞은 마디가 번쩍
-                hit_stop, shake = config.HIT_STOP, config.SHAKE_TIME
-                continue
-            for leg in list(seg.legs):
-                if leg_hit(leg, x, y, r):
-                    body.cut_leg(leg, x, y)
-                    hit_stop, shake = config.HIT_STOP, config.SHAKE_TIME
+            else:
+                legs = [leg for leg in seg.legs if leg_hit(leg, x, y, r)]
+                if not legs:
+                    continue
+                body.cut_leg(legs[0], x, y)                 # 다리 피격: 닿은 다리 하나
+            body.iframe = config.HIT_IFRAME
+            hit_stop, shake = config.HIT_STOP, config.SHAKE_TIME
+            return                                          # 한 번에 한 번만 맞음
 
 
 def toggle_hazard(x, y):

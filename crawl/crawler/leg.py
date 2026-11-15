@@ -176,11 +176,11 @@ class Leg:
         draw_line(s[0], s[1], k[0], k[1], config.LEG_WIDTH, (0, 0, 0), config.SHADOW_ALPHA)
         draw_line(k[0], k[1], f[0], f[1], config.LEG_WIDTH_SHIN, (0, 0, 0), config.SHADOW_ALPHA)
 
-    def draw(self, camera):
+    def draw(self, camera, faded=False):
         sx, sy = project(camera, self.shoulder_x, self.shoulder_y, self.body_h)
         kx, ky = project(camera, self.knee_x, self.knee_y, self.knee_z)
         fx, fy = project(camera, self.foot_x, self.foot_y, self.lift)
-        a = config.WAVE_GHOST if self.air > 0 else 1.0                         # WAVE 공중 다리는 마디처럼 흐리게
+        a = config.WAVE_GHOST if self.air > 0 or faded else 1.0                # WAVE 공중 다리·피격 깜빡임은 흐리게
         draw_line(sx, sy, kx, ky, config.LEG_WIDTH, config.COLOR_LEG, a)       # 허벅지
         draw_line(kx, ky, fx, fy, config.LEG_WIDTH_SHIN, config.COLOR_LEG, a)  # 종아리 (조금 가늘게)
         j = config.LEG_JOINT
