@@ -43,8 +43,9 @@ charge = {'key': None, 'n': 0, 'time': 0.0}     # 칸 채우기: 어느 칸을, 
 
 
 def init(site_id=config.FIRST_STAGE):
-    global mouse_x, mouse_y, left_down, site, data_count, frontier, visited, goal, pages, history, next_doc, play_time, opening, cleared, messages, clear_timer, clear_spot
+    global mouse_x, mouse_y, left_down, body, site, data_count, frontier, visited, goal, pages, history, next_doc, play_time, opening, cleared, messages, clear_timer, clear_spot
     left_down = False
+    body = None                                     # 새 판: 시작 마디 수로
     site = load_site(site_id)
     data_count, frontier, visited = 0, [], []
     pages, history, next_doc, play_time, opening = {}, [], None, 0.0, None
@@ -62,7 +63,8 @@ def show_page(new_page):
     page = new_page
     camera = Camera(page.height)                    # 페이지 맨 위에서 시작
     target_x, target_y = camera.to_world(mouse_x, mouse_y)
-    body = Body(*page.spawn())                      # 맨 위에서 다시 나타남 (다리 수 유지는 S08에서)
+    count = len(body.segs) if body is not None else config.BOX_START_SEGS
+    body = Body(*page.spawn(), count)               # 맨 위에서 다시 나타남 — 자란 마디 수는 유지 (잃은 다리 유지는 S08)
     body.on_land = on_land                          # 착지 이벤트 연결
     fade = config.PAGE_FADE_TIME
 
@@ -161,7 +163,8 @@ def on_land(leg):
         return
     part = page.part_at(leg.foot_x, leg.foot_y)
     if part is not None:
-        part.taken = True                             # 다리 파츠 획득 (성장은 S07-2)
+        part.taken = True                             # 다리 파츠 획득 → 꼬리에 마디 1 + 다리 2
+        body.grow()
         page.bursts.append([part.x, part.y, 0.0])
         return
     group = page.eat_at(leg.foot_x, leg.foot_y)

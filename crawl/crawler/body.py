@@ -21,9 +21,10 @@ class Segment:
 
 
 class Body:
-    def __init__(self, x, y):
+    def __init__(self, x, y, seg_count=config.BOX_START_SEGS):
         # 머리는 아래(-π/2)를 보고, 나머지 마디는 그 위쪽에 SEG_SPACING 간격으로 줄지어 시작
-        self.segs = [Segment(x, y + i * config.SEG_SPACING, -math.pi / 2) for i in range(config.BOX_START_SEGS)]
+        # seg_count: 마디 수 (문서를 옮겨도 자란 몸을 유지하려고 play_mode가 넘김)
+        self.segs = [Segment(x, y + i * config.SEG_SPACING, -math.pi / 2) for i in range(seg_count)]
         self.speed = 0.0                             # 이번 프레임 머리 속도 (디버그 표시용)
         self.sprint = False                          # 좌클릭 질주 중인지 (누르고 있는지)
         self.sprint_k = 1.0                          # 실제 질주 배율 1 → SPRINT_SPEED. 바로 바뀌지 않고 따라감 (관성)
@@ -44,6 +45,16 @@ class Body:
 
     def seg_size(self, i):
         return config.BOX_HEAD_SIZE if i == 0 else config.BOX_SEG_SIZE
+
+    def grow(self):
+        # 다리 파츠: 꼬리 뒤에 마디 1 + 다리 2를 붙인다 (PRD 6.1.2)
+        tail = self.segs[-1]
+        back = tail.angle + math.pi                      # 꼬리가 바라보는 반대쪽 = 몸 뒤쪽
+        seg = Segment(tail.x + math.cos(back) * config.SEG_SPACING, tail.y + math.sin(back) * config.SEG_SPACING, tail.angle)
+        seg.squash = config.GROW_POP                     # 붙는 순간 납작했다 펴짐 (WAVE 착지와 같은 모양 변형)
+        self.segs.append(seg)
+        self.gaps.append(config.SEG_SPACING)
+        self.update_legs(0.0)                            # 새 다리 두 개를 바로 바닥에 놓는다
 
     def wave_length(self):
         # 파동 전체 시간: 마지막 마디가 굳기 시작하는 시각 + 무적 시간
@@ -69,7 +80,7 @@ class Body:
             u = (self.wave_t - i * config.WAVE_STEP) / config.WAVE_HOLD
             along = 1 + config.WAVE_STRETCH_AIR * math.sin(math.pi * u)        # 공중: 나는 방향으로 길쭉
         elif self.segs[i].squash > 0:
-            along = 1 - config.WAVE_SQUASH * self.segs[i].squash / config.WAVE_SQUASH_TIME   # 착지: 납작했다 돌아옴
+            along = 1 - config.WAVE_SQUASH * min(1.0, self.segs[i].squash / config.WAVE_SQUASH_TIME)   # 착지·새 마디: 납작했다 돌아옴
         else:
             return 1.0, 1.0
         return along, 1 / along
