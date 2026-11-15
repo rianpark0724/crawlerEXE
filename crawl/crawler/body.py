@@ -1,5 +1,5 @@
 # □ 사각형 크롤러의 몸 — 머리(segs[0])만 입력으로 움직이고 나머지 마디는 끌려온다 (PRD 5.1, 6.1)
-# 좌표는 전부 월드 좌표. (S03 카메라 전까지는 화면 좌표와 같다)
+# 좌표는 전부 월드 좌표. 그릴 때만 camera.to_screen으로 바꾼다.
 import math
 
 import config
@@ -59,15 +59,17 @@ class Body:
             seg.y = front.y - dy / d * config.SEG_SPACING
             seg.angle = math.atan2(dy, dx)                   # 앞 마디를 바라봄
 
-    def draw(self):
+    def draw(self, camera):
         # 꼬리부터 그려서 머리가 맨 위에 오게 한다
         for i in range(len(self.segs) - 1, -1, -1):
             seg = self.segs[i]
             size = config.BOX_HEAD_SIZE if i == 0 else config.BOX_SEG_SIZE
-            fill_rect_rotated(seg.x, seg.y, size, size, seg.angle, config.COLOR_BODY)    # 안쪽 채움
-            draw_rect_rotated(seg.x, seg.y, size, size, seg.angle, 1, config.COLOR_WHITE)  # 윤곽
+            sx, sy = camera.to_screen(seg.x, seg.y)
+            fill_rect_rotated(sx, sy, size, size, seg.angle, config.COLOR_BODY)    # 안쪽 채움
+            draw_rect_rotated(sx, sy, size, size, seg.angle, 1, config.COLOR_WHITE)  # 윤곽
         # 머리 앞쪽 가장자리 근처에 주황 점 — 어느 쪽이 앞인지 표시
         head = self.segs[0]
+        hx, hy = camera.to_screen(head.x, head.y)
         r = config.BOX_HEAD_SIZE / 2 - config.BOX_EYE_SIZE / 2 - 1     # 중심에서 점까지 거리
-        fill_rect_rotated(head.x + math.cos(head.angle) * r, head.y + math.sin(head.angle) * r,
+        fill_rect_rotated(hx + math.cos(head.angle) * r, hy + math.sin(head.angle) * r,
                           config.BOX_EYE_SIZE, config.BOX_EYE_SIZE, head.angle, config.COLOR_ORANGE)
