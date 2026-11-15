@@ -1,7 +1,6 @@
-# 플레이 화면 — 크롤러가 커서를 따라가고 카메라가 머리를 따라 세로로 스크롤, 오른쪽 스크롤바(S03-5).
-import math
+# 플레이 화면 — 크롤러가 커서를 따라 걷고 카메라가 세로로 스크롤. F1 디버그 뷰(S04-6).
 from pico2d import get_events
-from sdl2 import SDL_QUIT, SDL_KEYDOWN, SDLK_ESCAPE, SDL_MOUSEMOTION
+from sdl2 import SDL_QUIT, SDL_KEYDOWN, SDLK_ESCAPE, SDLK_F1, SDL_MOUSEMOTION
 
 import config
 import game_framework
@@ -9,7 +8,8 @@ from crawler.body import Body
 from world.camera import Camera
 from world.stage import Page, load_doc
 from ui.hud import draw_scrollbar
-from ui.draw import draw_line, fill_rect, draw_text
+from ui.draw import draw_line, fill_rect
+from ui import debug_view
 
 mouse_x, mouse_y = 0.0, 0.0   # 커서 위치 (화면 좌표, y 위로 증가) — 커서 그리기용
 target_x, target_y = 0.0, 0.0 # 커서 위치 (월드 좌표) — 크롤러 목표
@@ -41,6 +41,8 @@ def handle_events():
             game_framework.quit()
         elif event.type == SDL_KEYDOWN and event.key == SDLK_ESCAPE:
             game_framework.quit()
+        elif event.type == SDL_KEYDOWN and event.key == SDLK_F1:
+            debug_view.toggle()
         elif event.type == SDL_MOUSEMOTION:
             # 마우스 이벤트 y는 위가 0 → 아래가 0인 pico2d 좌표로 뒤집는다
             mouse_x = event.x
@@ -67,17 +69,9 @@ def draw():
     page.draw(camera)
     body.draw(camera)
     draw_scrollbar(camera, page.height)   # HUD — 화면 좌표
-    draw_cursor()
 
-    if config.SHOW_FPS:   # 왼쪽 위 FPS·프레임 시간 (디버그)
-        draw_line(0, camera.dead_low, config.SCREEN_W, camera.dead_low, 1, config.COLOR_GRAY, 0.3)     # 데드존 경계
-        draw_line(0, camera.dead_high, config.SCREEN_W, camera.dead_high, 1, config.COLOR_GRAY, 0.3)
-        draw_text(10, config.SCREEN_H - 14, 'FPS %5.1f  dt %5.1f ms' % (game_framework.fps, game_framework.frame_time * 1000), config.COLOR_GRAY)
-        draw_text(10, config.SCREEN_H - 32, 'mouse screen %4d %4d  world %4d %4d  camera.y %5.1f' % (mouse_x, mouse_y, target_x, target_y, camera.y), config.COLOR_GRAY)
-        head = body.segs[0]
-        draw_text(10, config.SCREEN_H - 50, 'head %4d %4d  angle %5.2f  speed %5.1f' % (head.x, head.y, head.angle, body.speed), config.COLOR_GRAY)
-        gaps = ['%.1f' % math.hypot(a.x - b.x, a.y - b.y) for a, b in zip(body.segs, body.segs[1:])]
-        draw_text(10, config.SCREEN_H - 68, 'gaps ' + ' '.join(gaps), config.COLOR_GRAY)   # 마디 간격 (모두 19.0이어야 함)
+    debug_view.draw(camera, body, (mouse_x, mouse_y), (target_x, target_y))   # F1
+    draw_cursor()
 
 
 def pause():

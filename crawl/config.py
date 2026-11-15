@@ -9,7 +9,7 @@ VSYNC = True              # 모니터 주사율에 맞춤
 
 # ── 프레임 ────────────────────────────
 MAX_FRAME_TIME = 0.05     # frame_time 상한. 20fps 이하로 떨어지면 게임이 느려지는 쪽을 택함
-SHOW_FPS = True           # 왼쪽 위 FPS 표시 (디버그)
+DEBUG_START = False       # 시작할 때 F1 디버그 뷰를 켤지
 FPS_INTERVAL = 0.5        # FPS 숫자를 몇 초마다 갱신할지
 
 # ── 색상 ──────────────────────────────
