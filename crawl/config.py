@@ -95,8 +95,7 @@ SHADOW_DY = -4
 SHADOW_ALPHA = 0.45       # 그림자 진하기
 
 # ── 페이지 (PRD 10.1) ─────────────────
-TEST_PAGE_HEIGHT = 1440   # S05 스테이지 JSON 전까지 쓰는 임시 페이지 높이 (wiki.json과 같음)
-TEST_SPAWN = (640, 1300)  # 임시 시작 위치 (wiki.json과 같음)
+FIRST_STAGE = 'wiki'      # 처음 시작하는 스테이지 (data/stages/<id>.json)
 WIKI_HEADER_H = 56        # 맨 위 머리글(로고·검색창) 높이
 WIKI_TOC_X = 24           # 왼쪽 목차 x
 WIKI_CONTENT_X = 240      # 본문 왼쪽 x
@@ -154,3 +153,4 @@ FONT_BOLD_PATH = r'C:\Windows\Fonts\malgunbd.ttf'  # 맑은 고딕 굵게
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))     # crawl/ 폴더 (어디서 실행해도 같은 경로)
 IMAGE_DIR = os.path.join(BASE_DIR, 'assets', 'images')
 PAGE_DIR = os.path.join(BASE_DIR, 'data', 'pages')       # 페이지 문서(글) JSON
+STAGE_DIR = os.path.join(BASE_DIR, 'data', 'stages')     # 스테이지 배치 JSON (PRD 11.2)

@@ -17,5 +17,6 @@
   "enemies": [{"type": "bot", "x": 900, "y": 560}],
   "beams": [],
   "walls": [],
-  "background": "wiki"
+  "background": "wiki",
+  "page": "crawler"
 }

@@ -9,6 +9,35 @@ from ui.draw import draw_line, draw_rect, fill_rect, draw_static_text, get_image
 from world.wiki_layout import WikiLayout
 
 
+# 스테이지 JSON에 없는 항목의 기본값 (PRD 11.2 스키마)
+STAGE_DEFAULTS = {
+    'url': '/',
+    'height': config.SCREEN_H,
+    'goal': 0,
+    'par_time': 60,
+    'spawn': [config.SCREEN_W / 2, config.SCREEN_H / 2],
+    'exit': [config.SCREEN_W / 2, 100],
+    'autoscroll': 0,
+    'dark': False,
+    'data': [],
+    'parts': [],
+    'enemies': [],
+    'beams': [],
+    'walls': [],
+    'background': 'wiki',
+    'page': None,
+}
+
+
+def load_stage(stage_id):
+    # data/stages/<id>.json 읽기. 빠진 항목은 기본값으로 채운다
+    with open(os.path.join(config.STAGE_DIR, stage_id + '.json'), encoding='utf-8') as f:
+        stage = json.load(f)
+    for key, value in STAGE_DEFAULTS.items():
+        stage.setdefault(key, value)
+    return stage
+
+
 def load_doc(name):
     # data/pages/<name>.json 문서 읽기
     with open(os.path.join(config.PAGE_DIR, name + '.json'), encoding='utf-8') as f:
