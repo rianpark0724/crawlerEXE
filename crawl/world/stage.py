@@ -1,12 +1,16 @@
 # 페이지(스테이지 하나) — 폭 1280, 세로로 긴 웹페이지 (PRD 10.1)
 # 배경은 위키 문서(data/pages/*.json)를 위키백과 모양으로 배치한 것 (world/wiki_layout.py).
 # 외전(PRD 21장)에서는 실제 웹페이지 글이 같은 형식으로 들어간다.
+import copy
 import json
 import math
 import os
+import random
+import re
+from collections import deque
 
 import config
-from ui.draw import draw_line, draw_rect, draw_circle, fill_rect, draw_static_text, get_image
+from ui.draw import draw_line, draw_rect, draw_circle, fill_rect, draw_static_text, get_image, text_width
 from world.wiki_layout import WikiLayout
 
 
@@ -40,6 +44,65 @@ def load_site(site_id):
     return site
 
 
+LINK = re.compile(r'\[\[(!?)([^\]|]+?)(?:\|(.+?))?\]\]')   # [[제목]] [[제목|표시]] [[!빨간]]
+
+
+def doc_texts(doc):
+    # 문서에서 표기가 들어갈 수 있는 글 전부 (안내문 + 본문 블록), 배치되는 순서대로
+    texts = [doc.get('hatnote', '')]
+    for block in doc['blocks']:
+        texts.extend([block[1]] if isinstance(block[1], str) else block[1])
+    return texts
+
+
+def link_hops(site):
+    # 시작 문서에서 파란 링크 몇 번 만에 갈 수 있는지 {제목: 단계} — 너비 우선 탐색 (PRD 11.3-7)
+    docs = site['docs']
+    hops = {site['start']: 0}
+    queue = deque([site['start']])
+    while queue:
+        cur = queue.popleft()
+        for text in doc_texts(docs[cur]):
+            for m in LINK.finditer(text):
+                nxt = m.group(2)
+                if not m.group(1) and nxt in docs and nxt not in hops:   # 파란 링크이고 처음 닿는 문서
+                    hops[nxt] = hops[cur] + 1
+                    queue.append(nxt)
+    return hops
+
+
+def pick_goal(site):
+    # 목표 후보 중 시작에서 갈 수 있고 min_hops단계 이상 떨어진 것 하나를 무작위로. {'page', 'keyword', 'hops'}
+    hops = link_hops(site)
+    usable = [t for t in site['targets'] if hops.get(t['page'], -1) >= site['min_hops']]
+    goal = dict(random.choice(usable))
+    goal['hops'] = hops[goal['page']]
+    return goal
+
+
+def mark_goal(doc, keyword):
+    # 목표 문서의 {{키워드|대체어}} 자리 중 하나를 뽑아 <<키워드>>로 바꾼 사본 (나머지 자리는 그대로 → 대체어로 보임)
+    slot = re.compile(r'\{\{' + re.escape(keyword) + r'\|(.+?)\}\}')
+    count = sum(len(slot.findall(t)) for t in doc_texts(doc))
+    chosen = random.randrange(count)            # 몇 번째 자리를 쓸지
+    seen = [0]
+
+    def replace(m):
+        hit = seen[0] == chosen
+        seen[0] += 1
+        return '<<' + keyword + '>>' if hit else m.group(0)
+
+    doc = copy.deepcopy(doc)
+    if doc.get('hatnote'):
+        doc['hatnote'] = slot.sub(replace, doc['hatnote'])
+    for block in doc['blocks']:
+        if isinstance(block[1], str):
+            block[1] = slot.sub(replace, block[1])
+        else:
+            block[1] = [slot.sub(replace, t) for t in block[1]]
+    return doc
+
+
 class Page:
     def __init__(self, doc, titles):
         # 문서 높이는 글 길이로 정한다: 아주 높은 페이지에 한 번 배치해 쓴 높이를 재고, 그 높이로 다시 배치
@@ -52,6 +115,8 @@ class Page:
         self.items = layout.items      # 그리기 목록 (월드 좌표)
         self.links = layout.links      # 파란 링크 조각 (x, y, w, h, 글, 대상 문서, 링크 번호) — 데이터 조각
         self.exit_rect = layout.exit_rect   # 다음 문서 상자 (x, 아래 y, w, h) — 페이지 출구
+        self.goals = layout.goals           # 목표 키워드 조각 (x, y, w, h) — 목표 문서에만 있음
+        self.time = 0.0                     # 키워드 반짝임용
         # 링크 하나(여러 조각일 수 있음)마다: 가리키는 문서, 먹었는지, 먹은 뒤 지난 시간(번쩍임용)
         self.groups = {}
         for x, y, w, h, text, target, lid in self.links:
@@ -69,6 +134,11 @@ class Page:
                 self.bursts.append([x, y, 0.0])
                 return group
         return None
+
+    def goal_at(self, x, y):
+        # 발이 목표 키워드 상자(+여유) 안에 착지했는지 — 링크와 같은 판정
+        m = config.COLLECT_MARGIN
+        return any(px - m <= x <= px + w + m and py - m <= y <= py + h + m for px, py, w, h in self.goals)
 
     def eaten_count(self):
         # 이 문서에서 먹은 링크 수 (HUD '이 문서 n/N', 출구 조건)
@@ -92,6 +162,7 @@ class Page:
         return None
 
     def update(self, dt):
+        self.time += dt
         for group in self.groups.values():
             group['age'] += dt
         for b in self.bursts:
@@ -136,6 +207,12 @@ class Page:
                 else:
                     # 먹을 수 있는 링크: 페이지 글보다 밝게 (밟을 수 있다는 표시)
                     draw_static_text(x, y - camera.y, text, size, config.WIKI_LINK, config.LINK_ALPHA)
+            elif kind == 'goal':
+                # 목표 키워드: 금색, 밝기가 숨쉬듯 오르내리고 아래에 금색 밑줄
+                x, y, text, size = item[3:]
+                glow = 0.75 + 0.25 * math.sin(self.time * config.GOAL_PULSE)
+                draw_static_text(x, y - camera.y, text, size, config.COLOR_GOLD, glow, 'bold')
+                draw_line(x, y - camera.y - 2, x + text_width(text, size, 'bold'), y - camera.y - 2, 2, config.COLOR_GOLD, glow)
         # 수집 이펙트: 착지한 자리에서 링크 색 원이 퍼지며 사라짐
         for x, y, age in self.bursts:
             k = age / config.COLLECT_FX_TIME

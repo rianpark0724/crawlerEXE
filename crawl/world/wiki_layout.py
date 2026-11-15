@@ -7,7 +7,8 @@
 #   [[!단어]]        항상 빨간 링크 (없는 문서)
 #   **단어**         굵게
 #   [1], [출처 필요]   각주 표시 (작게, 위로)
-#   {{키워드|대체어}}  목표 키워드가 들어갈 수 있는 자리. 뽑힌 자리만 키워드(S05-7), 나머지는 대체어
+#   {{키워드|대체어}}  목표 키워드가 들어갈 수 있는 자리. 뽑힌 자리만 키워드, 나머지는 대체어
+#   <<키워드>>        뽑힌 목표 키워드 (stage.mark_goal이 뽑힌 자리를 이걸로 바꿔 둔다) — 금색, 먹으면 탈출
 #
 # 그리기 목록 항목: (종류, 아래 y, 위 y, ...값)  — 아래·위 y는 화면 밖 건너뛰기용
 #   ('text', lo, hi, x, y, 글, 크기, 글꼴, 색)    y는 글의 아래
@@ -16,13 +17,14 @@
 #   ('fill', lo, hi, x, y, w, h, 색)            채움
 #   ('image', lo, hi, x, y, w, h, 파일 이름)
 #   ('link', lo, hi, x, y, 글, 크기, 링크 번호)   파란 링크 조각 — 먹었는지에 따라 색이 바뀌어 Page가 그린다
+#   ('goal', lo, hi, x, y, 글, 크기)            목표 키워드 — 반짝이게 Page가 그린다
 import re
 
 import config
 from ui.draw import text_width, text_height
 
 # 링크: [[!?대상(|표시글)?]] / 굵게: **글** / 각주: [숫자] [출처 필요]
-TOKEN = re.compile(r'\[\[(!?)([^\]|]+?)(?:\|(.+?))?\]\]|\*\*(.+?)\*\*|\[(\d+|출처 필요)\]|\{\{(.+?)\|(.+?)\}\}')
+TOKEN = re.compile(r'\[\[(!?)([^\]|]+?)(?:\|(.+?))?\]\]|\*\*(.+?)\*\*|\[(\d+|출처 필요)\]|\{\{(.+?)\|(.+?)\}\}|<<(.+?)>>')
 
 # 문서 JSON에서 생략할 수 있는 항목의 기본값
 DOC_DEFAULTS = {
@@ -50,8 +52,10 @@ def parse(markup, titles):
             spans.append((m.group(4), 'b', None))
         elif m.group(5) is not None:
             spans.append(('[' + m.group(5) + ']', 'ref', None))
+        elif m.group(8) is not None:
+            spans.append((m.group(8), 'goal', None))    # 뽑힌 목표 키워드
         else:
-            spans.append((m.group(7), 'n', None))       # 키워드 자리: 지금은 대체어로 (S05-7에서 뽑힌 자리만 키워드)
+            spans.append((m.group(7), 'n', None))       # 뽑히지 않은 키워드 자리: 대체어로 평범하게
         pos = m.end()
     if pos < len(markup):
         spans.append((markup[pos:], 'n', None))
@@ -78,6 +82,7 @@ class WikiLayout:
         self.titles = titles     # 사이트에 있는 문서 제목들 — 링크를 파랑/빨강으로 가르는 기준
         self.items = []
         self.links = []          # 파란 링크 조각 위치 (x, y, w, h, 글, 대상 문서, 링크 번호) — 데이터 조각 (S05-4)
+        self.goals = []          # 목표 키워드 조각 위치 (x, y, w, h)
         self.exit_rect = None    # 다음 문서 상자 (x, 아래 y, w, h) — 페이지 출구 (S05-6)
         self.link_count = 0      # 문단마다 링크 번호가 겹치지 않게 더해 주는 값
         self.float_bottom = None # 오른쪽 그림 틀의 아래 y (그 위쪽 줄은 폭을 줄인다)
@@ -136,7 +141,7 @@ class WikiLayout:
     def piece_width(self, text, kind, size):
         if kind == 'ref':
             return text_width(text, config.WIKI_FONT_REF)
-        return text_width(text, size, 'bold' if kind == 'b' else 'ui')
+        return text_width(text, size, 'bold' if kind in ('b', 'goal') else 'ui')
 
     def flush(self, line, x, y_top, size, color, line_h):
         # 한 줄을 실제 위치에 놓는다
@@ -154,6 +159,9 @@ class WikiLayout:
                     lid = self.link_count + n
                     self.items.append(('link', base, base + text_height(size), cx, base, text, size, lid))
                     self.links.append((cx, base, pw, text_height(size), text, target, lid))
+                elif kind == 'goal':
+                    self.items.append(('goal', base, base + text_height(size), cx, base, text, size))
+                    self.goals.append((cx, base, pw, text_height(size)))
                 elif kind == 'red':
                     self.text(cx, base, text, size, 'ui', config.WIKI_REDLINK)
                 else:

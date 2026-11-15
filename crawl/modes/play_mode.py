@@ -1,5 +1,7 @@
 # 플레이 화면 — 사이트(스테이지)를 읽어 시작 문서를 페이지로 만들고, 크롤러가 커서를 따라 걷는다. F1 디버그 뷰.
 # 문서 이동: 페이지 끝 '다음 문서' 상자의 칸을 발로 밟는다 (PRD 11.3-3). 모든 상호작용은 크롤러로.
+import random
+
 from pico2d import get_events
 from sdl2 import (SDL_QUIT, SDL_KEYDOWN, SDLK_ESCAPE, SDLK_F1, SDL_MOUSEMOTION,
                   SDL_MOUSEBUTTONDOWN, SDL_MOUSEBUTTONUP, SDL_BUTTON_LEFT)
@@ -8,9 +10,9 @@ import config
 import game_framework
 from crawler.body import Body
 from world.camera import Camera
-from world.stage import Page, load_site
+from world.stage import Page, load_site, pick_goal, mark_goal
 from ui.hud import draw_scrollbar, draw_bar
-from ui.draw import draw_line, draw_rect, fill_rect, draw_static_text
+from ui.draw import draw_line, draw_rect, fill_rect, draw_static_text, text_width
 from ui import debug_view
 
 mouse_x, mouse_y = 0.0, 0.0   # 커서 위치 (화면 좌표, y 위로 증가) — 커서 그리기용
@@ -23,7 +25,9 @@ site = None                   # 지금 사이트 (설정 + 문서들, dict)
 data_count = 0                # 먹은 데이터(링크) 수 — 문서를 넘어가도 유지
 frontier = []                 # 방문 대기열: 먹었지만 아직 안 간 문서 제목들 (PRD 11.3)
 visited = []                  # 방문한 문서 제목들 (순서대로)
-goal = None                   # 이번 판 목표 {'page': 문서, 'keyword': 키워드}
+goal = None                   # 이번 판 목표 {'page': 문서, 'keyword': 키워드, 'hops': 시작에서 몇 단계}
+cleared = False               # 목표 키워드를 먹고 탈출했는지
+messages = []                 # 떠오르는 글 [x, y, 글, 나이] (월드 좌표) — '크롤링이 부족합니다'
 pages = {}                    # 한 번 연 문서의 Page (제목 → Page) — 다시 와도 먹은 링크가 보라로 남게
 history = []                  # 지나온 문서 제목들 — '뒤로' 칸이 마지막 것으로 간다
 next_doc = None               # 이번 프레임에 밟아 고른 (문서, 뒤로인지, 칸 번호) — 걷기 처리가 끝난 뒤 창 열기 시작
@@ -34,12 +38,14 @@ charge = {'title': None, 'n': 0, 'time': 0.0}   # 출구 칸 채우기: 어느 �
 
 
 def init(site_id=config.FIRST_STAGE):
-    global mouse_x, mouse_y, left_down, site, data_count, frontier, visited, goal, pages, history, next_doc, play_time, opening
+    global mouse_x, mouse_y, left_down, site, data_count, frontier, visited, goal, pages, history, next_doc, play_time, opening, cleared, messages
     left_down = False
     site = load_site(site_id)
     data_count, frontier, visited = 0, [], []
     pages, history, next_doc, play_time, opening = {}, [], None, 0.0, None
-    goal = site['targets'][0]                       # 임시: 첫 후보 (S05-7에서 무작위로 뽑음)
+    random.seed(config.RANDOM_SEED)                 # None이면 매번 다른 판
+    goal = pick_goal(site)                          # 시작에서 min_hops단계 이상 떨어진 후보 중 하나
+    cleared, messages = False, []
     mouse_x, mouse_y = config.SCREEN_W / 2, config.SCREEN_H / 2   # 첫 마우스 이벤트 전에는 화면 가운데
     open_doc(site['start'])                         # 시작 문서 맨 위에서 출발
 
@@ -49,7 +55,10 @@ def open_doc(title):
     global page, camera, body, target_x, target_y, fade, charge
     charge = {'title': None, 'n': 0, 'time': 0.0}
     if title not in pages:
-        pages[title] = Page(site['docs'][title], set(site['docs']))   # 링크 색은 사이트의 문서 제목으로 정함
+        doc = site['docs'][title]
+        if title == goal['page']:
+            doc = mark_goal(doc, goal['keyword'])   # 목표 문서: 키워드 자리 중 하나를 뽑아 금색 키워드로
+        pages[title] = Page(doc, set(site['docs']))  # 링크 색은 사이트의 문서 제목으로 정함
     page = pages[title]
     if title not in visited:
         visited.append(title)                       # 방문 수 (HUD 방문 k/K)
@@ -108,7 +117,13 @@ def on_land(leg):
     # 발이 착지한 순간 한 번: 그 자리의 파란 링크를 먹는다 (몸통은 먹지 못함 — 발 착지만 판정)
     global data_count
     debug_view.note_landing(leg.foot_x, leg.foot_y)
-    global next_doc
+    global next_doc, cleared
+    if page.goal_at(leg.foot_x, leg.foot_y) and not cleared:
+        if len(visited) >= site['min_pages']:
+            cleared = True                            # 탈출! (PRD 11.3-4)
+        elif not messages:                            # 모자라면 알림만 (키워드는 남아 다시 먹을 수 있음)
+            messages.append([leg.foot_x, leg.foot_y + 20, '크롤링이 부족합니다 (방문 %d/%d)' % (len(visited), site['min_pages']), 0.0])
+        return
     group = page.eat_at(leg.foot_x, leg.foot_y)
     if group is not None:
         data_count += 1
@@ -148,7 +163,9 @@ def go_to(title, back):
 
 
 def update():
-    global target_x, target_y, next_doc, play_time, fade, opening
+    global target_x, target_y, next_doc, play_time, fade, opening, messages
+    if cleared:
+        return                                        # CLEAR 뒤에는 멈춤 (결과 화면은 S10)
     if opening is not None:
         # 새 창이 열리는 동안은 게임이 멈춘다. 다 열리면 문서를 옮긴다
         opening['t'] += game_framework.frame_time
@@ -163,6 +180,9 @@ def update():
     page.update(game_framework.frame_time)
     debug_view.update(game_framework.frame_time)
     play_time += game_framework.frame_time
+    for m in messages:
+        m[3] += game_framework.frame_time
+    messages = [m for m in messages if m[3] < config.SHORT_MSG_TIME]
     fade = max(0.0, fade - game_framework.frame_time)
     if next_doc is not None:                          # 이번 프레임에 칸을 다 채웠으면 새 창 열기 시작
         title, back, i = next_doc
@@ -211,6 +231,10 @@ def draw():
     page.draw(camera)
     page.draw_exit(camera, exit_choices(), exit_need(), play_time, exit_fill())
     body.draw(camera)
+    for x, y, text, age in messages:                  # 떠오르며 흐려지는 알림
+        k = age / config.SHORT_MSG_TIME
+        w = text_width(text, config.HUD_FONT, 'bold')
+        draw_static_text(x - w / 2, y + config.SHORT_MSG_RISE * k - camera.y, text, config.HUD_FONT, config.COLOR_RED, 1 - k * k, 'bold')
     if opening is not None:
         draw_opening()
     if fade > 0:                          # 문서를 막 옮겼으면 배경색에서 밝아진다
@@ -228,8 +252,28 @@ def draw():
                  page.eaten_count(), site['page_quota'], data_count, open_progress())
 
     debug_view.draw(camera, body, (mouse_x, mouse_y), (target_x, target_y), page,
-                    'data %d  queue %s  back %s' % (data_count, ', '.join(frontier) or '-', ', '.join(history) or '-'))   # F1
+                    'goal %s/%s (%d hops)  data %d  queue %s  back %s' % (goal['page'], goal['keyword'], goal['hops'], data_count,
+                                                                           ', '.join(frontier) or '-', ', '.join(history) or '-'))   # F1
+    if cleared:
+        draw_clear()
     draw_cursor()
+
+
+def draw_clear():
+    # CLEAR 판: 화면 가운데. 결과 화면·다시 하기는 S10
+    w, h = config.CLEAR_W, config.CLEAR_H
+    x, y = (config.SCREEN_W - w) / 2, (config.SCREEN_H - config.HUD_BAR_H - h) / 2
+    fill_rect(0, 0, config.SCREEN_W, config.SCREEN_H - config.HUD_BAR_H, config.COLOR_BG, 0.6)
+    fill_rect(x, y, w, h, config.HUD_BAR_BG)
+    draw_rect(x, y, w, h, 2, config.COLOR_GOLD)
+    lines = [('CRAWL COMPLETE', 28, config.COLOR_GOLD, 'bold'),
+             ('"%s" — %s 문서에서 찾음' % (goal['keyword'], goal['page']), 16, config.WIKI_TEXT, 'ui'),
+             ('시간 %d:%02d   데이터 %d   방문 %d' % (play_time // 60, play_time % 60, data_count, len(visited)), 16, config.WIKI_TEXT, 'ui'),
+             ('ESC 종료', 12, config.HUD_LABEL, 'ui')]
+    ty = y + h - 56
+    for text, size, color, kind in lines:
+        draw_static_text(x + (w - text_width(text, size, kind)) / 2, ty, text, size, color, 1.0, kind)
+        ty -= size + 22
 
 
 def pause():

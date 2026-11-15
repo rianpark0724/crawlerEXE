@@ -23,6 +23,7 @@ COLOR_SKY    = (90, 200, 255)    # 데이터 조각
 COLOR_RED    = (240, 70, 70)     # 피격, 잃은 다리
 COLOR_GREEN  = (90, 220, 120)    # 디버그: 무적, 착지
 COLOR_YELLOW = (250, 220, 80)    # 디버그: 목표 지점
+COLOR_GOLD   = (255, 196, 60)    # 목표 키워드 (먹으면 탈출)
 COLOR_BODY   = (34, 42, 70)      # 크롤러 마디 안쪽 채움
 COLOR_BODY_LIGHT = (90, 108, 160)  # 마디 윗면 하이라이트
 
@@ -42,6 +43,10 @@ LINK_ALPHA   = 1.0               # 아직 안 먹은 파란 링크 밝기 — �
 COLLECT_MARGIN = 8        # 링크 단어 상자 바깥으로 이만큼까지 착지하면 먹음 (px). 4는 자꾸 빗나가고 12는 너무 넉넉해서 8
 COLLECT_FX_TIME = 0.4     # 먹은 링크가 번쩍였다 보라로 가라앉는 시간, 수집 원이 퍼지는 시간
 COLLECT_FX_R = 22         # 수집 원이 퍼지는 크기 (px)
+GOAL_PULSE = 4.0          # 목표 키워드가 반짝이는 빠르기
+SHORT_MSG_TIME = 1.5      # '크롤링이 부족합니다' 글이 떠 있는 시간 (초)
+SHORT_MSG_RISE = 30       # 그동안 위로 떠오르는 거리 (px)
+CLEAR_W, CLEAR_H = 520, 210   # CLEAR 판 크기
 
 # ── 페이지 출구 = 다음 문서 상자 (PRD 11.3-3) ──
 EXIT_ROWS, EXIT_COLS = 1, 5   # 칸 배치: 한 줄 5칸 (방문 대기열 4 + 뒤로). 두 줄이면 아래 칸에 가다 위 칸을 밟게 됨
@@ -119,6 +124,7 @@ SHADOW_DY = -4
 SHADOW_ALPHA = 0.45       # 그림자 진하기
 
 # ── 페이지 (PRD 10.1) ─────────────────
+RANDOM_SEED = None        # 숫자를 넣으면 매번 같은 판(목표·키워드 자리), None이면 매번 다르게 (PRD 11.3-7)
 FIRST_STAGE = 'wiki'      # 처음 시작하는 사이트 (data/stages/<id>.json)
 PAGE_TRIAL_H = 100000     # 문서 높이를 재려고 한 번 배치해 보는 임시 높이
 PAGE_BOTTOM_PAD = 60      # 문서 바닥글 아래 여백
