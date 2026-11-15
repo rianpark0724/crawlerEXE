@@ -2,6 +2,7 @@
 # 좌표는 전부 월드 좌표. 그릴 때만 camera.to_screen으로 바꾼다.
 # 걸음을 언제 시작할지는 Body가 정한다 (번갈아 걷기·동시 걸음 제한). 다리는 자세 계산과 걸음 진행만.
 import math
+import random
 
 import config
 from ui.draw import draw_line, fill_rect
@@ -11,11 +12,13 @@ class Leg:
     def __init__(self, side):
         self.side = side                 # +1 = 머리 방향 기준 왼쪽, -1 = 오른쪽
         self.partner = None              # 같은 마디의 반대쪽 다리 (Segment가 연결)
-        self.l1 = config.LEG_L1          # 허벅지 길이 (S04-5에서 다리마다 무작위)
-        self.l2 = config.LEG_L2          # 종아리 길이
-        self.reach = config.LEG_REACH    # 이상적 발 거리 = (l1 + l2) × reach
-        self.threshold = config.LEG_THRESHOLD   # 발이 이상적 위치에서 이만큼 벗어나면 걸음
-        self.step_time = config.LEG_STEP_TIME   # 한 걸음에 걸리는 시간
+        # 다리마다 다른 개성 (PRD 5.2) — 같은 걸음이 없게
+        self.l1 = random.uniform(*config.LEG_L1_RANGE)                  # 허벅지 길이
+        self.l2 = random.uniform(*config.LEG_L2_RANGE)                  # 종아리 길이
+        self.reach = random.uniform(*config.LEG_REACH_RANGE)            # 이상적 발 거리 = (l1 + l2) × reach
+        self.threshold = random.uniform(*config.LEG_THRESHOLD_RANGE)    # 발이 이상적 위치에서 이만큼 벗어나면 걸음
+        self.step_time = random.uniform(*config.LEG_STEP_TIME_RANGE)    # 한 걸음에 걸리는 시간
+        self.tilt_random = random.uniform(-config.LEG_TILT_RANDOM, config.LEG_TILT_RANDOM)   # 다리 방향 흔들림
         self.placed = False              # 발을 처음 바닥에 놓았는지
         self.stepping = False            # 걸음 중인지
         self.t = 0.0                     # 걸음 진행도 0 → 1
@@ -33,8 +36,8 @@ class Leg:
         side_angle = seg.angle + self.side * math.pi / 2
         self.shoulder_x = seg.x + math.cos(side_angle) * size / 2      # 어깨: 마디 옆면 가운데
         self.shoulder_y = seg.y + math.sin(side_angle) * size / 2
-        leg_angle = seg.angle + self.side * (math.pi / 2 - tilt)        # 다리 방향: 옆에서 tilt만큼 앞으로
-        self.bend = -self.side if tilt > 0 else self.side               # 거미형 무릎: 앞 다리는 앞으로, 나머지는 뒤로
+        leg_angle = seg.angle + self.side * (math.pi / 2 - tilt - self.tilt_random)   # 다리 방향: 옆에서 tilt만큼 앞으로
+        self.bend = -self.side if tilt > 0 else self.side               # 거미형 무릎: 앞 다리는 앞으로, 나머지는 뒤로 (무작위 없는 tilt로 정함)
         dist = (self.l1 + self.l2) * self.reach
         # 이상적 발 위치 = 어깨에서 다리 방향으로 dist + 마디 속도 × LEG_LEAD초 (가는 쪽으로 미리 딛기)
         self.ideal_x = self.shoulder_x + math.cos(leg_angle) * dist + seg.vx * config.LEG_LEAD
