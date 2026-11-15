@@ -3,7 +3,7 @@
 import math
 
 import config
-from ui.draw import draw_line, draw_circle
+from ui.draw import fill_rect_rotated, draw_rect_rotated
 
 
 class Segment:
@@ -51,12 +51,14 @@ class Body:
             seg.angle = math.atan2(dy, dx)                   # 앞 마디를 바라봄
 
     def draw(self):
-        # 임시 그림: 마디 = 원, 마디 사이 연결선, 머리 방향 선 (S02-4에서 사각형으로)
-        for i in range(1, len(self.segs)):
-            front, seg = self.segs[i - 1], self.segs[i]
-            draw_line(front.x, front.y, seg.x, seg.y, 1, config.COLOR_GRAY)
-            draw_circle(seg.x, seg.y, 6, 1, config.COLOR_WHITE)
+        # 꼬리부터 그려서 머리가 맨 위에 오게 한다
+        for i in range(len(self.segs) - 1, -1, -1):
+            seg = self.segs[i]
+            size = config.BOX_HEAD_SIZE if i == 0 else config.BOX_SEG_SIZE
+            fill_rect_rotated(seg.x, seg.y, size, size, seg.angle, config.COLOR_BODY)    # 안쪽 채움
+            draw_rect_rotated(seg.x, seg.y, size, size, seg.angle, 1, config.COLOR_WHITE)  # 윤곽
+        # 머리 앞쪽 가장자리 근처에 주황 점 — 어느 쪽이 앞인지 표시
         head = self.segs[0]
-        draw_circle(head.x, head.y, 8, 1, config.COLOR_WHITE)
-        draw_line(head.x, head.y, head.x + math.cos(head.angle) * 14, head.y + math.sin(head.angle) * 14,
-                  2, config.COLOR_ORANGE)
+        r = config.BOX_HEAD_SIZE / 2 - config.BOX_EYE_SIZE / 2 - 1     # 중심에서 점까지 거리
+        fill_rect_rotated(head.x + math.cos(head.angle) * r, head.y + math.sin(head.angle) * r,
+                          config.BOX_EYE_SIZE, config.BOX_EYE_SIZE, head.angle, config.COLOR_ORANGE)

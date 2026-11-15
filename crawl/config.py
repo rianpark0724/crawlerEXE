@@ -21,6 +21,7 @@ COLOR_SKY    = (90, 200, 255)    # 데이터 조각
 COLOR_RED    = (240, 70, 70)     # 피격, 잃은 다리
 COLOR_GREEN  = (90, 220, 120)    # 디버그: 무적, 착지
 COLOR_YELLOW = (250, 220, 80)    # 디버그: 목표 지점
+COLOR_BODY   = (34, 42, 70)      # 크롤러 마디 안쪽 채움
 
 # ── 커서 ──────────────────────────────
 CURSOR_SIZE = 8           # 커서 십자 팔 길이
@@ -31,6 +32,9 @@ BOX_BASE_SPEED = 120      # 기본 이동 속도 (px/s)
 BOX_SPEED_PER_PAIR = 8    # 다리 한 쌍당 추가 속도 (px/s)
 BOX_START_LEGS = 6        # 시작 다리 수 (S04 다리가 생기기 전까지 속도 계산에 사용)
 BOX_START_SEGS = 3        # 시작 마디 수 (머리 포함)
+BOX_SEG_SIZE = 14         # 몸통 마디 한 변
+BOX_HEAD_SIZE = 16        # 머리 한 변
+BOX_EYE_SIZE = 4          # 머리 앞쪽 주황 점 한 변
 
 # ── 몸통 공통 (PRD 5.1) ───────────────
 SEG_SPACING = 19          # 마디 사이 거리

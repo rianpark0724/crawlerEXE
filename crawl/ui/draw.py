@@ -57,6 +57,24 @@ def draw_rect(x, y, w, h, width=1, color=config.COLOR_WHITE, alpha=1.0):
     draw_line(x + w, y, x + w, y + h, width, color, alpha)              # 오른쪽
 
 
+def fill_rect_rotated(cx, cy, w, h, angle, color=config.COLOR_WHITE, alpha=1.0):
+    # 회전한 꽉 찬 사각형. (cx, cy)는 중심, angle은 라디안 — 픽셀을 w×h로 늘려 돌린다
+    set_color(color, alpha)
+    pixel.composite_draw(angle, '', cx, cy, w, h)
+
+
+def draw_rect_rotated(cx, cy, w, h, angle, width=1, color=config.COLOR_WHITE, alpha=1.0):
+    # 회전한 사각 윤곽. 네 꼭짓점을 중심 기준으로 angle만큼 돌려 잇는다
+    c, s = math.cos(angle), math.sin(angle)
+    corners = []
+    for lx, ly in [(-w / 2, -h / 2), (w / 2, -h / 2), (w / 2, h / 2), (-w / 2, h / 2)]:
+        corners.append((cx + lx * c - ly * s, cy + lx * s + ly * c))   # 회전 변환
+    for i in range(4):
+        x1, y1 = corners[i]
+        x2, y2 = corners[(i + 1) % 4]
+        draw_line(x1, y1, x2, y2, width, color, alpha)
+
+
 def fill_rect(x, y, w, h, color=config.COLOR_WHITE, alpha=1.0):
     # 꽉 찬 사각형. (x, y)는 왼쪽 아래 모서리
     set_color(color, alpha)
