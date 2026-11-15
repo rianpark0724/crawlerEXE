@@ -8,28 +8,44 @@ import pico2d
 import pico2d.pico2d as p2d          # renderer(open_canvas 뒤에 생김)를 꺼내 쓰기 위해
 from pico2d import load_image, load_font, Image, SDL_SetTextureColorMod
 from sdl2 import SDL_Color, SDL_CreateTextureFromSurface, SDL_FreeSurface
-from sdl2.sdlttf import TTF_SizeUTF8, TTF_RenderUTF8_Blended
+from sdl2.sdlttf import TTF_SizeUTF8, TTF_RenderUTF8_Blended, TTF_FontHeight
 
 import config
 
 pixel = None   # 1×1 흰 픽셀 이미지. open_canvas() 뒤 load()에서 읽는다.
-font = None    # 기본 글꼴 — pico2d에 함께 설치되는 ConsolaMalgun(영문 고정폭 + 한글)
-FONT_PATH = os.path.join(os.path.dirname(pico2d.__file__), 'data', 'ConsolaMalgun.ttf')
-fonts = {}         # 크기별 글꼴 {크기: Font}
-text_images = {}   # 글자 이미지 캐시 {(글, 크기): Image} — 같은 글은 한 번만 만든다
+font = None    # 디버그 글꼴 — pico2d에 함께 설치되는 ConsolaMalgun(영문 고정폭 + 한글)
+MONO_PATH = os.path.join(os.path.dirname(pico2d.__file__), 'data', 'ConsolaMalgun.ttf')
+# 글꼴 종류 → 파일. 'ui'·'bold'는 맑은 고딕(위키백과 Windows 화면과 같은 한글), 없으면 ConsolaMalgun으로 대체
+FONT_PATHS = {
+    'mono': MONO_PATH,
+    'ui': config.FONT_UI_PATH if os.path.exists(config.FONT_UI_PATH) else MONO_PATH,
+    'bold': config.FONT_BOLD_PATH if os.path.exists(config.FONT_BOLD_PATH) else MONO_PATH,
+}
+fonts = {}         # 글꼴 캐시 {(종류, 크기): Font}
+text_images = {}   # 글자 이미지 캐시 {(글, 크기, 종류): Image} — 같은 글은 한 번만 만든다
+images = {}        # 그림 캐시 {파일 이름: Image 또는 None(파일 없음)}
 
 
 def load():
     global pixel, font
     pixel = load_image(os.path.join(config.IMAGE_DIR, 'pixel.png'))
-    font = get_font(config.FONT_SIZE)
+    font = get_font(config.FONT_SIZE, 'mono')
 
 
-def get_font(size):
-    # 크기별 글꼴을 처음 쓸 때 한 번만 읽는다
-    if size not in fonts:
-        fonts[size] = load_font(FONT_PATH, size)
-    return fonts[size]
+def get_font(size, kind='ui'):
+    # 종류·크기별 글꼴을 처음 쓸 때 한 번만 읽는다
+    key = (kind, size)
+    if key not in fonts:
+        fonts[key] = load_font(FONT_PATHS[kind], size)
+    return fonts[key]
+
+
+def get_image(name):
+    # assets/images/의 그림을 한 번만 읽는다. 파일이 없으면 None (직접 만든 그림을 넣기 전까지 자리만 표시)
+    if name not in images:
+        path = os.path.join(config.IMAGE_DIR, name)
+        images[name] = load_image(path) if os.path.exists(path) else None
+    return images[name]
 
 
 def set_color(color, alpha):
@@ -100,27 +116,32 @@ def draw_text(x, y, text, color=config.COLOR_WHITE):
     font.draw(x, y, text, color)
 
 
-def text_width(text, size):
+def text_width(text, size, kind='ui'):
     # 글을 그렸을 때의 가로 폭(px) — 줄바꿈 계산용. 이미지를 만들지 않고 잰다
     w, h = ctypes.c_int(), ctypes.c_int()
-    TTF_SizeUTF8(get_font(size).font, text.encode('utf-8'), ctypes.byref(w), ctypes.byref(h))
+    TTF_SizeUTF8(get_font(size, kind).font, text.encode('utf-8'), ctypes.byref(w), ctypes.byref(h))
     return w.value
 
 
-def get_text_image(text, size):
+def text_height(size, kind='ui'):
+    # 글 이미지의 높이(px) — 줄 안에서 세로 가운데 맞춤용
+    return TTF_FontHeight(get_font(size, kind).font)
+
+
+def get_text_image(text, size, kind='ui'):
     # 흰 글자 이미지를 한 번만 만들어 캐시. 색은 그릴 때 ColorMod로 입힌다
-    key = (text, size)
+    key = (text, size, kind)
     if key not in text_images:
-        surface = TTF_RenderUTF8_Blended(get_font(size).font, text.encode('utf-8'), SDL_Color(255, 255, 255))
+        surface = TTF_RenderUTF8_Blended(get_font(size, kind).font, text.encode('utf-8'), SDL_Color(255, 255, 255))
         texture = SDL_CreateTextureFromSurface(p2d.renderer, surface)
         SDL_FreeSurface(surface)
         text_images[key] = Image(texture)
     return text_images[key]
 
 
-def draw_static_text(x, y, text, size, color=config.COLOR_WHITE, alpha=1.0):
+def draw_static_text(x, y, text, size, color=config.COLOR_WHITE, alpha=1.0, kind='ui'):
     # 바뀌지 않는 글(페이지 본문 등). (x, y)는 글의 왼쪽 아래. 캐시한 이미지에 색만 입혀 그린다
-    image = get_text_image(text, size)
+    image = get_text_image(text, size, kind)
     r, g, b = color
     SDL_SetTextureColorMod(image.texture, r, g, b)
     image.opacify(alpha)

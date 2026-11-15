@@ -7,7 +7,7 @@ import config
 import game_framework
 from crawler.body import Body
 from world.camera import Camera
-from world.stage import Page
+from world.stage import Page, load_doc
 from ui.draw import draw_line, fill_rect, draw_text
 
 mouse_x, mouse_y = 0.0, 0.0   # 커서 위치 (화면 좌표, y 위로 증가) — 커서 그리기용
@@ -19,7 +19,7 @@ page = None
 
 def init():
     global mouse_x, mouse_y, target_x, target_y, body, camera, page
-    page = Page(config.TEST_PAGE_HEIGHT)
+    page = Page(config.TEST_PAGE_HEIGHT, load_doc('crawler'))
     camera = Camera()
     camera.y = page.height - config.SCREEN_H        # 페이지 맨 위가 보이게
     mouse_x, mouse_y = config.SCREEN_W / 2, config.SCREEN_H / 2   # 첫 마우스 이벤트 전에는 화면 가운데

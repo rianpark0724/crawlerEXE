@@ -13,7 +13,7 @@ SHOW_FPS = True           # 왼쪽 위 FPS 표시 (디버그)
 FPS_INTERVAL = 0.5        # FPS 숫자를 몇 초마다 갱신할지
 
 # ── 색상 ──────────────────────────────
-COLOR_BG     = (16, 20, 38)      # 배경 남색 (S01-5에서 사용)
+COLOR_BG     = (16, 20, 24)      # 배경 (위키백과 어두운 테마 #101418)
 COLOR_WHITE  = (235, 238, 245)   # 크롤러 몸·다리 기본 선
 COLOR_GRAY   = (110, 116, 135)   # 비활성(잠긴 출구, 흐린 글줄)
 COLOR_ORANGE = (255, 150, 40)    # 머리 표식, 출구 링크
@@ -23,8 +23,17 @@ COLOR_GREEN  = (90, 220, 120)    # 디버그: 무적, 착지
 COLOR_YELLOW = (250, 220, 80)    # 디버그: 목표 지점
 COLOR_BODY   = (34, 42, 70)      # 크롤러 마디 안쪽 채움
 COLOR_BODY_LIGHT = (90, 108, 160)  # 마디 윗면 하이라이트
-COLOR_PAGE_TEXT = (58, 66, 100)  # 페이지 본문 글 (흐리게, 읽을 수는 있게)
-COLOR_PAGE_HEAD = (82, 92, 132)  # 페이지 제목·소제목·정보 상자
+
+# ── 위키 페이지 (위키백과 Vector 2022 어두운 테마를 레퍼런스로) ──
+WIKI_TEXT    = (234, 236, 240)   # #eaecf0 본문
+WIKI_SUBTLE  = (162, 169, 177)   # #a2a9b1 보조 글 (안내문·캡션)
+WIKI_LINK    = (136, 163, 232)   # #88a3e8 링크
+WIKI_VISITED = (167, 153, 205)   # #a799cd 방문한 링크 — 수집한 데이터 조각 (S05)
+WIKI_REDLINK = (253, 120, 101)   # #fd7865 아직 없는 문서 링크
+WIKI_BORDER  = (84, 89, 93)      # #54595d 구분선
+WIKI_BORDER_STRONG = (114, 119, 125)  # #72777d 상자·검색창 테두리
+WIKI_BOX_BG  = (32, 33, 34)      # 그림 틀·분류 상자 안쪽
+WIKI_ALPHA   = 0.55              # 페이지 전체 밝기 (1.0 = 위키백과 그대로, 낮을수록 크롤러가 잘 보임)
 
 # ── 커서 ──────────────────────────────
 CURSOR_SIZE = 8           # 커서 십자 팔 길이
@@ -53,26 +62,31 @@ SHADOW_DX = 3             # 그림자 어긋남 (오른쪽 아래)
 SHADOW_DY = -4
 SHADOW_ALPHA = 0.45       # 그림자 진하기
 
-
 # ── 페이지 (PRD 10.1) ─────────────────
 TEST_PAGE_HEIGHT = 1440   # S05 스테이지 JSON 전까지 쓰는 임시 페이지 높이 (wiki.json과 같음)
 TEST_SPAWN = (640, 1300)  # 임시 시작 위치 (wiki.json과 같음)
-PAGE_MARGIN = 80          # 배경 글줄 왼쪽 여백
-PAGE_TOP_GAP = 110        # 페이지 맨 위 ~ 첫 글줄 (나중에 HUD 주소줄 자리)
-PAGE_TEXT_W = 820         # 본문 줄 폭 (이보다 길면 줄바꿈)
-PAGE_LINE_STEP = 22       # 본문 줄 간격
-PAGE_FONT_P = 14          # 본문 글자 크기
-PAGE_FONT_H = 20          # 소제목 글자 크기
-PAGE_FONT_TITLE = 30      # 페이지 제목 글자 크기
-PAGE_SEED = 7             # 배경 무작위 배치 시드 (실행할 때마다 같은 배경)
+WIKI_HEADER_H = 56        # 맨 위 머리글(로고·검색창) 높이
+WIKI_TOC_X = 24           # 왼쪽 목차 x
+WIKI_CONTENT_X = 240      # 본문 왼쪽 x
+WIKI_CONTENT_W = 900      # 본문 폭
+WIKI_LINE_H = 22          # 본문 줄 높이 (14px × 1.6)
+WIKI_FONT_BODY = 14       # 본문 글자
+WIKI_FONT_SMALL = 12      # 캡션·각주·바닥글
+WIKI_FONT_REF = 10        # 각주 번호 [1]
+WIKI_FONT_H2 = 22         # 큰 소제목
+WIKI_FONT_H3 = 16         # 작은 소제목
+WIKI_FONT_TITLE = 28      # 문서 제목
 
 # ── 몸통 공통 (PRD 5.1) ───────────────
 SEG_SPACING = 19          # 마디 사이 거리
 
 # ── 그리기 ────────────────────────────
 CIRCLE_SIDES = 24         # 원 윤곽을 몇 개의 선으로 근사할지
-FONT_SIZE = 14            # 기본 글자 크기
+FONT_SIZE = 14            # 디버그 글자 크기
+FONT_UI_PATH = r'C:\Windows\Fonts\malgun.ttf'      # 맑은 고딕 — 없으면 pico2d 기본 글꼴로 대체
+FONT_BOLD_PATH = r'C:\Windows\Fonts\malgunbd.ttf'  # 맑은 고딕 굵게
 
 # ── 경로 ──────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))     # crawl/ 폴더 (어디서 실행해도 같은 경로)
 IMAGE_DIR = os.path.join(BASE_DIR, 'assets', 'images')
+PAGE_DIR = os.path.join(BASE_DIR, 'data', 'pages')       # 페이지 문서(글) JSON
