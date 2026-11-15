@@ -3,7 +3,7 @@
 import math
 
 import config
-from ui.draw import fill_rect_rotated, draw_rect_rotated
+from ui.draw import fill_rect_rotated, draw_line
 
 
 class Segment:
@@ -60,16 +60,45 @@ class Body:
             seg.angle = math.atan2(dy, dx)                   # 앞 마디를 바라봄
 
     def draw(self, camera):
-        # 꼬리부터 그려서 머리가 맨 위에 오게 한다
+        # 1. 그림자를 먼저 전부 깐다 (몸 위에 그림자가 겹치지 않게)
+        for i, seg in enumerate(self.segs):
+            size = config.BOX_HEAD_SIZE if i == 0 else config.BOX_SEG_SIZE
+            sx, sy = camera.to_screen(seg.x, seg.y)
+            fill_rect_rotated(sx + config.SHADOW_DX, sy + config.SHADOW_DY, size + 2, size + 2, seg.angle,
+                              (0, 0, 0), config.SHADOW_ALPHA)
+        # 2. 마디: 꼬리부터 그려서 머리가 맨 위에 오게 한다
         for i in range(len(self.segs) - 1, -1, -1):
             seg = self.segs[i]
             size = config.BOX_HEAD_SIZE if i == 0 else config.BOX_SEG_SIZE
             sx, sy = camera.to_screen(seg.x, seg.y)
-            fill_rect_rotated(sx, sy, size, size, seg.angle, config.COLOR_BODY)    # 안쪽 채움
-            draw_rect_rotated(sx, sy, size, size, seg.angle, 1, config.COLOR_WHITE)  # 윤곽
+            self.draw_segment(sx, sy, size, seg.angle)
         # 머리 앞쪽 가장자리 근처에 주황 점 — 어느 쪽이 앞인지 표시
         head = self.segs[0]
         hx, hy = camera.to_screen(head.x, head.y)
         r = config.BOX_HEAD_SIZE / 2 - config.BOX_EYE_SIZE / 2 - 1     # 중심에서 점까지 거리
         fill_rect_rotated(hx + math.cos(head.angle) * r, hy + math.sin(head.angle) * r,
                           config.BOX_EYE_SIZE, config.BOX_EYE_SIZE, head.angle, config.COLOR_ORANGE)
+
+    def draw_segment(self, x, y, size, angle):
+        # 입체감 있는 사각 마디 하나 (화면 좌표). 빛은 LIGHT_DIR(왼쪽 위)에서 온다고 본다
+        lx, ly = config.LIGHT_DIR
+        # 반투명 몸 채움
+        fill_rect_rotated(x, y, size, size, angle, config.COLOR_BODY, config.BOX_BODY_ALPHA)
+        # 윗면 하이라이트: 작은 밝은 사각형을 빛 쪽으로 살짝 옮겨 겹침 → 볼록해 보임
+        hs = size * config.BOX_HIGHLIGHT_SIZE
+        shift = size * config.BOX_HIGHLIGHT_SHIFT
+        fill_rect_rotated(x + lx * shift, y + ly * shift, hs, hs, angle, config.COLOR_BODY_LIGHT, config.BOX_HIGHLIGHT_ALPHA)
+        # 테두리: 네 변을 각각 빛을 받는 정도에 따라 밝게/어둡게
+        c, s = math.cos(angle), math.sin(angle)
+        h = size / 2
+        corners = []
+        for px, py in [(-h, -h), (h, -h), (h, h), (-h, h)]:
+            corners.append((x + px * c - py * s, y + px * s + py * c))    # 회전 변환
+        for k in range(4):
+            x1, y1 = corners[k]
+            x2, y2 = corners[(k + 1) % 4]
+            nx, ny = (y2 - y1) / size, -(x2 - x1) / size          # 변의 바깥쪽 방향 (단위 벡터)
+            lit = (nx * lx + ny * ly + 1) / 2                     # 빛을 받는 정도 0(등진 쪽) ~ 1(정면)
+            f = config.EDGE_DARK + (1 - config.EDGE_DARK) * lit   # 밝기 배율
+            color = (int(config.COLOR_WHITE[0] * f), int(config.COLOR_WHITE[1] * f), int(config.COLOR_WHITE[2] * f))
+            draw_line(x1, y1, x2, y2, 1, color)

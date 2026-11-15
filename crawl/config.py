@@ -22,6 +22,7 @@ COLOR_RED    = (240, 70, 70)     # 피격, 잃은 다리
 COLOR_GREEN  = (90, 220, 120)    # 디버그: 무적, 착지
 COLOR_YELLOW = (250, 220, 80)    # 디버그: 목표 지점
 COLOR_BODY   = (34, 42, 70)      # 크롤러 마디 안쪽 채움
+COLOR_BODY_LIGHT = (90, 108, 160)  # 마디 윗면 하이라이트
 COLOR_PAGE_TEXT = (58, 66, 100)  # 페이지 본문 글 (흐리게, 읽을 수는 있게)
 COLOR_PAGE_HEAD = (82, 92, 132)  # 페이지 제목·소제목·정보 상자
 
@@ -40,6 +41,18 @@ BOX_START_SEGS = 3        # 시작 마디 수 (머리 포함)
 BOX_SEG_SIZE = 14         # 몸통 마디 한 변
 BOX_HEAD_SIZE = 16        # 머리 한 변
 BOX_EYE_SIZE = 4          # 머리 앞쪽 주황 점 한 변
+BOX_BODY_ALPHA = 0.55     # 마디 채움 투명도 (1 = 불투명) — 아래 페이지 글이 비침
+BOX_HIGHLIGHT_ALPHA = 0.18  # 윗면 하이라이트 투명도 (은은하게)
+BOX_HIGHLIGHT_SIZE = 0.7  # 하이라이트 크기 (마디 한 변 대비) — 크게 해서 몸 색과 섞이게
+BOX_HIGHLIGHT_SHIFT = 0.1 # 하이라이트를 빛 쪽으로 옮기는 정도 (마디 한 변 대비)
+
+# ── 입체감 (빛·그림자) ────────────────
+LIGHT_DIR = (-0.7071, 0.7071)   # 빛이 오는 방향 (왼쪽 위, 단위 벡터)
+EDGE_DARK = 0.35          # 빛을 등진 테두리 밝기 배율 (빛 정면 = 1.0)
+SHADOW_DX = 3             # 그림자 어긋남 (오른쪽 아래)
+SHADOW_DY = -4
+SHADOW_ALPHA = 0.45       # 그림자 진하기
+
 
 # ── 페이지 (PRD 10.1) ─────────────────
 TEST_PAGE_HEIGHT = 1440   # S05 스테이지 JSON 전까지 쓰는 임시 페이지 높이 (wiki.json과 같음)
