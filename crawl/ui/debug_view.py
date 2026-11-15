@@ -3,7 +3,7 @@ import math
 
 import config
 import game_framework
-from ui.draw import draw_line, draw_circle, draw_rect, fill_rect, draw_text
+from ui.draw import draw_line, draw_circle, draw_rect, draw_rect_rotated, fill_rect, draw_text
 
 on = config.DEBUG_START      # 켜져 있는지
 landings = []                # 착지 표시 [x, y, 나이] (월드 좌표)
@@ -39,6 +39,13 @@ def draw(camera, body, mouse, target, page, extra):
         draw_line(fx, fy, ix, iy, 1, config.COLOR_GRAY, 0.8)
         dot = config.COLOR_GREEN if leg.stepping else config.COLOR_WHITE  # 초록 = 걷는 중
         fill_rect(fx - 2, fy - 2, 4, 4, dot)
+    # WAVE: 무적인 마디를 초록 상자로 (머리 → 꼬리로 번지는 것이 보임)
+    lift = body.height * config.VIEW_TILT
+    for i, seg in enumerate(body.segs):
+        if body.invincible(i):
+            sx, sy = camera.to_screen(seg.x + seg.ox, seg.y + seg.oy)
+            size = body.seg_size(i) + 8
+            draw_rect_rotated(sx, sy + lift, size, size, seg.angle, 2, config.COLOR_GREEN)
     # 먹을 수 있는 링크의 판정 상자 (조각 상자 + COLLECT_MARGIN)
     m = config.COLLECT_MARGIN
     for x, y, w, h, text, target_doc, lid in page.links:
@@ -62,8 +69,9 @@ def draw(camera, body, mouse, target, page, extra):
         'mouse screen %4d %4d  world %4d %4d  camera.y %5.1f' % (mouse[0], mouse[1], target[0], target[1], camera.y),
         'head %4d %4d  angle %5.2f  speed %5.1f%s' % (head.x, head.y, head.angle, body.speed, '  sprint x%.2f  h %.1f' % (body.sprint_k, body.height)),
         'gaps %s   legs %d  stepping %d' % (gaps, len(legs), sum(leg.stepping for leg in legs)),
-        'wave %s' % ('%.2f / %.2fs' % (body.wave_t, body.wave_length()) if body.wave_t is not None
-                     else ('cooldown %.1fs' % body.wave_cool if body.wave_cool > 0 else 'ready')),
+        'wave %s  %s' % ('%.2f / %.2fs' % (body.wave_t, body.wave_length()) if body.wave_t is not None
+                     else ('cooldown %.1fs' % body.wave_cool if body.wave_cool > 0 else 'ready'),
+                         ''.join('#' if body.invincible(i) else '.' for i in range(len(body.segs)))),   # 머리부터 무적 마디 #
         extra,
         '[F1] debug',
     ]

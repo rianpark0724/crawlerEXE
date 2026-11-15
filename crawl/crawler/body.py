@@ -32,6 +32,7 @@ class Body:
         self.on_land = None                          # 발이 착지할 때 부를 함수 on_land(leg) — 수집 판정 (play_mode가 연결)
         self.wave_t = None                           # □ WAVE: 파동이 시작된 뒤 지난 시간 (None = 파동 중 아님)
         self.wave_cool = 0.0                         # WAVE 재사용까지 남은 시간
+        self.wave_dir = 0.0                          # 점프 돌진 방향 (출발할 때 커서 쪽으로 고정)
         self.update_legs(0.0)                        # 발을 처음 위치에 놓는다
 
     def all_legs(self):
@@ -44,12 +45,32 @@ class Body:
         # 파동 전체 시간: 마지막 마디가 굳기 시작하는 시각 + 무적 시간
         return (len(self.segs) - 1) * config.WAVE_STEP + config.WAVE_HOLD
 
-    def start_wave(self):
-        # 우클릭: 파동 중이 아니고 재사용 대기가 끝났으면 시작. 시작했으면 True
+    def invincible(self, i):
+        # 마디 i가 지금 공중(=무적)인지: 파동 시작 후 [i × STEP, i × STEP + HOLD] 초 사이 (머리 i = 0부터 차례로)
+        if self.wave_t is None:
+            return False
+        start = i * config.WAVE_STEP
+        return start <= self.wave_t < start + config.WAVE_HOLD
+
+    def start_wave(self, target_x, target_y):
+        # 우클릭: 파동 중이 아니고 재사용 대기가 끝났으면 커서 쪽으로 점프 돌진 시작. 시작했으면 True
         if self.wave_t is not None or self.wave_cool > 0:
             return False
+        head = self.segs[0]
         self.wave_t = 0.0
+        self.wave_dir = math.atan2(target_y - head.y, target_x - head.x)   # 방향은 여기서 고정 (공중에서 못 바꿈)
         return True
+
+    def dash_head(self, dt):
+        # 머리 점프: 공중 시간 동안 WAVE_DASH만큼, 처음이 가장 빠르고 끝으로 갈수록 느려짐
+        # 속도 = 2 × 거리 / 시간 × (1 − 진행)  → 0~1 구간을 적분하면 정확히 거리만큼 이동
+        u = self.wave_t / config.WAVE_HOLD
+        speed = 2 * config.WAVE_DASH / config.WAVE_HOLD * (1 - u)
+        head = self.segs[0]
+        head.angle = self.wave_dir
+        head.x += math.cos(self.wave_dir) * speed * dt
+        head.y += math.sin(self.wave_dir) * speed * dt
+        self.speed = speed
 
     def update_wave(self, dt):
         # 파동 시간 진행, 끝나면 재사용 대기 시작
@@ -73,7 +94,10 @@ class Body:
         self.sprint_k += (goal - self.sprint_k) * min(1, rate * dt)
         self.update_wave(dt)
         before = [(seg.x, seg.y) for seg in self.segs]
-        self.move_head(target_x, target_y, dt)   # 1~2. 머리 회전·전진
+        if self.invincible(0):
+            self.dash_head(dt)                   # 1~2. WAVE: 머리가 공중에 있는 동안은 점프 돌진 (조종 불가)
+        else:
+            self.move_head(target_x, target_y, dt)   # 1~2. 머리 회전·전진
         self.follow()                            # 3. 나머지 마디는 앞 마디에 끌려온다 (거리 제약)
         for seg, (px, py) in zip(self.segs, before):
             if dt > 0:
@@ -205,7 +229,7 @@ class Body:
             seg = self.segs[i]
             size = self.seg_size(i)
             sx, sy = camera.to_screen(seg.x + seg.ox, seg.y + seg.oy)
-            self.draw_segment(sx, sy + lift, size, seg.angle)
+            self.draw_segment(sx, sy + lift, size, seg.angle, self.invincible(i))
         # 머리 앞쪽 가장자리 근처에 주황 점 — 어느 쪽이 앞인지 표시
         head = self.segs[0]
         hx, hy = camera.to_screen(head.x + head.ox, head.y + head.oy)
@@ -213,15 +237,17 @@ class Body:
         fill_rect_rotated(hx + math.cos(head.angle) * r, hy + lift + math.sin(head.angle) * r,
                           config.BOX_EYE_SIZE, config.BOX_EYE_SIZE, head.angle, config.COLOR_ORANGE)
 
-    def draw_segment(self, x, y, size, angle):
+    def draw_segment(self, x, y, size, angle, ghost=False):
         # 입체감 있는 사각 마디 하나 (화면 좌표). 빛은 LIGHT_DIR(왼쪽 위)에서 온다고 본다
+        # ghost = WAVE로 공중에 뜬(무적) 마디: 전체를 WAVE_GHOST배로 흐리게 → 유령처럼 비침
         lx, ly = config.LIGHT_DIR
+        a = config.WAVE_GHOST if ghost else 1.0
         # 반투명 몸 채움
-        fill_rect_rotated(x, y, size, size, angle, config.COLOR_BODY, config.BOX_BODY_ALPHA)
+        fill_rect_rotated(x, y, size, size, angle, config.COLOR_BODY, config.BOX_BODY_ALPHA * a)
         # 윗면 하이라이트: 작은 밝은 사각형을 빛 쪽으로 살짝 옮겨 겹침 → 볼록해 보임
         hs = size * config.BOX_HIGHLIGHT_SIZE
         shift = size * config.BOX_HIGHLIGHT_SHIFT
-        fill_rect_rotated(x + lx * shift, y + ly * shift, hs, hs, angle, config.COLOR_BODY_LIGHT, config.BOX_HIGHLIGHT_ALPHA)
+        fill_rect_rotated(x + lx * shift, y + ly * shift, hs, hs, angle, config.COLOR_BODY_LIGHT, config.BOX_HIGHLIGHT_ALPHA * a)
         # 테두리: 네 변을 각각 빛을 받는 정도에 따라 밝게/어둡게
         c, s = math.cos(angle), math.sin(angle)
         h = size / 2
@@ -235,4 +261,4 @@ class Body:
             lit = (nx * lx + ny * ly + 1) / 2                     # 빛을 받는 정도 0(등진 쪽) ~ 1(정면)
             f = config.EDGE_DARK + (1 - config.EDGE_DARK) * lit   # 밝기 배율
             color = (int(config.COLOR_WHITE[0] * f), int(config.COLOR_WHITE[1] * f), int(config.COLOR_WHITE[2] * f))
-            draw_line(x1, y1, x2, y2, 1, color)
+            draw_line(x1, y1, x2, y2, 1, color, a)

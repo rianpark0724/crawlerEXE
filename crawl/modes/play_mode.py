@@ -142,7 +142,7 @@ def handle_events():
         elif event.type == SDL_MOUSEBUTTONUP and event.button == SDL_BUTTON_LEFT:
             left_down = False
         elif event.type == SDL_MOUSEBUTTONDOWN and event.button == SDL_BUTTON_RIGHT:
-            body.start_wave()                         # □ WAVE (재사용 대기 중이면 무시)
+            body.start_wave(target_x, target_y)       # □ WAVE 점프 돌진 (재사용 대기 중이면 무시)
 
 
 def on_land(leg):
