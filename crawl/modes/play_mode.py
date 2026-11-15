@@ -1,4 +1,4 @@
-# 플레이 화면 — 사각 마디 크롤러가 커서를 따라감(S02-4).
+# 플레이 화면 — 사각 마디 크롤러가 커서를 따라가 멈춤(S02-5).
 import math
 from pico2d import get_events
 from sdl2 import SDL_QUIT, SDL_KEYDOWN, SDLK_ESCAPE, SDL_MOUSEMOTION

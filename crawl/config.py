@@ -30,6 +30,9 @@ CURSOR_SIZE = 8           # 커서 십자 팔 길이
 BOX_TURN_SPEED = 3.5      # 머리 최대 회전 속도 (rad/s)
 BOX_BASE_SPEED = 120      # 기본 이동 속도 (px/s)
 BOX_SPEED_PER_PAIR = 8    # 다리 한 쌍당 추가 속도 (px/s)
+BOX_SLOW_FACTOR = 2.2     # 커서 근처 감속: 속도 상한 = 커서까지 거리 × 이 값
+BOX_STOP_DIST = 3         # 커서와 이 거리 안이면 멈춤 (떨림 방지)
+BOX_MIN_FACING = 0.2      # 커서와 다른 방향을 볼 때 속도 배율 하한 (속도 × max(이 값, cos(각도 차)))
 BOX_START_LEGS = 6        # 시작 다리 수 (S04 다리가 생기기 전까지 속도 계산에 사용)
 BOX_START_SEGS = 3        # 시작 마디 수 (머리 포함)
 BOX_SEG_SIZE = 14         # 몸통 마디 한 변

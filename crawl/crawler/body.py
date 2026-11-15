@@ -23,6 +23,13 @@ class Body:
     def update(self, target_x, target_y, dt):
         head = self.segs[0]
 
+        dist = math.hypot(target_x - head.x, target_y - head.y)    # 커서까지 거리
+        if dist < config.BOX_STOP_DIST:
+            # 커서 위에 도착: 회전도 전진도 하지 않는다 (가까우면 방향이 크게 흔들려 떨기 때문)
+            self.speed = 0.0
+            self.follow()
+            return
+
         # 1. 커서 쪽으로 회전 — 초당 BOX_TURN_SPEED rad 까지만
         want = math.atan2(target_y - head.y, target_x - head.x)     # 커서 방향
         diff = (want - head.angle + math.pi) % (2 * math.pi) - math.pi   # 돌아야 할 양 (-π ~ π)
@@ -32,6 +39,8 @@ class Body:
 
         # 2. 바라보는 방향으로 전진
         self.speed = config.BOX_BASE_SPEED + config.BOX_SPEED_PER_PAIR * (self.legs / 2)   # 120 + 8 × 다리 쌍
+        self.speed = min(self.speed, dist * config.BOX_SLOW_FACTOR)        # 커서 가까이 가면 감속
+        self.speed *= max(config.BOX_MIN_FACING, math.cos(diff))           # 커서와 다른 방향을 볼수록 느리게 (뒤돌 때 거의 제자리 회전)
         head.x += math.cos(head.angle) * self.speed * dt
         head.y += math.sin(head.angle) * self.speed * dt
 
