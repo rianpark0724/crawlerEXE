@@ -15,7 +15,8 @@ class Segment:
 
 class Body:
     def __init__(self, x, y):
-        self.segs = [Segment(x, y, -math.pi / 2)]   # 지금은 머리만 (S02-3에서 마디 추가). 아래를 보고 시작
+        # 머리는 아래(-π/2)를 보고, 나머지 마디는 그 위쪽에 SEG_SPACING 간격으로 줄지어 시작
+        self.segs = [Segment(x, y + i * config.SEG_SPACING, -math.pi / 2) for i in range(config.BOX_START_SEGS)]
         self.legs = config.BOX_START_LEGS            # 다리 수 (S04 전까지 임시 값)
         self.speed = 0.0                             # 이번 프레임 머리 속도 (디버그 표시용)
 
@@ -34,8 +35,27 @@ class Body:
         head.x += math.cos(head.angle) * self.speed * dt
         head.y += math.sin(head.angle) * self.speed * dt
 
+        # 3. 나머지 마디는 앞 마디에 끌려온다 (거리 제약)
+        self.follow()
+
+    def follow(self):
+        # 머리에서 꼬리 순서로: 마디 i를 마디 i-1에서 정확히 SEG_SPACING 떨어진 곳으로 당긴다
+        for i in range(1, len(self.segs)):
+            front, seg = self.segs[i - 1], self.segs[i]
+            dx, dy = front.x - seg.x, front.y - seg.y
+            d = math.hypot(dx, dy)
+            if d == 0:
+                continue
+            seg.x = front.x - dx / d * config.SEG_SPACING    # 앞 마디 → 이 마디 방향으로 SEG_SPACING만큼
+            seg.y = front.y - dy / d * config.SEG_SPACING
+            seg.angle = math.atan2(dy, dx)                   # 앞 마디를 바라봄
+
     def draw(self):
-        # 임시 그림: 머리 = 원 + 바라보는 방향 선 (S02-4에서 사각형으로)
+        # 임시 그림: 마디 = 원, 마디 사이 연결선, 머리 방향 선 (S02-4에서 사각형으로)
+        for i in range(1, len(self.segs)):
+            front, seg = self.segs[i - 1], self.segs[i]
+            draw_line(front.x, front.y, seg.x, seg.y, 1, config.COLOR_GRAY)
+            draw_circle(seg.x, seg.y, 6, 1, config.COLOR_WHITE)
         head = self.segs[0]
         draw_circle(head.x, head.y, 8, 1, config.COLOR_WHITE)
         draw_line(head.x, head.y, head.x + math.cos(head.angle) * 14, head.y + math.sin(head.angle) * 14,

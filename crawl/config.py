@@ -30,6 +30,10 @@ BOX_TURN_SPEED = 3.5      # 머리 최대 회전 속도 (rad/s)
 BOX_BASE_SPEED = 120      # 기본 이동 속도 (px/s)
 BOX_SPEED_PER_PAIR = 8    # 다리 한 쌍당 추가 속도 (px/s)
 BOX_START_LEGS = 6        # 시작 다리 수 (S04 다리가 생기기 전까지 속도 계산에 사용)
+BOX_START_SEGS = 3        # 시작 마디 수 (머리 포함)
+
+# ── 몸통 공통 (PRD 5.1) ───────────────
+SEG_SPACING = 19          # 마디 사이 거리
 
 # ── 그리기 ────────────────────────────
 CIRCLE_SIDES = 24         # 원 윤곽을 몇 개의 선으로 근사할지

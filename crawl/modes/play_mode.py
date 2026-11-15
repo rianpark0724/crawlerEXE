@@ -1,4 +1,5 @@
-# 플레이 화면 — 머리가 커서를 따라감(S02-2).
+# 플레이 화면 — 머리가 커서를 따라가고 마디가 끌려옴(S02-3).
+import math
 from pico2d import get_events
 from sdl2 import SDL_QUIT, SDL_KEYDOWN, SDLK_ESCAPE, SDL_MOUSEMOTION
 
@@ -56,6 +57,8 @@ def draw():
         draw_text(10, config.SCREEN_H - 32, 'mouse %4d %4d' % (mouse_x, mouse_y), config.COLOR_GRAY)
         head = body.segs[0]
         draw_text(10, config.SCREEN_H - 50, 'head %4d %4d  angle %5.2f  speed %5.1f' % (head.x, head.y, head.angle, body.speed), config.COLOR_GRAY)
+        gaps = ['%.1f' % math.hypot(a.x - b.x, a.y - b.y) for a, b in zip(body.segs, body.segs[1:])]
+        draw_text(10, config.SCREEN_H - 68, 'gaps ' + ' '.join(gaps), config.COLOR_GRAY)   # 마디 간격 (모두 19.0이어야 함)
 
 
 def pause():
