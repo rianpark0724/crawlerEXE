@@ -1,4 +1,4 @@
-# 플레이 화면 — 1440px 페이지 위쪽에서 시작(S03-2). 카메라는 아직 고정.
+# 플레이 화면 — 크롤러가 커서를 따라가고 카메라가 머리를 따라 세로로 스크롤(S03-3).
 import math
 from pico2d import get_events
 from sdl2 import SDL_QUIT, SDL_KEYDOWN, SDLK_ESCAPE, SDL_MOUSEMOTION
@@ -20,8 +20,7 @@ page = None
 def init():
     global mouse_x, mouse_y, target_x, target_y, body, camera, page
     page = Page(config.TEST_PAGE_HEIGHT, load_doc('crawler'))
-    camera = Camera()
-    camera.y = page.height - config.SCREEN_H        # 페이지 맨 위가 보이게
+    camera = Camera(page.height)                    # 페이지 맨 위에서 시작
     mouse_x, mouse_y = config.SCREEN_W / 2, config.SCREEN_H / 2   # 첫 마우스 이벤트 전에는 화면 가운데
     target_x, target_y = camera.to_world(mouse_x, mouse_y)
     body = Body(*config.TEST_SPAWN)
@@ -50,6 +49,7 @@ def handle_events():
 
 def update():
     body.update(target_x, target_y, game_framework.frame_time)
+    camera.update(body.segs[0].y, game_framework.frame_time)
 
 
 def draw_cursor():
@@ -66,6 +66,8 @@ def draw():
     draw_cursor()
 
     if config.SHOW_FPS:   # 왼쪽 위 FPS·프레임 시간 (디버그)
+        draw_line(0, camera.dead_low, config.SCREEN_W, camera.dead_low, 1, config.COLOR_GRAY, 0.3)     # 데드존 경계
+        draw_line(0, camera.dead_high, config.SCREEN_W, camera.dead_high, 1, config.COLOR_GRAY, 0.3)
         draw_text(10, config.SCREEN_H - 14, 'FPS %5.1f  dt %5.1f ms' % (game_framework.fps, game_framework.frame_time * 1000), config.COLOR_GRAY)
         draw_text(10, config.SCREEN_H - 32, 'mouse screen %4d %4d  world %4d %4d  camera.y %5.1f' % (mouse_x, mouse_y, target_x, target_y, camera.y), config.COLOR_GRAY)
         head = body.segs[0]
