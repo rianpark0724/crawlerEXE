@@ -22,6 +22,8 @@ COLOR_RED    = (240, 70, 70)     # 피격, 잃은 다리
 COLOR_GREEN  = (90, 220, 120)    # 디버그: 무적, 착지
 COLOR_YELLOW = (250, 220, 80)    # 디버그: 목표 지점
 COLOR_BODY   = (34, 42, 70)      # 크롤러 마디 안쪽 채움
+COLOR_PAGE_TEXT = (58, 66, 100)  # 페이지 본문 글 (흐리게, 읽을 수는 있게)
+COLOR_PAGE_HEAD = (82, 92, 132)  # 페이지 제목·소제목·정보 상자
 
 # ── 커서 ──────────────────────────────
 CURSOR_SIZE = 8           # 커서 십자 팔 길이
@@ -38,6 +40,18 @@ BOX_START_SEGS = 3        # 시작 마디 수 (머리 포함)
 BOX_SEG_SIZE = 14         # 몸통 마디 한 변
 BOX_HEAD_SIZE = 16        # 머리 한 변
 BOX_EYE_SIZE = 4          # 머리 앞쪽 주황 점 한 변
+
+# ── 페이지 (PRD 10.1) ─────────────────
+TEST_PAGE_HEIGHT = 1440   # S05 스테이지 JSON 전까지 쓰는 임시 페이지 높이 (wiki.json과 같음)
+TEST_SPAWN = (640, 1300)  # 임시 시작 위치 (wiki.json과 같음)
+PAGE_MARGIN = 80          # 배경 글줄 왼쪽 여백
+PAGE_TOP_GAP = 110        # 페이지 맨 위 ~ 첫 글줄 (나중에 HUD 주소줄 자리)
+PAGE_TEXT_W = 820         # 본문 줄 폭 (이보다 길면 줄바꿈)
+PAGE_LINE_STEP = 22       # 본문 줄 간격
+PAGE_FONT_P = 14          # 본문 글자 크기
+PAGE_FONT_H = 20          # 소제목 글자 크기
+PAGE_FONT_TITLE = 30      # 페이지 제목 글자 크기
+PAGE_SEED = 7             # 배경 무작위 배치 시드 (실행할 때마다 같은 배경)
 
 # ── 몸통 공통 (PRD 5.1) ───────────────
 SEG_SPACING = 19          # 마디 사이 거리

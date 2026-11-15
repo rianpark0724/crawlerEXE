@@ -1,4 +1,4 @@
-# 플레이 화면 — 크롤러가 커서를 따라감. 월드/화면 좌표 분리(S03-1).
+# 플레이 화면 — 1440px 페이지 위쪽에서 시작(S03-2). 카메라는 아직 고정.
 import math
 from pico2d import get_events
 from sdl2 import SDL_QUIT, SDL_KEYDOWN, SDLK_ESCAPE, SDL_MOUSEMOTION
@@ -7,26 +7,31 @@ import config
 import game_framework
 from crawler.body import Body
 from world.camera import Camera
+from world.stage import Page
 from ui.draw import draw_line, fill_rect, draw_text
 
 mouse_x, mouse_y = 0.0, 0.0   # 커서 위치 (화면 좌표, y 위로 증가) — 커서 그리기용
 target_x, target_y = 0.0, 0.0 # 커서 위치 (월드 좌표) — 크롤러 목표
 body = None                   # 크롤러 몸
 camera = None
+page = None
 
 
 def init():
-    global mouse_x, mouse_y, target_x, target_y, body, camera
+    global mouse_x, mouse_y, target_x, target_y, body, camera, page
+    page = Page(config.TEST_PAGE_HEIGHT)
     camera = Camera()
+    camera.y = page.height - config.SCREEN_H        # 페이지 맨 위가 보이게
     mouse_x, mouse_y = config.SCREEN_W / 2, config.SCREEN_H / 2   # 첫 마우스 이벤트 전에는 화면 가운데
     target_x, target_y = camera.to_world(mouse_x, mouse_y)
-    body = Body(config.SCREEN_W / 2, config.SCREEN_H / 2)
+    body = Body(*config.TEST_SPAWN)
 
 
 def finish():
-    global body, camera
+    global body, camera, page
     body = None
     camera = None
+    page = None
 
 
 def handle_events():
@@ -56,6 +61,7 @@ def draw_cursor():
 def draw():
     # 화면 지우기·표시는 game_framework가 한다. 여기서는 그리기만.
     fill_rect(0, 0, config.SCREEN_W, config.SCREEN_H, config.COLOR_BG)   # 남색 배경
+    page.draw(camera)
     body.draw(camera)
     draw_cursor()
 

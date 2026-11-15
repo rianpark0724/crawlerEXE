@@ -1,21 +1,35 @@
 # 선·도형 그리기 — pico2d에는 선 함수가 없어서 1×1 흰 픽셀 이미지를 늘리고 회전해 그린다.
 # 색은 흰 픽셀에 그릴 때마다 곱해서 입힌다(ColorMod). 투명도는 opacify(0~1).
 # 좌표는 화면 좌표(원점 왼쪽 아래, y 위로 증가).
+import ctypes
 import math
 import os
 import pico2d
-from pico2d import load_image, load_font, SDL_SetTextureColorMod
+import pico2d.pico2d as p2d          # renderer(open_canvas 뒤에 생김)를 꺼내 쓰기 위해
+from pico2d import load_image, load_font, Image, SDL_SetTextureColorMod
+from sdl2 import SDL_Color, SDL_CreateTextureFromSurface, SDL_FreeSurface
+from sdl2.sdlttf import TTF_SizeUTF8, TTF_RenderUTF8_Blended
 
 import config
 
 pixel = None   # 1×1 흰 픽셀 이미지. open_canvas() 뒤 load()에서 읽는다.
 font = None    # 기본 글꼴 — pico2d에 함께 설치되는 ConsolaMalgun(영문 고정폭 + 한글)
+FONT_PATH = os.path.join(os.path.dirname(pico2d.__file__), 'data', 'ConsolaMalgun.ttf')
+fonts = {}         # 크기별 글꼴 {크기: Font}
+text_images = {}   # 글자 이미지 캐시 {(글, 크기): Image} — 같은 글은 한 번만 만든다
 
 
 def load():
     global pixel, font
     pixel = load_image(os.path.join(config.IMAGE_DIR, 'pixel.png'))
-    font = load_font(os.path.join(os.path.dirname(pico2d.__file__), 'data', 'ConsolaMalgun.ttf'), config.FONT_SIZE)
+    font = get_font(config.FONT_SIZE)
+
+
+def get_font(size):
+    # 크기별 글꼴을 처음 쓸 때 한 번만 읽는다
+    if size not in fonts:
+        fonts[size] = load_font(FONT_PATH, size)
+    return fonts[size]
 
 
 def set_color(color, alpha):
@@ -82,5 +96,32 @@ def fill_rect(x, y, w, h, color=config.COLOR_WHITE, alpha=1.0):
 
 
 def draw_text(x, y, text, color=config.COLOR_WHITE):
-    # 글자. (x, y)는 글줄의 왼쪽, 세로 가운데
+    # 매 프레임 바뀌는 글(디버그 숫자 등). (x, y)는 글줄의 왼쪽, 세로 가운데. 캐시하지 않음
     font.draw(x, y, text, color)
+
+
+def text_width(text, size):
+    # 글을 그렸을 때의 가로 폭(px) — 줄바꿈 계산용. 이미지를 만들지 않고 잰다
+    w, h = ctypes.c_int(), ctypes.c_int()
+    TTF_SizeUTF8(get_font(size).font, text.encode('utf-8'), ctypes.byref(w), ctypes.byref(h))
+    return w.value
+
+
+def get_text_image(text, size):
+    # 흰 글자 이미지를 한 번만 만들어 캐시. 색은 그릴 때 ColorMod로 입힌다
+    key = (text, size)
+    if key not in text_images:
+        surface = TTF_RenderUTF8_Blended(get_font(size).font, text.encode('utf-8'), SDL_Color(255, 255, 255))
+        texture = SDL_CreateTextureFromSurface(p2d.renderer, surface)
+        SDL_FreeSurface(surface)
+        text_images[key] = Image(texture)
+    return text_images[key]
+
+
+def draw_static_text(x, y, text, size, color=config.COLOR_WHITE, alpha=1.0):
+    # 바뀌지 않는 글(페이지 본문 등). (x, y)는 글의 왼쪽 아래. 캐시한 이미지에 색만 입혀 그린다
+    image = get_text_image(text, size)
+    r, g, b = color
+    SDL_SetTextureColorMod(image.texture, r, g, b)
+    image.opacify(alpha)
+    image.draw_to_origin(x, y, image.w, image.h)
