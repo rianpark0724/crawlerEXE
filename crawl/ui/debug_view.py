@@ -35,7 +35,7 @@ def draw(camera, body, mouse, target):
     lines = [
         'FPS %5.1f  dt %5.1f ms' % (game_framework.fps, game_framework.frame_time * 1000),
         'mouse screen %4d %4d  world %4d %4d  camera.y %5.1f' % (mouse[0], mouse[1], target[0], target[1], camera.y),
-        'head %4d %4d  angle %5.2f  speed %5.1f%s' % (head.x, head.y, head.angle, body.speed, '  SPRINT' if body.sprint else ''),
+        'head %4d %4d  angle %5.2f  speed %5.1f%s' % (head.x, head.y, head.angle, body.speed, '  sprint x%.2f  h %.1f' % (body.sprint_k, body.height)),
         'gaps %s   legs %d  stepping %d' % (gaps, len(legs), sum(leg.stepping for leg in legs)),
         '[F1] debug',
     ]

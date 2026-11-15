@@ -18,6 +18,9 @@ class Leg:
         self.reach = random.uniform(*config.LEG_REACH_RANGE)            # 이상적 발 거리 = (l1 + l2) × reach
         self.threshold = random.uniform(*config.LEG_THRESHOLD_RANGE)    # 발이 이상적 위치에서 이만큼 벗어나면 걸음
         self.stride = 1.0                # 임계 거리 배율 (질주 중 SPRINT_STRIDE — Body가 정함)
+        self.body_h = config.BODY_HEIGHT # 지금 몸(어깨) 높이 (착지 반동으로 바뀜 — Body가 정함)
+        self.landed = False              # 이번 프레임에 착지했는지 (Body가 읽고 지움)
+        self.lift_scale = 1.0            # 발 들어 올리는 높이 배율 (질주 중 커짐 — Body가 정함)
         self.step_time = random.uniform(*config.LEG_STEP_TIME_RANGE)    # 한 걸음에 걸리는 시간
         self.tilt_random = random.uniform(-config.LEG_TILT_RANDOM, config.LEG_TILT_RANDOM)   # 다리 방향 흔들림
         self.placed = False              # 발을 처음 바닥에 놓았는지
@@ -33,14 +36,14 @@ class Leg:
         self.knee_z = 0.0                # 무릎 높이 (바닥에서)
         self.bend = -side                # 무릎 꺾임 부호 (다리 기울기에 따라 정함)
 
-    def update_pose(self, seg, size, tilt):
+    def update_pose(self, seg, size, tilt, base_tilt):
         # 어깨와 이상적 발 위치 계산 (마디가 움직이면 매 프레임 바뀐다)
         side_angle = seg.angle + self.side * math.pi / 2
         self.shoulder_x = seg.x + seg.ox + math.cos(side_angle) * size / 2   # 어깨: 마디 옆면 가운데 (몸 쏠림 포함)
         self.shoulder_y = seg.y + seg.oy + math.sin(side_angle) * size / 2
         leg_angle = seg.angle + self.side * (math.pi / 2 - tilt - self.tilt_random)   # 다리 방향: 옆에서 tilt만큼 앞으로
         # 무릎이 꺾이는 쪽: 지네형 = 모든 다리 뒤로 / 거미형 = 앞으로 기운 다리만 앞으로 (무작위 없는 tilt로 정함)
-        if config.KNEE_STYLE == 'spider' and tilt > 0:
+        if config.KNEE_STYLE == 'spider' and base_tilt > 0:
             self.bend = -self.side
         else:
             self.bend = self.side
@@ -63,9 +66,9 @@ class Leg:
         return math.hypot(self.ideal_x - self.foot_x, self.ideal_y - self.foot_y)
 
     def max_reach(self):
-        # 다리를 거의 다 폈을 때 어깨~발 바닥 거리 (어깨가 BODY_HEIGHT만큼 떠 있으니 피타고라스로)
+        # 다리를 거의 다 폈을 때 어깨~발 바닥 거리 (어깨가 body_h만큼 떠 있으니 피타고라스로)
         full = (self.l1 + self.l2) * config.LEG_MAX_STRETCH
-        return math.sqrt(max(0.0, full * full - config.BODY_HEIGHT ** 2))
+        return math.sqrt(max(0.0, full * full - self.body_h ** 2))
 
     def reach_now(self):
         return math.hypot(self.foot_x - self.shoulder_x, self.foot_y - self.shoulder_y)
@@ -107,6 +110,7 @@ class Leg:
             self.stepping = False
             self.lift = 0.0
             self.steps += 1
+            self.landed = True
             return
         e = self.t * self.t * (3 - 2 * self.t)                         # ease-in-out: 천천히 떼고 천천히 내려놓음
         # 시작점 → "지금의" 이상적 위치로 보간 (몸이 움직여도 착지 순간 정확히 이상적 위치에 내려앉게)
@@ -116,11 +120,11 @@ class Leg:
         tuck = 1 - config.LEG_TUCK * math.sin(math.pi * self.t)
         self.foot_x = self.shoulder_x + (px - self.shoulder_x) * tuck
         self.foot_y = self.shoulder_y + (py - self.shoulder_y) * tuck
-        self.lift = math.sin(math.pi * self.t) * config.LEG_LIFT       # 가운데에서 가장 높이 들림
+        self.lift = math.sin(math.pi * self.t) * config.LEG_LIFT * self.lift_scale   # 가운데에서 가장 높이 들림
 
     def solve_knee(self):
         # 3D 2관절 IK: 어깨(몸 높이)·발(바닥 또는 들린 높이)과 두 뼈 길이로 무릎 위치를 구한다
-        sx, sy, sz = self.shoulder_x, self.shoulder_y, config.BODY_HEIGHT
+        sx, sy, sz = self.shoulder_x, self.shoulder_y, self.body_h
         fz = self.lift
         dx, dy, dz = self.foot_x - sx, self.foot_y - sy, fz - sz
         d = math.sqrt(dx * dx + dy * dy + dz * dz)
@@ -146,14 +150,14 @@ class Leg:
 
     def draw_shadow(self, camera):
         # 그림자: 높이만큼 빛 반대쪽으로 밀려 바닥에 생긴다 — 바닥에 닿은 발은 그림자와 붙고, 솟은 무릎은 멀어진다
-        s = shadow_point(camera, self.shoulder_x, self.shoulder_y, config.BODY_HEIGHT)
+        s = shadow_point(camera, self.shoulder_x, self.shoulder_y, self.body_h)
         k = shadow_point(camera, self.knee_x, self.knee_y, self.knee_z)
         f = shadow_point(camera, self.foot_x, self.foot_y, self.lift)
         draw_line(s[0], s[1], k[0], k[1], config.LEG_WIDTH, (0, 0, 0), config.SHADOW_ALPHA)
         draw_line(k[0], k[1], f[0], f[1], config.LEG_WIDTH_SHIN, (0, 0, 0), config.SHADOW_ALPHA)
 
     def draw(self, camera):
-        sx, sy = project(camera, self.shoulder_x, self.shoulder_y, config.BODY_HEIGHT)
+        sx, sy = project(camera, self.shoulder_x, self.shoulder_y, self.body_h)
         kx, ky = project(camera, self.knee_x, self.knee_y, self.knee_z)
         fx, fy = project(camera, self.foot_x, self.foot_y, self.lift)
         draw_line(sx, sy, kx, ky, config.LEG_WIDTH, config.COLOR_LEG)          # 허벅지
