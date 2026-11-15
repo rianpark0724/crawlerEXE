@@ -15,6 +15,7 @@ class Segment:
         self.angle = angle      # 라디안. 앞(머리 쪽)을 향함
         self.vx = self.vy = 0.0  # 이번 프레임 이동 속도 (px/s) — 다리가 앞으로 미리 딛는 데 사용
         self.ox = self.oy = 0.0  # 좌우 쏠림 (디딘 다리 쪽으로). 그리기와 어깨 위치에 더한다
+        self.squash = 0.0        # WAVE 착지 후 납작함이 남은 시간
         self.legs = [Leg(+1), Leg(-1)]   # 다리 한 쌍 (왼쪽, 오른쪽)
         self.legs[0].partner, self.legs[1].partner = self.legs[1], self.legs[0]   # 서로 반대쪽 다리
 
@@ -33,6 +34,8 @@ class Body:
         self.wave_t = None                           # □ WAVE: 파동이 시작된 뒤 지난 시간 (None = 파동 중 아님)
         self.wave_cool = 0.0                         # WAVE 재사용까지 남은 시간
         self.wave_dir = 0.0                          # 점프 돌진 방향 (출발할 때 커서 쪽으로 고정)
+        self.wave_stun = 0.0                         # 이번 점프의 착지 경직 시간 (꺾은 각도로 정함)
+        self.stun = 0.0                              # 남은 경직 시간 — 머리가 움직이지도 돌지도 않음
         self.gaps = [config.SEG_SPACING] * len(self.segs)   # 마디 i와 앞 마디 사이 간격 (평소 19, WAVE 중 늘어남). gaps[0]은 안 씀
         self.update_legs(0.0)                        # 발을 처음 위치에 놓는다
 
@@ -60,6 +63,17 @@ class Body:
         u = (self.wave_t - i * config.WAVE_STEP) / config.WAVE_HOLD
         return config.WAVE_JUMP_H * math.sin(math.pi * u)
 
+    def shape(self, i):
+        # 마디 i의 (길이 배율, 폭 배율) — 길이는 바라보는 방향. 넓이(길이×폭)는 1로 유지해 쫀득하게
+        if self.invincible(i):
+            u = (self.wave_t - i * config.WAVE_STEP) / config.WAVE_HOLD
+            along = 1 + config.WAVE_STRETCH_AIR * math.sin(math.pi * u)        # 공중: 나는 방향으로 길쭉
+        elif self.segs[i].squash > 0:
+            along = 1 - config.WAVE_SQUASH * self.segs[i].squash / config.WAVE_SQUASH_TIME   # 착지: 납작했다 돌아옴
+        else:
+            return 1.0, 1.0
+        return along, 1 / along
+
     def start_wave(self, target_x, target_y):
         # 우클릭: 파동 중이 아니고 재사용 대기가 끝났으면 커서 쪽으로 점프 돌진 시작. 시작했으면 True
         if self.wave_t is not None or self.wave_cool > 0:
@@ -67,6 +81,9 @@ class Body:
         head = self.segs[0]
         self.wave_t = 0.0
         self.wave_dir = math.atan2(target_y - head.y, target_x - head.x)   # 방향은 여기서 고정 (공중에서 못 바꿈)
+        # 바라보던 방향에서 꺾은 각도(0 ~ π)가 클수록 착지 경직이 길다 → 뒤돌기용으로 쓰면 손해
+        turn = abs((self.wave_dir - head.angle + math.pi) % (2 * math.pi) - math.pi)
+        self.wave_stun = config.WAVE_STUN_BASE + config.WAVE_STUN_TURN * turn / math.pi
         return True
 
     def dash_head(self, dt):
@@ -81,9 +98,19 @@ class Body:
         self.speed = speed
 
     def update_wave(self, dt):
-        # 파동 시간 진행, 끝나면 재사용 대기 시작
+        # 파동 시간 진행, 끝나면 재사용 대기 시작. 머리가 착지하는 순간 경직 시작
+        self.stun = max(0.0, self.stun - dt)
+        for seg in self.segs:
+            seg.squash = max(0.0, seg.squash - dt)
         if self.wave_t is not None:
+            before = self.wave_t
             self.wave_t += dt
+            if before < config.WAVE_HOLD <= self.wave_t:
+                self.stun = self.wave_stun                                     # 머리 착지 → 경직
+            for i, seg in enumerate(self.segs):
+                land = i * config.WAVE_STEP + config.WAVE_HOLD                 # 마디 i가 내려앉는 시각
+                if before < land <= self.wave_t:
+                    seg.squash = config.WAVE_SQUASH_TIME                       # 착지 → 납작
             if self.wave_t >= self.wave_length():
                 self.wave_t = None
                 self.wave_cool = config.WAVE_COOLDOWN
@@ -104,6 +131,8 @@ class Body:
         before = [(seg.x, seg.y) for seg in self.segs]
         if self.invincible(0):
             self.dash_head(dt)                   # 1~2. WAVE: 머리가 공중에 있는 동안은 점프 돌진 (조종 불가)
+        elif self.stun > 0:
+            self.speed = 0.0                     # 1~2. WAVE 착지 경직: 움직이지도 돌지도 않음
         else:
             self.move_head(target_x, target_y, dt)   # 1~2. 머리 회전·전진
         self.follow(dt)                          # 3. 나머지 마디는 앞 마디에 끌려온다 (거리 제약)
@@ -123,7 +152,11 @@ class Body:
                 leg.landed = False
                 if self.on_land is not None:
                     self.on_land(leg)                                     # 착지 이벤트 (PRD 5.3: 착지하는 순간 한 번)
-                if self.sprint_frac() > config.PUFF_MIN_SPRINT:
+                if leg.from_air:
+                    leg.from_air = False
+                    self.effects.add_puff(leg.foot_x, leg.foot_y)        # WAVE 점프 착지 → 흙먼지
+                    self.height_v -= config.WAVE_LAND_KICK - config.LAND_KICK   # 더 세게 툭 (아래에서 LAND_KICK을 더함)
+                elif self.sprint_frac() > config.PUFF_MIN_SPRINT:
                     self.effects.add_puff(leg.foot_x, leg.foot_y)        # 질주 중 착지 → 흙먼지
         kick = config.LAND_KICK * (1 + (config.SPRINT_LAND_KICK - 1) * self.sprint_frac())
         self.height_v -= kick * landed
@@ -234,9 +267,10 @@ class Body:
             leg.draw_shadow(camera)
         for i, seg in enumerate(self.segs):
             size = self.seg_size(i)
+            along, across = self.shape(i)
             sx, sy = camera.to_screen(seg.x + seg.ox, seg.y + seg.oy)
             k = (self.height + self.air(i)) / config.BODY_HEIGHT                  # 높이에 비례해 그림자가 멀어짐 (점프하면 멀리)
-            fill_rect_rotated(sx + config.SHADOW_DX * k, sy + config.SHADOW_DY * k, size + 2, size + 2, seg.angle,
+            fill_rect_rotated(sx + config.SHADOW_DX * k, sy + config.SHADOW_DY * k, size * along + 2, size * across + 2, seg.angle,
                               (0, 0, 0), config.SHADOW_ALPHA)
         self.effects.draw_ground(camera)       # 흙먼지 (바닥)
         self.effects.draw_ghosts(camera)       # 질주 잔상
@@ -256,36 +290,43 @@ class Body:
             seg = self.segs[i]
             size = self.seg_size(i)
             sx, sy = camera.to_screen(seg.x + seg.ox, seg.y + seg.oy)
-            self.draw_segment(sx, sy + (self.height + self.air(i)) * config.VIEW_TILT, size, seg.angle, self.invincible(i))
+            self.draw_segment(sx, sy + (self.height + self.air(i)) * config.VIEW_TILT, size, seg.angle, self.invincible(i), *self.shape(i))
         # 머리 앞쪽 가장자리 근처에 주황 점 — 어느 쪽이 앞인지 표시
         head = self.segs[0]
         lift = (self.height + self.air(0)) * config.VIEW_TILT
         hx, hy = camera.to_screen(head.x + head.ox, head.y + head.oy)
-        r = config.BOX_HEAD_SIZE / 2 - config.BOX_EYE_SIZE / 2 - 1     # 중심에서 점까지 거리
-        fill_rect_rotated(hx + math.cos(head.angle) * r, hy + lift + math.sin(head.angle) * r,
-                          config.BOX_EYE_SIZE, config.BOX_EYE_SIZE, head.angle, config.COLOR_ORANGE)
+        r = config.BOX_HEAD_SIZE * self.shape(0)[0] / 2 - config.BOX_EYE_SIZE / 2 - 1     # 중심에서 점까지 거리 (늘어나면 앞 가장자리도)
+        ex, ey = hx + math.cos(head.angle) * r, hy + lift + math.sin(head.angle) * r
+        if self.stun > 0:
+            # 착지 경직 중: 눈을 감음 — 앞뒤로 얇고 옆으로 긴 가는 선
+            fill_rect_rotated(ex, ey, config.EYE_CLOSED_THICK, config.BOX_EYE_SIZE + 2, head.angle, config.COLOR_ORANGE)
+        else:
+            fill_rect_rotated(ex, ey, config.BOX_EYE_SIZE, config.BOX_EYE_SIZE, head.angle, config.COLOR_ORANGE)
 
-    def draw_segment(self, x, y, size, angle, ghost=False):
+    def draw_segment(self, x, y, size, angle, ghost=False, along=1.0, across=1.0):
         # 입체감 있는 사각 마디 하나 (화면 좌표). 빛은 LIGHT_DIR(왼쪽 위)에서 온다고 본다
         # ghost = WAVE로 공중에 뜬(무적) 마디: 전체를 WAVE_GHOST배로 흐리게 → 유령처럼 비침
+        # along, across = 바라보는 방향 길이·폭 배율 (WAVE 공중엔 길쭉, 착지 땐 납작 — 평소 1, 1 = 정사각형)
         lx, ly = config.LIGHT_DIR
         a = config.WAVE_GHOST if ghost else 1.0
+        w, hgt = size * along, size * across
         # 반투명 몸 채움
-        fill_rect_rotated(x, y, size, size, angle, config.COLOR_BODY, config.BOX_BODY_ALPHA * a)
+        fill_rect_rotated(x, y, w, hgt, angle, config.COLOR_BODY, config.BOX_BODY_ALPHA * a)
         # 윗면 하이라이트: 작은 밝은 사각형을 빛 쪽으로 살짝 옮겨 겹침 → 볼록해 보임
-        hs = size * config.BOX_HIGHLIGHT_SIZE
+        hs = config.BOX_HIGHLIGHT_SIZE
         shift = size * config.BOX_HIGHLIGHT_SHIFT
-        fill_rect_rotated(x + lx * shift, y + ly * shift, hs, hs, angle, config.COLOR_BODY_LIGHT, config.BOX_HIGHLIGHT_ALPHA * a)
+        fill_rect_rotated(x + lx * shift, y + ly * shift, w * hs, hgt * hs, angle, config.COLOR_BODY_LIGHT, config.BOX_HIGHLIGHT_ALPHA * a)
         # 테두리: 네 변을 각각 빛을 받는 정도에 따라 밝게/어둡게
         c, s = math.cos(angle), math.sin(angle)
-        h = size / 2
+        hw, hh = w / 2, hgt / 2
         corners = []
-        for px, py in [(-h, -h), (h, -h), (h, h), (-h, h)]:
+        for px, py in [(-hw, -hh), (hw, -hh), (hw, hh), (-hw, hh)]:
             corners.append((x + px * c - py * s, y + px * s + py * c))    # 회전 변환
         for k in range(4):
             x1, y1 = corners[k]
             x2, y2 = corners[(k + 1) % 4]
-            nx, ny = (y2 - y1) / size, -(x2 - x1) / size          # 변의 바깥쪽 방향 (단위 벡터)
+            edge = math.hypot(x2 - x1, y2 - y1) or 1
+            nx, ny = (y2 - y1) / edge, -(x2 - x1) / edge          # 변의 바깥쪽 방향 (단위 벡터)
             lit = (nx * lx + ny * ly + 1) / 2                     # 빛을 받는 정도 0(등진 쪽) ~ 1(정면)
             f = config.EDGE_DARK + (1 - config.EDGE_DARK) * lit   # 밝기 배율
             color = (int(config.COLOR_WHITE[0] * f), int(config.COLOR_WHITE[1] * f), int(config.COLOR_WHITE[2] * f))

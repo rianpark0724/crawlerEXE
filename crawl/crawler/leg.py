@@ -23,6 +23,7 @@ class Leg:
         self.lift_scale = 1.0            # 발 들어 올리는 높이 배율 (질주 중 커짐 — Body가 정함)
         self.air = 0.0                   # WAVE: 이 다리의 마디가 공중에 뜬 높이 (0 = 땅 위 — Body가 정함)
         self.in_air = False              # 지난 프레임에 공중이었는지 (착지 순간을 알기 위해)
+        self.from_air = False            # 이번 착지가 WAVE 점프에서 내려앉은 것인지 (흙먼지·큰 반동 — Body가 읽고 지움)
         self.step_time = random.uniform(*config.LEG_STEP_TIME_RANGE)    # 한 걸음에 걸리는 시간
         self.tilt_random = random.uniform(-config.LEG_TILT_RANDOM, config.LEG_TILT_RANDOM)   # 다리 방향 흔들림
         self.placed = False              # 발을 처음 바닥에 놓았는지
@@ -106,6 +107,7 @@ class Leg:
             self.foot_x, self.foot_y = self.ideal_x, self.ideal_y
             self.lift = 0.0
             self.landed = True
+            self.from_air = True
             return
         # 순간이동처럼 너무 멀어지면 걷지 않고 바로 옮긴다
         if self.distance() > self.threshold_now() * config.LEG_TELEPORT:

@@ -88,6 +88,7 @@ BOX_START_SEGS = 3        # 시작 마디 수 (머리 포함)
 BOX_SEG_SIZE = 14         # 몸통 마디 한 변
 BOX_HEAD_SIZE = 16        # 머리 한 변
 BOX_EYE_SIZE = 4          # 머리 앞쪽 주황 점 한 변
+EYE_CLOSED_THICK = 1.5    # 감은 눈(WAVE 착지 경직) 선 두께
 BOX_BODY_ALPHA = 0.55     # 마디 채움 투명도 (1 = 불투명) — 아래 페이지 글이 비침
 BOX_HIGHLIGHT_ALPHA = 0.18  # 윗면 하이라이트 투명도 (은은하게)
 BOX_HIGHLIGHT_SIZE = 0.7  # 하이라이트 크기 (마디 한 변 대비) — 크게 해서 몸 색과 섞이게
@@ -116,6 +117,12 @@ WAVE_FOOT_LIFT = 0.6      # 공중 다리: 발 높이 = 마디가 뜬 높이 × 
 WAVE_STRETCH = 1.6        # 파동 중 마디 간격이 늘어날 수 있는 최대 배율 (19 × 1.6 ≈ 30px)
 WAVE_RESTORE = 600        # 늘어난 간격이 줄어드는 속도 (px/s) — 공중 마디가 따라붙을 때, 파동이 끝난 뒤
 WAVE_LINK_ALPHA = 0.35    # 늘어난 마디 사이 연결선 진하기 (가늘고 흐리게)
+WAVE_STUN_BASE = 0.1      # 머리 착지 뒤 경직 (초) — 바라보던 방향 그대로 뛰었을 때
+WAVE_STUN_TURN = 0.7      # 꺾은 각도에 비례해 더하는 경직: 180°로 뒤돌아 뛰면 +0.7초 (방향 바꾸기용으로 쓰는 대가)
+WAVE_STRETCH_AIR = 0.35   # 공중 마디가 나는 방향으로 길쭉해지는 정도: 길이 × (1 + 이 값), 폭은 그만큼 줄어 넓이 유지
+WAVE_SQUASH = 0.2         # 착지 순간 납작해지는 정도: 길이 × (1 − 이 값), 폭 × 1/(1 − 이 값)
+WAVE_SQUASH_TIME = 0.12   # 납작해졌다 정사각형으로 돌아오는 시간 (초)
+WAVE_LAND_KICK = 40       # WAVE 착지 반동 (발 하나당, 걷기 착지 LAND_KICK보다 세게)
 WAVE_GHOST = 0.3          # 공중(무적) 마디의 진하기 배율 — 반투명해져 아래가 비침
 WAVE_COOLDOWN = 1.5       # 파동이 꼬리까지 끝난 뒤 다시 쓸 수 있을 때까지 (초)
 GHOST_INTERVAL = 0.05     # 잔상 남기는 간격 (초)

@@ -71,7 +71,8 @@ def draw(camera, body, mouse, target, page, extra):
         'gaps %s   legs %d  stepping %d' % (gaps, len(legs), sum(leg.stepping for leg in legs)),
         'wave %s  %s' % ('%.2f / %.2fs' % (body.wave_t, body.wave_length()) if body.wave_t is not None
                      else ('cooldown %.1fs' % body.wave_cool if body.wave_cool > 0 else 'ready'),
-                         ''.join('#' if body.invincible(i) else '.' for i in range(len(body.segs)))),   # 머리부터 무적 마디 #
+                         ''.join('#' if body.invincible(i) else '.' for i in range(len(body.segs))))
+        + ('  stun %.2fs' % body.stun if body.stun > 0 else ''),   # 머리부터 무적 마디 #, 착지 경직
         extra,
         '[F1] debug',
     ]
