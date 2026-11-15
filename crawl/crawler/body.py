@@ -1,6 +1,7 @@
 # □ 사각형 크롤러의 몸 — 머리(segs[0])만 입력으로 움직이고 나머지 마디는 끌려온다 (PRD 5.1, 6.1)
 # 좌표는 전부 월드 좌표. 그릴 때만 camera.to_screen으로 바꾼다.
 import math
+import random
 
 import config
 from crawler.leg import Leg
@@ -38,6 +39,9 @@ class Body:
         self.wave_dir = 0.0                          # 점프 돌진 방향 (출발할 때 커서 쪽으로 고정)
         self.wave_stun = 0.0                         # 이번 점프의 착지 경직 시간 (꺾은 각도로 정함)
         self.stun = 0.0                              # 남은 경직 시간 — 머리가 움직이지도 돌지도 않음
+        self.dust_timer = 0.0                        # 다리 없이 끌리는 마디의 다음 먼지까지 남은 시간
+        self.stagger_v = 0.0                         # 비틀거림: 지금 머리를 꺾고 있는 회전 속도 (rad/s, 점점 사라짐)
+        self.stagger_gap = 0.0                       # 다음 휘청임까지 남은 최소 시간
         self.gaps = [config.SEG_SPACING] * len(self.segs)   # 마디 i와 앞 마디 사이 간격 (평소 19, WAVE 중 늘어남). gaps[0]은 안 씀
         self.update_legs(0.0)                        # 발을 처음 위치에 놓는다
 
@@ -74,6 +78,27 @@ class Body:
                     other.partner = None                # 짝이 없어졌으니 혼자 걷는다
         self.height_v += config.HIT_POP
         self.effects.add_cut(leg, leg.knee_x - from_x, leg.knee_y - from_y)
+
+    def imbalance(self):
+        # 좌우 다리 수 차이 −1 ~ +1: +면 왼쪽(+side) 다리가 더 많음 → 오른쪽(없는 쪽)으로 끌려감
+        left = sum(1 for leg in self.all_legs() if leg.side > 0)
+        right = sum(1 for leg in self.all_legs() if leg.side < 0)
+        return (left - right) / max(1, left + right)
+
+    def sag(self, i):
+        # 마디 i가 처지는 높이 (B 기울어짐 + C 절뚝임 + D 끌림)
+        legs = self.segs[i].legs
+        if not legs:
+            return self.height - config.DRAG_H                    # D: 다리가 없으면 바닥에 끌림
+        if len(legs) == 1:
+            leg = legs[0]
+            dip = config.LIMP_DIP * math.sin(math.pi * leg.t) if leg.stepping else 0.0   # C: 혼자 버티는 다리를 떼면 푹
+            return config.LEAN_DROP + dip                             # B: 한쪽만 남으면 처짐
+        return 0.0
+
+    def seg_h(self, i):
+        # 마디 i의 지금 높이 = 몸 높이(반동) + 점프 − 처짐
+        return self.height + self.air(i) - self.sag(i)
 
     def can_grow(self):
         # 마디가 최대(6)보다 적어야 다리 파츠를 주울 수 있다
@@ -185,10 +210,22 @@ class Body:
             if dt > 0:
                 seg.vx, seg.vy = (seg.x - px) / dt, (seg.y - py) / dt   # 마디 속도 = 이번 프레임 이동량 / 시간
         self.update_legs(dt)                     # 4. 다리
+        self.drag_dust(dt)                       # D: 다리 없이 끌리는 마디의 먼지
         self.update_height(dt)                   # 5. 착지 반동 (+ 질주 중 착지 흙먼지)
         self.effects.update(dt, self)            # 6. 효과
 
+    def drag_dust(self, dt):
+        # D: 다리가 하나도 없는 마디가 움직이면 바닥을 긁으며 먼지가 난다
+        self.dust_timer -= dt
+        if self.dust_timer > 0:
+            return
+        self.dust_timer = config.DRAG_DUST
+        for seg in self.segs:
+            if not seg.legs and math.hypot(seg.vx, seg.vy) > 20:
+                self.effects.add_puff(seg.x, seg.y)
+
     def update_height(self, dt):
+        self.stagger_gap -= dt
         # 이번 프레임에 착지한 발: 착지 이벤트를 알리고, 그 수만큼 몸을 아래로 툭 친다 (질주 중엔 더 세게)
         landed = 0
         for leg in self.all_legs():
@@ -197,6 +234,12 @@ class Body:
                 leg.landed = False
                 if self.on_land is not None:
                     self.on_land(leg)                                     # 착지 이벤트 (PRD 5.3: 착지하는 순간 한 번)
+                if leg.partner is None and self.stagger_gap <= 0 and self.wave_t is None:
+                    # 비틀거림: 혼자 버티던 다리가 디디는 순간 몸이 다리 없는 쪽으로 휘청 (왼쪽 다리면 오른쪽으로 = 각도 −)
+                    # 세기 = 0.4 + 0.6 × 불균형: 다리 하나만 잃어도 휘청이고, 한쪽을 다 잃으면 가장 크게
+                    strength = config.STAGGER_MIN + (1 - config.STAGGER_MIN) * abs(self.imbalance())
+                    self.stagger_v = -leg.side * config.STAGGER_KICK * strength * random.uniform(0.7, 1.2)
+                    self.stagger_gap = config.STAGGER_GAP * random.uniform(1.0, 1.6)
                 if leg.from_air:
                     leg.from_air = False
                     self.effects.add_puff(leg.foot_x, leg.foot_y)        # WAVE 점프 착지 → 흙먼지
@@ -222,6 +265,10 @@ class Body:
             want = math.atan2(target_y - head.y, target_x - head.x)     # 커서 방향
             diff = (want - head.angle + math.pi) % (2 * math.pi) - math.pi   # 돌아야 할 양 (-π ~ π)
             max_turn = config.BOX_TURN_SPEED * (1 - config.SPRINT_TURN_LOSS * self.sprint_frac()) * dt
+            # A: 다리 불균형 — 없는 쪽(오른쪽이면 각도 −)으로 도는 건 쉽고, 반대쪽은 어렵다
+            imb = self.imbalance()
+            toward_missing = (diff < 0) == (imb > 0)
+            max_turn *= 1 + config.LIMB_TURN_BIAS * abs(imb) * (1 if toward_missing else -1)
             head.angle += max(-max_turn, min(max_turn, diff))
             head.angle = (head.angle + math.pi) % (2 * math.pi) - math.pi     # 각도를 -π ~ π 로 유지
 
@@ -234,6 +281,10 @@ class Body:
             lifted = sum(leg.lift for leg in legs) / (config.LEG_LIFT * max(1, len(legs) // 2))
             want_speed *= 1 + config.BODY_SURGE * (0.5 - lifted)               # 평균 속도는 그대로, ×(1 ± SURGE/2) 사이에서 출렁
             want_speed *= self.sprint_k                                        # 좌클릭 질주 (관성 있는 배율)
+            # C: 짝 없는 다리가 걸음 중이면 절뚝이며 느려짐 / D: 다리 없이 끌리는 마디마다 느려짐
+            if any(leg.partner is None and leg.stepping for leg in legs):
+                want_speed *= 1 - config.LIMP_SLOW
+            want_speed *= (1 - config.DRAG_SLOW) ** sum(1 for seg in self.segs if not seg.legs)
 
         # 3. 제동: 속도는 바로 올릴 수 있지만 줄일 때는 brake(px/s²)보다 빨리 못 줄인다.
         #    걸을 땐 브레이크가 세서 거의 바로 서고, 질주 중엔 약해서 커서를 지나쳐 미끄러진다 (대가)
@@ -242,6 +293,13 @@ class Body:
         else:
             brake = config.BRAKE_WALK + (config.BRAKE_SPRINT - config.BRAKE_WALK) * self.sprint_frac()
             self.speed = max(want_speed, self.speed - brake * dt)
+        # A: 움직이는 동안 다리가 없는 쪽으로 계속 끌려 돈다 (커서로 계속 보정해야 똑바로 감)
+        moving = min(1.0, self.speed / config.BOX_BASE_SPEED)
+        head.angle -= config.LIMB_DRIFT * self.imbalance() * moving * dt
+        # 비틀거림: 휘청 회전이 남아 있으면 그만큼 꺾이고 느려진다. 회전은 지수적으로 사라져 다시 커서 쪽으로
+        head.angle += self.stagger_v * dt
+        self.speed *= 1 - config.STAGGER_SLOW * min(1.0, abs(self.stagger_v) / config.STAGGER_KICK) * dt * 10
+        self.stagger_v *= math.exp(-config.STAGGER_DECAY * dt)
         head.x += math.cos(head.angle) * self.speed * dt
         head.y += math.sin(head.angle) * self.speed * dt
 
@@ -253,6 +311,9 @@ class Body:
             left = sum(leg.lift for leg in seg.legs if leg.side > 0)            # 다리를 잃었으면 그쪽은 0
             right = sum(leg.lift for leg in seg.legs if leg.side < 0)
             sway = config.BODY_SWAY * (right - left) / config.LEG_LIFT
+            # B: 한쪽 다리만 남은 마디는 없는 쪽으로 쏠린다 (왼쪽만 남으면 오른쪽으로)
+            if len(seg.legs) == 1:
+                sway -= config.LEAN_PX * seg.legs[0].side
             seg.ox = math.cos(seg.angle + math.pi / 2) * sway
             seg.oy = math.sin(seg.angle + math.pi / 2) * sway
             tilt = config.LEG_TILT * (1 - 2 * i / (n - 1)) if n > 1 else 0.0
@@ -261,7 +322,7 @@ class Body:
             for leg in seg.legs:
                 leg.stride = 1 + (config.SPRINT_STRIDE - 1) * self.sprint_frac()   # 질주: 보폭 커짐
                 leg.air = air                                                     # WAVE 공중 높이 (뜬 마디의 다리는 접힘)
-                leg.body_h = self.height + air                                    # 지금 몸 높이 (반동 + 점프)
+                leg.body_h = self.seg_h(i)                                        # 지금 마디 높이 (반동 + 점프 − 처짐)
                 leg.lift_scale = 1 + config.SPRINT_LIFT * self.sprint_frac()      # 질주 중엔 발을 더 높이 차올림
                 leg.update_pose(seg, self.seg_size(i), tilt - sweep, tilt)
         legs = self.all_legs()
@@ -315,7 +376,7 @@ class Body:
             size = self.seg_size(i)
             along, across = self.shape(i)
             sx, sy = camera.to_screen(seg.x + seg.ox, seg.y + seg.oy)
-            k = (self.height + self.air(i)) / config.BODY_HEIGHT                  # 높이에 비례해 그림자가 멀어짐 (점프하면 멀리)
+            k = self.seg_h(i) / config.BODY_HEIGHT                                 # 높이에 비례해 그림자가 멀어짐 (점프하면 멀리, 처지면 가까이)
             fill_rect_rotated(sx + config.SHADOW_DX * k, sy + config.SHADOW_DY * k, size * along + 2, size * across + 2, seg.angle,
                               (0, 0, 0), config.SHADOW_ALPHA)
         self.effects.draw_ground(camera)       # 흙먼지 (바닥)
@@ -330,18 +391,18 @@ class Body:
                 a, b = self.segs[i - 1], self.segs[i]
                 ax, ay = camera.to_screen(a.x + a.ox, a.y + a.oy)
                 bx, by = camera.to_screen(b.x + b.ox, b.y + b.oy)
-                draw_line(ax, ay + (self.height + self.air(i - 1)) * config.VIEW_TILT,
-                          bx, by + (self.height + self.air(i)) * config.VIEW_TILT, 1, config.COLOR_WHITE, config.WAVE_LINK_ALPHA)
+                draw_line(ax, ay + self.seg_h(i - 1) * config.VIEW_TILT,
+                          bx, by + self.seg_h(i) * config.VIEW_TILT, 1, config.COLOR_WHITE, config.WAVE_LINK_ALPHA)
         # 3. 마디: 꼬리부터 그려서 머리가 맨 위에 오게 한다. 몸은 height(+점프 높이)만큼 떠 있으니 그만큼 화면 위로
         for i in range(len(self.segs) - 1, -1, -1):
             seg = self.segs[i]
             size = self.seg_size(i)
             sx, sy = camera.to_screen(seg.x + seg.ox, seg.y + seg.oy)
-            draw_segment(sx, sy + (self.height + self.air(i)) * config.VIEW_TILT, size, seg.angle, self.invincible(i), *self.shape(i),
+            draw_segment(sx, sy + self.seg_h(i) * config.VIEW_TILT, size, seg.angle, self.invincible(i), *self.shape(i),
                          flash=seg.flash / config.HIT_FLASH)
         # 머리 앞쪽 가장자리 근처에 주황 점 — 어느 쪽이 앞인지 표시
         head = self.segs[0]
-        lift = (self.height + self.air(0)) * config.VIEW_TILT
+        lift = self.seg_h(0) * config.VIEW_TILT
         hx, hy = camera.to_screen(head.x + head.ox, head.y + head.oy)
         r = config.BOX_HEAD_SIZE * self.shape(0)[0] / 2 - config.BOX_EYE_SIZE / 2 - 1     # 중심에서 점까지 거리 (늘어나면 앞 가장자리도)
         ex, ey = hx + math.cos(head.angle) * r, hy + lift + math.sin(head.angle) * r

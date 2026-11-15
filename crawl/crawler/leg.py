@@ -123,7 +123,8 @@ class Leg:
                 self.foot_x = self.shoulder_x + (self.foot_x - self.shoulder_x) * k
                 self.foot_y = self.shoulder_y + (self.foot_y - self.shoulder_y) * k
             return
-        self.t += dt / self.step_time
+        limp = config.LIMP_STEP if self.partner is None else 1.0          # 짝 없는 다리는 혼자 버티느라 느림 (절뚝임)
+        self.t += dt / (self.step_time * limp)
         if self.t >= 1:
             self.foot_x, self.foot_y = self.ideal_x, self.ideal_y      # 착지 (S05에서 여기서 수집 판정)
             self.stepping = False
