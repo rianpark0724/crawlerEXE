@@ -16,6 +16,7 @@ class LegPart:
         self.angle = random.uniform(-math.pi, math.pi)   # 놓인 방향은 제각각
         self.kind = kind                         # plain (능력 파츠 long·spike·mag는 S14)
         self.taken = False
+        self.locked = False                      # 크롤러가 최대라 지금은 못 줍는지 (play_mode가 정함) — 흐리게 그림
         self.t = random.uniform(0, 10)           # 꼼지락 박자를 파츠마다 다르게
 
     def update(self, dt):
@@ -29,7 +30,8 @@ class LegPart:
         sx, sy = camera.to_screen(self.x, self.y)
         size = config.BOX_SEG_SIZE
         lift = config.BODY_HEIGHT * config.VIEW_TILT       # 크롤러 마디처럼 몸 높이만큼 떠 있음
-        fill_rect_rotated(sx + config.SHADOW_DX, sy + config.SHADOW_DY, size + 2, size + 2, self.angle, (0, 0, 0), config.SHADOW_ALPHA)
+        a = config.PART_LOCKED_ALPHA if self.locked else 1.0
+        fill_rect_rotated(sx + config.SHADOW_DX, sy + config.SHADOW_DY, size + 2, size + 2, self.angle, (0, 0, 0), config.SHADOW_ALPHA * a)
         # 다리 한 쌍: 마디 옆면 → 솟은 무릎 → 바닥의 발. 박자에 맞춰 앞뒤로 꼼지락 (좌우가 엇갈리게)
         for side in (+1, -1):
             out = self.angle + side * math.pi / 2                                  # 옆 방향
@@ -38,11 +40,13 @@ class LegPart:
             kx = sx + math.cos(d) * config.PART_REACH * 0.55
             ky = sy + math.sin(d) * config.PART_REACH * 0.55 + config.PART_KNEE_Z * config.VIEW_TILT   # 무릎 (위로 솟음)
             fx, fy = sx + math.cos(d) * config.PART_REACH, sy + math.sin(d) * config.PART_REACH        # 발 (바닥)
-            draw_line(shx, shy, kx, ky, config.LEG_WIDTH, config.COLOR_LEG)
-            draw_line(kx, ky, fx, fy, config.LEG_WIDTH_SHIN, config.COLOR_LEG)
+            draw_line(shx, shy, kx, ky, config.LEG_WIDTH, config.COLOR_LEG, a)
+            draw_line(kx, ky, fx, fy, config.LEG_WIDTH_SHIN, config.COLOR_LEG, a)
             j = config.LEG_JOINT
-            fill_rect(kx - j / 2, ky - j / 2, j, j, config.COLOR_LEG)
-        draw_segment(sx, sy + lift, size, self.angle)        # 크롤러와 똑같은 마디
+            fill_rect(kx - j / 2, ky - j / 2, j, j, config.COLOR_LEG, a)
+        draw_segment(sx, sy + lift, size, self.angle, self.locked)   # 크롤러와 똑같은 마디 (못 주우면 흐리게)
+        if self.locked:
+            return
         # 은은한 고리: 주울 수 있는 물건이라는 표시
         pulse = 0.5 + 0.5 * math.sin(self.t * 3)
         draw_circle(sx, sy + lift, config.PART_PICK_R + 4 + 2 * pulse, 1, config.COLOR_BODY_LIGHT, 0.2 + 0.2 * pulse)

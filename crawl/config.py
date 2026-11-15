@@ -95,6 +95,8 @@ BOX_SLOW_FACTOR = 2.2     # 커서 근처 감속: 속도 상한 = 커서까지 �
 BOX_STOP_DIST = 3         # 커서와 이 거리 안이면 멈춤 (떨림 방지)
 BOX_MIN_FACING = 0.2      # 커서와 다른 방향을 볼 때 속도 배율 하한 (속도 × max(이 값, cos(각도 차)))
 BOX_START_SEGS = 3        # 시작 마디 수 (머리 포함)
+BOX_MAX_SEGS = 6          # 최대 마디 수 (다리 12) — 여기서 더 자라지 않음
+PART_LOCKED_ALPHA = 0.3   # 최대일 때 다리 파츠 진하기 (주울 수 없다는 표시)
 BOX_SEG_SIZE = 14         # 몸통 마디 한 변
 BOX_HEAD_SIZE = 16        # 머리 한 변
 BOX_EYE_SIZE = 4          # 머리 앞쪽 주황 점 한 변

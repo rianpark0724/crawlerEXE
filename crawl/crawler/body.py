@@ -46,6 +46,10 @@ class Body:
     def seg_size(self, i):
         return config.BOX_HEAD_SIZE if i == 0 else config.BOX_SEG_SIZE
 
+    def can_grow(self):
+        # 마디가 최대(6)보다 적어야 다리 파츠를 주울 수 있다
+        return len(self.segs) < config.BOX_MAX_SEGS
+
     def grow(self):
         # 다리 파츠: 꼬리 뒤에 마디 1 + 다리 2를 붙인다 (PRD 6.1.2)
         tail = self.segs[-1]

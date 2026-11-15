@@ -162,7 +162,7 @@ def on_land(leg):
             messages.append([leg.foot_x, leg.foot_y + 20, '크롤링이 부족합니다 (방문 %d/%d)' % (len(visited), site['min_pages']), 0.0])
         return
     part = page.part_at(leg.foot_x, leg.foot_y)
-    if part is not None:
+    if part is not None and body.can_grow():         # 최대(마디 6)면 줍지 않고 남겨 둔다
         part.taken = True                             # 다리 파츠 획득 → 꼬리에 마디 1 + 다리 2
         body.grow()
         page.bursts.append([part.x, part.y, 0.0])
@@ -242,6 +242,8 @@ def update():
     body.update(target_x, target_y, game_framework.frame_time, left_down)
     camera.update(body.segs[0].y, game_framework.frame_time)
     page.update(game_framework.frame_time)
+    for part in page.parts:
+        part.locked = not body.can_grow()             # 최대면 파츠를 흐리게 (주울 수 없음)
     debug_view.update(game_framework.frame_time)
     play_time += game_framework.frame_time
     for m in messages:
