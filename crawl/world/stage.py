@@ -9,48 +9,51 @@ from ui.draw import draw_line, draw_rect, fill_rect, draw_static_text, get_image
 from world.wiki_layout import WikiLayout
 
 
-# 스테이지 JSON에 없는 항목의 기본값 (PRD 11.2 스키마)
-STAGE_DEFAULTS = {
+# 사이트(스테이지) JSON에 없는 항목의 기본값 (PRD 11.2 스키마)
+SITE_DEFAULTS = {
     'url': '/',
-    'height': config.SCREEN_H,
-    'goal': 0,
+    'targets': [],
+    'min_pages': 1,
+    'min_hops': 2,
+    'page_quota': 3,
     'par_time': 60,
-    'spawn': [config.SCREEN_W / 2, config.SCREEN_H / 2],
-    'exit': [config.SCREEN_W / 2, 100],
     'autoscroll': 0,
     'dark': False,
-    'data': [],
-    'parts': [],
-    'enemies': [],
-    'beams': [],
-    'walls': [],
-    'background': 'wiki',
-    'page': None,
+    'pages': {},
 }
 
 
-def load_stage(stage_id):
-    # data/stages/<id>.json 읽기. 빠진 항목은 기본값으로 채운다
-    with open(os.path.join(config.STAGE_DIR, stage_id + '.json'), encoding='utf-8') as f:
-        stage = json.load(f)
-    for key, value in STAGE_DEFAULTS.items():
-        stage.setdefault(key, value)
-    return stage
-
-
-def load_doc(name):
-    # data/pages/<name>.json 문서 읽기
-    with open(os.path.join(config.PAGE_DIR, name + '.json'), encoding='utf-8') as f:
-        return json.load(f)
+def load_site(site_id):
+    # data/stages/<id>.json(사이트 설정) + data/pages/<pages_dir>/*.json(문서들)을 읽는다
+    with open(os.path.join(config.STAGE_DIR, site_id + '.json'), encoding='utf-8') as f:
+        site = json.load(f)
+    for key, value in SITE_DEFAULTS.items():
+        site.setdefault(key, value)
+    folder = os.path.join(config.PAGE_DIR, site['pages_dir'])
+    site['docs'] = {}                                   # 제목 → 문서
+    for name in sorted(os.listdir(folder)):
+        if name.endswith('.json'):
+            with open(os.path.join(folder, name), encoding='utf-8') as f:
+                doc = json.load(f)
+            site['docs'][doc['title']] = doc
+    return site
 
 
 class Page:
-    def __init__(self, height, doc):
-        self.height = height
-        layout = WikiLayout(height)
+    def __init__(self, doc, titles):
+        # 문서 높이는 글 길이로 정한다: 아주 높은 페이지에 한 번 배치해 쓴 높이를 재고, 그 높이로 다시 배치
+        trial = WikiLayout(config.PAGE_TRIAL_H, titles)
+        used = config.PAGE_TRIAL_H - trial.build(doc)
+        self.height = max(config.SCREEN_H, int(used + config.PAGE_BOTTOM_PAD))
+        layout = WikiLayout(self.height, titles)
         layout.build(doc)
+        self.title = doc['title']
         self.items = layout.items      # 그리기 목록 (월드 좌표)
-        self.links = layout.links      # 파란 링크 단어 위치 — S05 데이터 조각 후보
+        self.links = layout.links      # 파란 링크 조각 (x, y, w, h, 글, 대상 문서, 링크 번호) — 데이터 조각 (S05-4)
+
+    def spawn(self):
+        # 시작 위치: 문서 맨 위 가운데
+        return config.SCREEN_W / 2, self.height - config.SPAWN_FROM_TOP
 
     def draw(self, camera):
         bottom, top = camera.y, camera.y + config.SCREEN_H   # 화면에 보이는 월드 y 범위

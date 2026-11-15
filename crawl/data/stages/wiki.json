@@ -1,22 +1,13 @@
 {
   "id": "wiki",
-  "url": "/wiki/crawler",
-  "height": 1440,
-  "goal": 10,
-  "par_time": 90,
-  "spawn": [640, 1300],
-  "exit": [640, 160],
-  "autoscroll": 0,
+  "url": "/wiki/",
+  "pages_dir": "wiki",
+  "start": "웹 크롤러",
+  "targets": [{"page": "백신", "keyword": "격리"}],
+  "min_pages": 3,
+  "min_hops": 2,
+  "page_quota": 3,
+  "par_time": 150,
   "dark": false,
-  "data": [
-    [600, 1210, "href"], [690, 1150, "token"], [610, 1090, "<p>"],
-    [320, 980, "img"], [960, 940, "link"], [520, 820, "meta"],
-    [840, 700, "title"], [260, 560, "src"], [1020, 480, "data"], [640, 360, "user"]
-  ],
-  "parts": [[300, 1020, "plain"], [980, 620, "plain"]],
-  "enemies": [{"type": "bot", "x": 900, "y": 560}],
-  "beams": [],
-  "walls": [],
-  "background": "wiki",
-  "page": "crawler"
+  "pages": {}
 }

@@ -1,4 +1,4 @@
-# 플레이 화면 — 스테이지 JSON을 읽어 페이지를 만들고, 크롤러가 커서를 따라 걷는다(S05-1). F1 디버그 뷰.
+# 플레이 화면 — 사이트(스테이지)를 읽어 시작 문서를 페이지로 만들고, 크롤러가 커서를 따라 걷는다. F1 디버그 뷰.
 from pico2d import get_events
 from sdl2 import (SDL_QUIT, SDL_KEYDOWN, SDLK_ESCAPE, SDLK_F1, SDL_MOUSEMOTION,
                   SDL_MOUSEBUTTONDOWN, SDL_MOUSEBUTTONUP, SDL_BUTTON_LEFT)
@@ -7,7 +7,7 @@ import config
 import game_framework
 from crawler.body import Body
 from world.camera import Camera
-from world.stage import Page, load_stage, load_doc
+from world.stage import Page, load_site
 from ui.hud import draw_scrollbar
 from ui.draw import draw_line, fill_rect
 from ui import debug_view
@@ -18,26 +18,26 @@ body = None                   # 크롤러 몸
 left_down = False             # 좌클릭을 누르고 있는지 (질주)
 camera = None
 page = None
-stage = None                  # 지금 스테이지 JSON 내용 (dict)
+site = None                   # 지금 사이트 (설정 + 문서들, dict)
 
 
-def init(stage_id=config.FIRST_STAGE):
-    global mouse_x, mouse_y, target_x, target_y, body, camera, page, left_down, stage
+def init(site_id=config.FIRST_STAGE):
+    global mouse_x, mouse_y, target_x, target_y, body, camera, page, left_down, site
     left_down = False
-    stage = load_stage(stage_id)
-    page = Page(stage['height'], load_doc(stage['page']))   # 배경 문서 (PRD 11.2 "page")
+    site = load_site(site_id)
+    page = Page(site['docs'][site['start']], set(site['docs']))   # 시작 문서. 링크 색은 사이트의 문서 제목으로 정함
     camera = Camera(page.height)                    # 페이지 맨 위에서 시작
     mouse_x, mouse_y = config.SCREEN_W / 2, config.SCREEN_H / 2   # 첫 마우스 이벤트 전에는 화면 가운데
     target_x, target_y = camera.to_world(mouse_x, mouse_y)
-    body = Body(*stage['spawn'])                    # 시작 위치
+    body = Body(*page.spawn())                      # 문서 맨 위에서 시작
 
 
 def finish():
-    global body, camera, page, stage
+    global body, camera, page, site
     body = None
     camera = None
     page = None
-    stage = None
+    site = None
 
 
 def handle_events():

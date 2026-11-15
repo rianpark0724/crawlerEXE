@@ -1,10 +1,11 @@
 # 위키 문서(JSON) → 페이지 위 그리기 목록 — 위키백과 Vector 2022 어두운 테마를 레퍼런스로 배치한다.
 # 위에서 아래로 커서(y)를 내려가며 놓는다. 좌표는 월드 좌표, y 위로 증가.
 #
-# 글 표기 (data/pages/*.json):
-#   [[단어]]    파란 링크 — 나중에 데이터 조각이 되는 단어 (S05)
-#   [[!단어]]   빨간 링크 — 아직 없는 문서
-#   **단어**    굵게
+# 글 표기 (data/pages/<사이트>/*.json, PRD 11.2):
+#   [[제목]]         링크 — 그 제목의 문서가 사이트에 있으면 파랑(데이터 조각), 없으면 빨강
+#   [[제목|표시글]]  링크 대상과 화면에 보일 글이 다를 때
+#   [[!단어]]        항상 빨간 링크 (없는 문서)
+#   **단어**         굵게
 #   [1], [출처 필요]   각주 표시 (작게, 위로)
 #
 # 그리기 목록 항목: (종류, 아래 y, 위 y, ...값)  — 아래·위 y는 화면 밖 건너뛰기용
@@ -18,45 +19,52 @@ import re
 import config
 from ui.draw import text_width, text_height
 
-TOKEN = re.compile(r'\[\[(!?)(.+?)\]\]|\*\*(.+?)\*\*|\[(\d+|출처 필요)\]')
+# 링크: [[!?대상(|표시글)?]] / 굵게: **글** / 각주: [숫자] [출처 필요]
+TOKEN = re.compile(r'\[\[(!?)([^\]|]+?)(?:\|(.+?))?\]\]|\*\*(.+?)\*\*|\[(\d+|출처 필요)\]')
 
 
-def parse(markup):
-    # 표기가 섞인 글 → [(글, 종류)]. 종류: 'n' 보통, 'b' 굵게, 'link', 'red', 'ref'
+def parse(markup, titles):
+    # 표기가 섞인 글 → [(글, 종류, 링크 대상)]. 종류: 'n' 보통, 'b' 굵게, 'link' 파란 링크, 'red' 빨간 링크, 'ref' 각주
     spans, pos = [], 0
     for m in TOKEN.finditer(markup):
         if m.start() > pos:
-            spans.append((markup[pos:m.start()], 'n'))
+            spans.append((markup[pos:m.start()], 'n', None))
         if m.group(2) is not None:
-            spans.append((m.group(2), 'red' if m.group(1) else 'link'))
-        elif m.group(3) is not None:
-            spans.append((m.group(3), 'b'))
+            target = m.group(2)
+            shown = m.group(3) if m.group(3) else target
+            blue = not m.group(1) and target in titles        # 사이트에 그 문서가 있어야 파랑
+            spans.append((shown, 'link' if blue else 'red', target))
+        elif m.group(4) is not None:
+            spans.append((m.group(4), 'b', None))
         else:
-            spans.append(('[' + m.group(4) + ']', 'ref'))
+            spans.append(('[' + m.group(5) + ']', 'ref', None))
         pos = m.end()
     if pos < len(markup):
-        spans.append((markup[pos:], 'n'))
+        spans.append((markup[pos:], 'n', None))
     return spans
 
 
 def to_words(spans):
     # 공백 기준으로 단어를 나눈다. 단어 하나 = 붙어 있는 조각들 (예: [[데이터]]+"를")
+    # 조각 = (글, 종류, 링크 대상, 링크 번호) — 여러 단어로 나뉜 링크도 같은 번호로 묶인다
     words = [[]]
-    for text, kind in spans:
+    for n, (text, kind, target) in enumerate(spans):
         parts = text.split(' ')
         for i, part in enumerate(parts):
             if i > 0:
                 words.append([])          # 공백 → 새 단어
             if part != '':
-                words[-1].append((part, kind))
+                words[-1].append((part, kind, target, n))
     return [w for w in words if w]
 
 
 class WikiLayout:
-    def __init__(self, height):
+    def __init__(self, height, titles):
         self.height = height
+        self.titles = titles     # 사이트에 있는 문서 제목들 — 링크를 파랑/빨강으로 가르는 기준
         self.items = []
-        self.links = []          # 파란 링크 단어 위치 (x, y, w, h, 글) — S05 데이터 조각 후보
+        self.links = []          # 파란 링크 조각 위치 (x, y, w, h, 글, 대상 문서, 링크 번호) — 데이터 조각 (S05-4)
+        self.link_count = 0      # 문단마다 링크 번호가 겹치지 않게 더해 주는 값
         self.float_bottom = None # 오른쪽 그림 틀의 아래 y (그 위쪽 줄은 폭을 줄인다)
         self.float_w = 0
         self.left = config.WIKI_CONTENT_X
@@ -92,11 +100,11 @@ class WikiLayout:
 
     def paragraph(self, markup, x, y, w, size=config.WIKI_FONT_BODY, color=config.WIKI_TEXT, line_h=config.WIKI_LINE_H):
         # 단어 단위 줄바꿈. y는 첫 줄의 위, 돌려주는 값은 마지막 줄의 아래
-        words = to_words(parse(markup))
+        words = to_words(parse(markup, self.titles))
         space = text_width(' ', size)
         line, line_w = [], 0
         for word in words:
-            ww = sum(self.piece_width(p, k, size) for p, k in word)
+            ww = sum(self.piece_width(p[0], p[1], size) for p in word)
             max_w = self.width_at(y, x, w)
             if line and line_w + space + ww > max_w:
                 self.flush(line, x, y, size, color, line_h)
@@ -107,6 +115,7 @@ class WikiLayout:
         if line:
             self.flush(line, x, y, size, color, line_h)
             y -= line_h
+        self.link_count += 1000               # 다음 문단의 링크 번호는 다른 범위로
         return y
 
     def piece_width(self, text, kind, size):
@@ -122,13 +131,13 @@ class WikiLayout:
         for i, word in enumerate(line):
             if i > 0:
                 cx += space
-            for text, kind in word:
+            for text, kind, target, n in word:
                 pw = self.piece_width(text, kind, size)
                 if kind == 'ref':
                     self.text(cx, base + size * 0.45, text, config.WIKI_FONT_REF, 'ui', config.WIKI_LINK)   # 위첨자
                 elif kind == 'link':
                     self.text(cx, base, text, size, 'ui', config.WIKI_LINK)
-                    self.links.append((cx, base, pw, text_height(size), text))
+                    self.links.append((cx, base, pw, text_height(size), text, target, self.link_count + n))
                 elif kind == 'red':
                     self.text(cx, base, text, size, 'ui', config.WIKI_REDLINK)
                 else:
@@ -143,8 +152,7 @@ class WikiLayout:
         y = self.title_area(doc, top - config.WIKI_HEADER_H - 20)
         y = self.body(doc, y)
         y = self.footer(doc, y)
-        if y < 0:
-            print('경고: 위키 문서가 페이지 높이(%d)를 %dpx 넘침' % (self.height, -y))
+        return y                                   # 문서 맨 아래 y (페이지 높이 계산용)
 
     def header(self, top):
         mid = top - config.WIKI_HEADER_H / 2
@@ -229,7 +237,7 @@ class WikiLayout:
         fx = self.right - fw
         cap_w = fig['w'] - 8
         # 캡션 높이를 먼저 재려고 임시로 배치해 본다
-        tmp = WikiLayout(self.height)
+        tmp = WikiLayout(self.height, self.titles)
         cap_bottom = tmp.paragraph(fig['caption'], 0, 0, cap_w, config.WIKI_FONT_SMALL, config.WIKI_TEXT, 18)
         fh = pad + fig['h'] + 6 + (-cap_bottom) + pad
         self.fill(fx, y - fh, fw, fh, config.WIKI_BOX_BG)
@@ -281,7 +289,7 @@ class WikiLayout:
 
     def footer(self, doc, y):
         x, r = self.left, self.right
-        cats = '분류: ' + ' | '.join('[[%s]]' % c for c in doc['categories'])
+        cats = '분류: ' + ' | '.join(doc['categories'])           # 분류는 먹을 수 있는 링크가 아니라 평범한 글
         y = self.box(cats, x, y, r - x, 13)
         y -= 20
         self.line(x, y, r, y, 1, config.WIKI_BORDER)

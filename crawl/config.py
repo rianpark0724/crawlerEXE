@@ -95,7 +95,10 @@ SHADOW_DY = -4
 SHADOW_ALPHA = 0.45       # 그림자 진하기
 
 # ── 페이지 (PRD 10.1) ─────────────────
-FIRST_STAGE = 'wiki'      # 처음 시작하는 스테이지 (data/stages/<id>.json)
+FIRST_STAGE = 'wiki'      # 처음 시작하는 사이트 (data/stages/<id>.json)
+PAGE_TRIAL_H = 100000     # 문서 높이를 재려고 한 번 배치해 보는 임시 높이
+PAGE_BOTTOM_PAD = 60      # 문서 바닥글 아래 여백
+SPAWN_FROM_TOP = 140      # 시작 위치: 문서 맨 위에서 이만큼 아래 (가운데)
 WIKI_HEADER_H = 56        # 맨 위 머리글(로고·검색창) 높이
 WIKI_TOC_X = 24           # 왼쪽 목차 x
 WIKI_CONTENT_X = 240      # 본문 왼쪽 x
