@@ -29,6 +29,8 @@ def draw_scrollbar(camera, page_height, markers=()):
 def draw_words(x, cy, parts):
     # [(글, 색, 굵게?)] 조각을 x부터 이어 그린다. cy = 띠의 세로 가운데. 끝난 x를 돌려준다
     for text, color, bold in parts:
+        if not text:                                    # 빈 글(주소를 막 입력하기 시작할 때)은 건너뜀
+            continue
         kind = 'bold' if bold else 'ui'
         draw_static_text(x, cy - text_height(config.HUD_FONT, kind) / 2, text, config.HUD_FONT, color, 1.0, kind)
         x += text_width(text, config.HUD_FONT, kind)
@@ -42,8 +44,9 @@ def draw_field(x, w, cy):
     draw_rect(x, cy - h / 2, w, h, 1, config.HUD_BAR_LINE)
 
 
-def draw_bar(url, goal, visited, min_pages, eaten, quota, data):
+def draw_bar(url, goal, visited, min_pages, eaten, quota, data, loading=None):
     # 위쪽 띠: [CRAWL.EXE] [crawl:// 주소] [🔍 목표 키워드]  ……  방문 k/K  문서 n/N  DATA 07
+    # loading: 새 창을 여는 중이면 0~1 — 띠 아래에 로딩 막대
     bottom = view_h()
     cy = bottom + config.HUD_BAR_H / 2                  # 띠의 세로 가운데
     fill_rect(0, bottom, config.SCREEN_W, config.HUD_BAR_H, config.HUD_BAR_BG)
@@ -74,3 +77,5 @@ def draw_bar(url, goal, visited, min_pages, eaten, quota, data):
             x += text_width(part[0], config.HUD_FONT)
         else:
             x = draw_words(x, cy, [part])
+    if loading is not None:
+        fill_rect(0, bottom - 2, config.SCREEN_W * loading, 3, config.COLOR_ORANGE)   # 로딩 막대

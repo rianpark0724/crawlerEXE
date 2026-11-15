@@ -78,6 +78,7 @@ class WikiLayout:
         self.titles = titles     # 사이트에 있는 문서 제목들 — 링크를 파랑/빨강으로 가르는 기준
         self.items = []
         self.links = []          # 파란 링크 조각 위치 (x, y, w, h, 글, 대상 문서, 링크 번호) — 데이터 조각 (S05-4)
+        self.exit_rect = None    # 다음 문서 상자 (x, 아래 y, w, h) — 페이지 출구 (S05-6)
         self.link_count = 0      # 문단마다 링크 번호가 겹치지 않게 더해 주는 값
         self.float_bottom = None # 오른쪽 그림 틀의 아래 y (그 위쪽 줄은 폭을 줄인다)
         self.float_w = 0
@@ -167,6 +168,7 @@ class WikiLayout:
         self.toc(doc, top - config.WIKI_HEADER_H - 28)
         y = self.title_area(doc, top - config.WIKI_HEADER_H - 20)
         y = self.body(doc, y)
+        y = self.exit_box(y)
         y = self.footer(doc, y)
         return y                                   # 문서 맨 아래 y (페이지 높이 계산용)
 
@@ -303,6 +305,14 @@ class WikiLayout:
         self.items.insert(at, ('rect', bottom, y, x, bottom, w, y - bottom, config.WIKI_BORDER))
         self.items.insert(at, ('fill', bottom, y, x, bottom, w, y - bottom, config.WIKI_BOX_BG))
         return bottom - 12
+
+    def exit_box(self, y):
+        # 다음 문서 상자(페이지 출구) 자리만 잡는다. 안의 칸은 방문 대기열에 따라 바뀌므로 Page가 그린다 (S05-6)
+        rows = config.EXIT_ROWS
+        h = config.EXIT_PAD * 2 + config.EXIT_TITLE_H + rows * config.EXIT_SLOT_H + (rows - 1) * config.EXIT_GAP
+        y -= 8
+        self.exit_rect = (self.left, y - h, self.right - self.left, h)      # (x, 아래 y, w, h)
+        return y - h - 24
 
     def footer(self, doc, y):
         x, r = self.left, self.right

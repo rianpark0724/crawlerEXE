@@ -1,4 +1,5 @@
 # 플레이 화면 — 사이트(스테이지)를 읽어 시작 문서를 페이지로 만들고, 크롤러가 커서를 따라 걷는다. F1 디버그 뷰.
+# 문서 이동: 페이지 끝 '다음 문서' 상자의 칸을 발로 밟는다 (PRD 11.3-3). 모든 상호작용은 크롤러로.
 from pico2d import get_events
 from sdl2 import (SDL_QUIT, SDL_KEYDOWN, SDLK_ESCAPE, SDLK_F1, SDL_MOUSEMOTION,
                   SDL_MOUSEBUTTONDOWN, SDL_MOUSEBUTTONUP, SDL_BUTTON_LEFT)
@@ -9,7 +10,7 @@ from crawler.body import Body
 from world.camera import Camera
 from world.stage import Page, load_site
 from ui.hud import draw_scrollbar, draw_bar
-from ui.draw import draw_line, fill_rect
+from ui.draw import draw_line, draw_rect, fill_rect, draw_static_text
 from ui import debug_view
 
 mouse_x, mouse_y = 0.0, 0.0   # 커서 위치 (화면 좌표, y 위로 증가) — 커서 그리기용
@@ -23,20 +24,57 @@ data_count = 0                # 먹은 데이터(링크) 수 — 문서를 넘�
 frontier = []                 # 방문 대기열: 먹었지만 아직 안 간 문서 제목들 (PRD 11.3)
 visited = []                  # 방문한 문서 제목들 (순서대로)
 goal = None                   # 이번 판 목표 {'page': 문서, 'keyword': 키워드}
+pages = {}                    # 한 번 연 문서의 Page (제목 → Page) — 다시 와도 먹은 링크가 보라로 남게
+history = []                  # 지나온 문서 제목들 — '뒤로' 칸이 마지막 것으로 간다
+next_doc = None               # 이번 프레임에 밟아 고른 (문서, 뒤로인지, 칸 번호) — 걷기 처리가 끝난 뒤 창 열기 시작
+opening = None                # 새 창이 열리는 중: {'title', 'back', 'rect'(밟은 칸, 월드), 't'(지난 시간)}
+play_time = 0.0               # 플레이 시간 (출구 깜빡임 등)
+fade = 0.0                    # 문서를 옮긴 뒤 남은 밝아짐 시간
+charge = {'title': None, 'n': 0, 'time': 0.0}   # 출구 칸 채우기: 어느 문서 칸을, 몇 번 연속 밟았는지, 마지막 착지 시각
 
 
 def init(site_id=config.FIRST_STAGE):
-    global mouse_x, mouse_y, target_x, target_y, body, camera, page, left_down, site, data_count, frontier, visited, goal
+    global mouse_x, mouse_y, left_down, site, data_count, frontier, visited, goal, pages, history, next_doc, play_time, opening
     left_down = False
     site = load_site(site_id)
-    page = Page(site['docs'][site['start']], set(site['docs']))   # 시작 문서. 링크 색은 사이트의 문서 제목으로 정함
-    data_count, frontier, visited = 0, [], [site['start']]
+    data_count, frontier, visited = 0, [], []
+    pages, history, next_doc, play_time, opening = {}, [], None, 0.0, None
     goal = site['targets'][0]                       # 임시: 첫 후보 (S05-7에서 무작위로 뽑음)
-    camera = Camera(page.height)                    # 페이지 맨 위에서 시작
     mouse_x, mouse_y = config.SCREEN_W / 2, config.SCREEN_H / 2   # 첫 마우스 이벤트 전에는 화면 가운데
+    open_doc(site['start'])                         # 시작 문서 맨 위에서 출발
+
+
+def open_doc(title):
+    # 문서를 열고 그 문서 맨 위에 크롤러를 세운다. 처음 여는 문서면 Page를 만들어 보관
+    global page, camera, body, target_x, target_y, fade, charge
+    charge = {'title': None, 'n': 0, 'time': 0.0}
+    if title not in pages:
+        pages[title] = Page(site['docs'][title], set(site['docs']))   # 링크 색은 사이트의 문서 제목으로 정함
+    page = pages[title]
+    if title not in visited:
+        visited.append(title)                       # 방문 수 (HUD 방문 k/K)
+    if title in frontier:
+        frontier.remove(title)                      # 갔으니 방문 대기열에서 뺀다
+    camera = Camera(page.height)                    # 페이지 맨 위에서 시작
     target_x, target_y = camera.to_world(mouse_x, mouse_y)
-    body = Body(*page.spawn())                      # 문서 맨 위에서 시작
+    body = Body(*page.spawn())                      # 문서 맨 위에서 시작 (다리 수 유지는 S08에서)
     body.on_land = on_land                          # 착지 이벤트 연결
+    fade = config.PAGE_FADE_TIME
+
+
+def exit_need():
+    # 출구가 열리려면 이 문서에서 더 먹어야 할 링크 수 (문서의 링크가 page_quota보다 적으면 전부)
+    quota = min(site['page_quota'], len(page.groups))
+    return max(0, quota - page.eaten_count())
+
+
+def exit_choices():
+    # 다음 문서 상자의 칸들 [(글, 문서, 뒤로인지)]: 방문 대기열(먹은 순서) + 뒤로(지나온 문서가 있으면)
+    n = config.EXIT_ROWS * config.EXIT_COLS
+    choices = [('→ ' + t, t, False) for t in frontier[:n - 1]]
+    if history:
+        choices.append(('← 뒤로: ' + history[-1], history[-1], True))
+    return choices
 
 
 def finish():
@@ -70,21 +108,95 @@ def on_land(leg):
     # 발이 착지한 순간 한 번: 그 자리의 파란 링크를 먹는다 (몸통은 먹지 못함 — 발 착지만 판정)
     global data_count
     debug_view.note_landing(leg.foot_x, leg.foot_y)
+    global next_doc
     group = page.eat_at(leg.foot_x, leg.foot_y)
     if group is not None:
         data_count += 1
         if group['target'] not in visited and group['target'] not in frontier:
             frontier.append(group['target'])          # 먹은 링크의 문서 → 방문 대기열
+        return
+    # 출구가 열렸으면: 다음 문서 상자의 칸에 착지했는지
+    if exit_need() == 0 and next_doc is None:
+        choices = exit_choices()
+        i = page.exit_at(leg.foot_x, leg.foot_y, choices)
+        if i is None:
+            return
+        title = choices[i][1]
+        if charge['title'] == title and play_time - charge['time'] < config.EXIT_FORGET:
+            charge['n'] += 1                          # 같은 칸을 이어서 밟음
+        else:
+            charge['title'], charge['n'] = title, 1   # 다른 칸이거나 한참 만에 → 처음부터
+        charge['time'] = play_time
+        if charge['n'] >= config.EXIT_STEPS:
+            next_doc = (title, choices[i][2], i)      # 걷기 처리 중이므로 프레임 끝에 창 열기 시작
+
+
+def exit_fill():
+    # 출구 칸이 얼마나 찼는지: (문서 제목, 0~1). 한참 안 밟았으면 비워짐
+    if charge['title'] is None or play_time - charge['time'] >= config.EXIT_FORGET:
+        return None, 0.0
+    return charge['title'], charge['n'] / config.EXIT_STEPS
+
+
+def go_to(title, back):
+    # 다음 문서로: 앞으로 가면 지금 문서를 기록에 쌓고, 뒤로 가면 기록에서 꺼낸다
+    if back:
+        history.pop()
+    else:
+        history.append(page.title)
+    open_doc(title)
 
 
 def update():
-    global target_x, target_y
+    global target_x, target_y, next_doc, play_time, fade, opening
+    if opening is not None:
+        # 새 창이 열리는 동안은 게임이 멈춘다. 다 열리면 문서를 옮긴다
+        opening['t'] += game_framework.frame_time
+        if opening['t'] >= config.OPEN_TIME:
+            go_to(opening['title'], opening['back'])
+            opening = None
+        return
     # 커서의 월드 좌표는 매 프레임 다시 계산한다 — 마우스를 가만히 둬도 카메라가 움직이면 가리키는 곳이 바뀐다
     target_x, target_y = camera.to_world(mouse_x, mouse_y)
     body.update(target_x, target_y, game_framework.frame_time, left_down)
     camera.update(body.segs[0].y, game_framework.frame_time)
     page.update(game_framework.frame_time)
     debug_view.update(game_framework.frame_time)
+    play_time += game_framework.frame_time
+    fade = max(0.0, fade - game_framework.frame_time)
+    if next_doc is not None:                          # 이번 프레임에 칸을 다 채웠으면 새 창 열기 시작
+        title, back, i = next_doc
+        next_doc = None
+        rect = page.slot_rects(len(exit_choices()))[i]
+        opening = {'title': title, 'back': back, 'rect': rect, 't': 0.0}
+
+
+def open_progress():
+    # 창 열기 진행 0~1, 끝으로 갈수록 느려지게 (ease-out: 1 - (1-u)³)
+    u = min(1.0, opening['t'] / config.OPEN_TIME)
+    return 1 - (1 - u) ** 3
+
+
+def draw_opening():
+    # 밟은 칸 자리에서 새 창 테두리가 페이지 창 전체로 커지며 이전 문서를 덮는다
+    k = open_progress()
+    sx, sy, sw, sh = opening['rect']
+    sy -= camera.y                                    # 칸의 화면 위치에서 시작
+    view_w, view_h = config.SCREEN_W - config.SCROLL_W, config.SCREEN_H - config.HUD_BAR_H
+    x, y = sx + (0 - sx) * k, sy + (0 - sy) * k       # 칸 → 창 전체로 보간
+    w, h = sw + (view_w - sw) * k, sh + (view_h - sh) * k
+    fill_rect(x, y, w, h, config.COLOR_BG)
+    draw_rect(x, y, w, h, 2, config.COLOR_ORANGE, 1 - k * 0.6)
+    if h > config.OPEN_TITLE_H * 2:                   # 충분히 커지면 창 위쪽에 제목 줄
+        fill_rect(x, y + h - config.OPEN_TITLE_H, w, config.OPEN_TITLE_H, config.HUD_BAR_BG)
+        draw_static_text(x + 12, y + h - config.OPEN_TITLE_H + 7, opening['title'], config.HUD_FONT, config.WIKI_TEXT)
+        # 로딩 중인 페이지처럼 회색 글줄 자리 (창 안에 들어가는 줄만)
+        top = y + h - config.OPEN_TITLE_H - 40
+        for i, frac in enumerate(config.OPEN_SKELETON):
+            ly = top - i * 34
+            if ly < y + 10:
+                break
+            fill_rect(x + 24, ly, (w - 48) * frac, 12 if i else 20, config.WIKI_BOX_BG)
 
 
 def draw_cursor():
@@ -97,13 +209,26 @@ def draw():
     # 화면 지우기·표시는 game_framework가 한다. 여기서는 그리기만.
     fill_rect(0, 0, config.SCREEN_W, config.SCREEN_H, config.COLOR_BG)   # 남색 배경
     page.draw(camera)
+    page.draw_exit(camera, exit_choices(), exit_need(), play_time, exit_fill())
     body.draw(camera)
-    draw_scrollbar(camera, page.height)   # HUD — 화면 좌표
-    draw_bar(site['url'] + page.title, goal['keyword'], len(visited), site['min_pages'],
-             page.eaten_count(), site['page_quota'], data_count)
+    if opening is not None:
+        draw_opening()
+    if fade > 0:                          # 문서를 막 옮겼으면 배경색에서 밝아진다
+        fill_rect(0, 0, config.SCREEN_W, config.SCREEN_H, config.COLOR_BG, fade / config.PAGE_FADE_TIME)
+    exit_y = page.exit_rect[1] + page.exit_rect[3] / 2
+    draw_scrollbar(camera, page.height, [(exit_y, config.COLOR_ORANGE if exit_need() == 0 else config.COLOR_GRAY)])   # HUD — 화면 좌표
+    if opening is None:
+        draw_bar(site['url'] + page.title, goal['keyword'], len(visited), site['min_pages'],
+                 page.eaten_count(), site['page_quota'], data_count)
+    else:
+        # 여는 중: 주소칸에 새 주소가 한 글자씩 입력되고, 띠 아래 로딩 막대가 찬다
+        url = site['url'] + opening['title']
+        typed = url[:int(len(url) * min(1.0, opening['t'] / (config.OPEN_TIME * config.OPEN_TYPE_PART)))]
+        draw_bar(typed, goal['keyword'], len(visited), site['min_pages'],
+                 page.eaten_count(), site['page_quota'], data_count, open_progress())
 
     debug_view.draw(camera, body, (mouse_x, mouse_y), (target_x, target_y), page,
-                    'data %d  queue %s' % (data_count, ', '.join(frontier) or '-'))   # F1
+                    'data %d  queue %s  back %s' % (data_count, ', '.join(frontier) or '-', ', '.join(history) or '-'))   # F1
     draw_cursor()
 
 
