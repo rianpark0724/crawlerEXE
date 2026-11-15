@@ -1,21 +1,25 @@
-# 플레이 화면 — 지금은 마우스 커서 표시(S02-1).
+# 플레이 화면 — 머리가 커서를 따라감(S02-2).
 from pico2d import get_events
 from sdl2 import SDL_QUIT, SDL_KEYDOWN, SDLK_ESCAPE, SDL_MOUSEMOTION
 
 import config
 import game_framework
+from crawler.body import Body
 from ui.draw import draw_line, fill_rect, draw_text
 
 mouse_x, mouse_y = 0.0, 0.0   # 커서 위치 (화면 좌표, y 위로 증가)
+body = None                   # 크롤러 몸
 
 
 def init():
-    global mouse_x, mouse_y
+    global mouse_x, mouse_y, body
     mouse_x, mouse_y = config.SCREEN_W / 2, config.SCREEN_H / 2   # 첫 마우스 이벤트 전에는 화면 가운데
+    body = Body(config.SCREEN_W / 2, config.SCREEN_H / 2)
 
 
 def finish():
-    pass
+    global body
+    body = None
 
 
 def handle_events():
@@ -32,7 +36,7 @@ def handle_events():
 
 
 def update():
-    pass
+    body.update(mouse_x, mouse_y, game_framework.frame_time)
 
 
 def draw_cursor():
@@ -44,11 +48,14 @@ def draw_cursor():
 def draw():
     # 화면 지우기·표시는 game_framework가 한다. 여기서는 그리기만.
     fill_rect(0, 0, config.SCREEN_W, config.SCREEN_H, config.COLOR_BG)   # 남색 배경
+    body.draw()
     draw_cursor()
 
     if config.SHOW_FPS:   # 왼쪽 위 FPS·프레임 시간 (디버그)
         draw_text(10, config.SCREEN_H - 14, 'FPS %5.1f  dt %5.1f ms' % (game_framework.fps, game_framework.frame_time * 1000), config.COLOR_GRAY)
         draw_text(10, config.SCREEN_H - 32, 'mouse %4d %4d' % (mouse_x, mouse_y), config.COLOR_GRAY)
+        head = body.segs[0]
+        draw_text(10, config.SCREEN_H - 50, 'head %4d %4d  angle %5.2f  speed %5.1f' % (head.x, head.y, head.angle, body.speed), config.COLOR_GRAY)
 
 
 def pause():
