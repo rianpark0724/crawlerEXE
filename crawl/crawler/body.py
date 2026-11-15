@@ -33,6 +33,7 @@ class Body:
         self.wave_t = None                           # □ WAVE: 파동이 시작된 뒤 지난 시간 (None = 파동 중 아님)
         self.wave_cool = 0.0                         # WAVE 재사용까지 남은 시간
         self.wave_dir = 0.0                          # 점프 돌진 방향 (출발할 때 커서 쪽으로 고정)
+        self.gaps = [config.SEG_SPACING] * len(self.segs)   # 마디 i와 앞 마디 사이 간격 (평소 19, WAVE 중 늘어남). gaps[0]은 안 씀
         self.update_legs(0.0)                        # 발을 처음 위치에 놓는다
 
     def all_legs(self):
@@ -105,7 +106,7 @@ class Body:
             self.dash_head(dt)                   # 1~2. WAVE: 머리가 공중에 있는 동안은 점프 돌진 (조종 불가)
         else:
             self.move_head(target_x, target_y, dt)   # 1~2. 머리 회전·전진
-        self.follow()                            # 3. 나머지 마디는 앞 마디에 끌려온다 (거리 제약)
+        self.follow(dt)                          # 3. 나머지 마디는 앞 마디에 끌려온다 (거리 제약)
         for seg, (px, py) in zip(self.segs, before):
             if dt > 0:
                 seg.vx, seg.vy = (seg.x - px) / dt, (seg.y - py) / dt   # 마디 속도 = 이번 프레임 이동량 / 시간
@@ -205,16 +206,26 @@ class Body:
         for leg in legs:
             leg.solve_knee()
 
-    def follow(self):
-        # 머리에서 꼬리 순서로: 마디 i를 마디 i-1에서 정확히 SEG_SPACING 떨어진 곳으로 당긴다
+    def follow(self, dt):
+        # 머리에서 꼬리 순서로: 마디 i를 마디 i-1에서 정확히 gaps[i] 떨어진 곳으로 당긴다
+        # gaps[i]는 평소 19px. WAVE 중에는:
+        #   아직 뛰기 전인 마디 → 제자리에 버팀: 간격이 지금 거리만큼 늘어남 (최대 19 × 1.6)
+        #   뛰어오른 마디 / 착지한 마디 / 파동이 끝난 뒤 → 앞 마디로 따라붙음: 간격이 초당 WAVE_RESTORE px씩 19까지 줄어듦
+        base = config.SEG_SPACING
+        while len(self.gaps) < len(self.segs):       # 마디가 늘어나면 (S07) 간격도 추가
+            self.gaps.append(base)
         for i in range(1, len(self.segs)):
             front, seg = self.segs[i - 1], self.segs[i]
             dx, dy = front.x - seg.x, front.y - seg.y
             d = math.hypot(dx, dy)
             if d == 0:
                 continue
-            seg.x = front.x - dx / d * config.SEG_SPACING    # 앞 마디 → 이 마디 방향으로 SEG_SPACING만큼
-            seg.y = front.y - dy / d * config.SEG_SPACING
+            if self.wave_t is not None and self.wave_t < i * config.WAVE_STEP:   # 파도가 아직 안 닿은 마디
+                self.gaps[i] = min(base * config.WAVE_STRETCH, max(self.gaps[i], d))   # 버팀: 늘어나기만
+            else:
+                self.gaps[i] = max(base, self.gaps[i] - config.WAVE_RESTORE * dt)      # 따라붙음: 줄어들기만
+            seg.x = front.x - dx / d * self.gaps[i]          # 앞 마디 → 이 마디 방향으로 gaps[i]만큼
+            seg.y = front.y - dy / d * self.gaps[i]
             seg.angle = math.atan2(dy, dx)                   # 앞 마디를 바라봄
 
     def draw(self, camera):
@@ -232,6 +243,14 @@ class Body:
         # 2. 다리 (마디 아래에)
         for leg in self.all_legs():
             leg.draw(camera)
+        # 늘어난 마디 사이 연결선: 가늘고 흐리게 (WAVE로 몸이 늘어났을 때만)
+        for i in range(1, len(self.segs)):
+            if self.gaps[i] > config.SEG_SPACING + 1:
+                a, b = self.segs[i - 1], self.segs[i]
+                ax, ay = camera.to_screen(a.x + a.ox, a.y + a.oy)
+                bx, by = camera.to_screen(b.x + b.ox, b.y + b.oy)
+                draw_line(ax, ay + (self.height + self.air(i - 1)) * config.VIEW_TILT,
+                          bx, by + (self.height + self.air(i)) * config.VIEW_TILT, 1, config.COLOR_WHITE, config.WAVE_LINK_ALPHA)
         # 3. 마디: 꼬리부터 그려서 머리가 맨 위에 오게 한다. 몸은 height(+점프 높이)만큼 떠 있으니 그만큼 화면 위로
         for i in range(len(self.segs) - 1, -1, -1):
             seg = self.segs[i]
