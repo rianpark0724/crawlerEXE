@@ -13,6 +13,7 @@ class Segment:
         self.x, self.y = x, y
         self.angle = angle      # 라디안. 앞(머리 쪽)을 향함
         self.vx = self.vy = 0.0  # 이번 프레임 이동 속도 (px/s) — 다리가 앞으로 미리 딛는 데 사용
+        self.ox = self.oy = 0.0  # 좌우 쏠림 (디딘 다리 쪽으로). 그리기와 어깨 위치에 더한다
         self.legs = [Leg(+1), Leg(-1)]   # 다리 한 쌍 (왼쪽, 오른쪽)
         self.legs[0].partner, self.legs[1].partner = self.legs[1], self.legs[0]   # 서로 반대쪽 다리
 
@@ -58,6 +59,10 @@ class Body:
         self.speed = config.BOX_BASE_SPEED + config.BOX_SPEED_PER_PAIR * (len(self.all_legs()) / 2)   # 120 + 8 × 다리 쌍
         self.speed = min(self.speed, dist * config.BOX_SLOW_FACTOR)        # 커서 가까이 가면 감속
         self.speed *= max(config.BOX_MIN_FACING, math.cos(diff))           # 커서와 다른 방향을 볼수록 느리게 (뒤돌 때 거의 제자리 회전)
+        # 밀려가기: 들린 발이 적을수록(디딘 발이 많을수록) 빠르게. lifted 0 = 전부 디딤, 1 = 걸을 수 있는 다리가 모두 가장 높이
+        legs = self.all_legs()
+        lifted = sum(leg.lift for leg in legs) / (config.LEG_LIFT * max(1, len(legs) // 2))
+        self.speed *= 1 + config.BODY_SURGE * (0.5 - lifted)               # 평균 속도는 그대로, ×(1 ± SURGE/2) 사이에서 출렁
         head.x += math.cos(head.angle) * self.speed * dt
         head.y += math.sin(head.angle) * self.speed * dt
 
@@ -65,6 +70,11 @@ class Body:
         # (1) 어깨·이상적 위치: 다리 기울기는 머리 마디 +LEG_TILT(앞) → 꼬리 마디 -LEG_TILT(뒤)로 고르게
         n = len(self.segs)
         for i, seg in enumerate(self.segs):
+            # 좌우 쏠림: 한쪽 다리가 들리면 몸이 반대쪽(디딘 쪽)으로. 왼쪽(+) 다리가 들리면 오른쪽으로
+            left, right = seg.legs
+            sway = config.BODY_SWAY * (right.lift - left.lift) / config.LEG_LIFT
+            seg.ox = math.cos(seg.angle + math.pi / 2) * sway
+            seg.oy = math.sin(seg.angle + math.pi / 2) * sway
             tilt = config.LEG_TILT * (1 - 2 * i / (n - 1)) if n > 1 else 0.0
             for leg in seg.legs:
                 leg.update_pose(seg, self.seg_size(i), tilt)
@@ -107,7 +117,7 @@ class Body:
             leg.draw_shadow(camera)
         for i, seg in enumerate(self.segs):
             size = self.seg_size(i)
-            sx, sy = camera.to_screen(seg.x, seg.y)
+            sx, sy = camera.to_screen(seg.x + seg.ox, seg.y + seg.oy)
             fill_rect_rotated(sx + config.SHADOW_DX, sy + config.SHADOW_DY, size + 2, size + 2, seg.angle,
                               (0, 0, 0), config.SHADOW_ALPHA)
         # 2. 다리 (마디 아래에)
@@ -118,11 +128,11 @@ class Body:
         for i in range(len(self.segs) - 1, -1, -1):
             seg = self.segs[i]
             size = self.seg_size(i)
-            sx, sy = camera.to_screen(seg.x, seg.y)
+            sx, sy = camera.to_screen(seg.x + seg.ox, seg.y + seg.oy)
             self.draw_segment(sx, sy + lift, size, seg.angle)
         # 머리 앞쪽 가장자리 근처에 주황 점 — 어느 쪽이 앞인지 표시
         head = self.segs[0]
-        hx, hy = camera.to_screen(head.x, head.y)
+        hx, hy = camera.to_screen(head.x + head.ox, head.y + head.oy)
         r = config.BOX_HEAD_SIZE / 2 - config.BOX_EYE_SIZE / 2 - 1     # 중심에서 점까지 거리
         fill_rect_rotated(hx + math.cos(head.angle) * r, hy + lift + math.sin(head.angle) * r,
                           config.BOX_EYE_SIZE, config.BOX_EYE_SIZE, head.angle, config.COLOR_ORANGE)

@@ -35,8 +35,8 @@ class Leg:
     def update_pose(self, seg, size, tilt):
         # 어깨와 이상적 발 위치 계산 (마디가 움직이면 매 프레임 바뀐다)
         side_angle = seg.angle + self.side * math.pi / 2
-        self.shoulder_x = seg.x + math.cos(side_angle) * size / 2      # 어깨: 마디 옆면 가운데
-        self.shoulder_y = seg.y + math.sin(side_angle) * size / 2
+        self.shoulder_x = seg.x + seg.ox + math.cos(side_angle) * size / 2   # 어깨: 마디 옆면 가운데 (몸 쏠림 포함)
+        self.shoulder_y = seg.y + seg.oy + math.sin(side_angle) * size / 2
         leg_angle = seg.angle + self.side * (math.pi / 2 - tilt - self.tilt_random)   # 다리 방향: 옆에서 tilt만큼 앞으로
         # 무릎이 꺾이는 쪽: 지네형 = 모든 다리 뒤로 / 거미형 = 앞으로 기운 다리만 앞으로 (무작위 없는 tilt로 정함)
         if config.KNEE_STYLE == 'spider' and tilt > 0:
