@@ -21,6 +21,7 @@ from world.enemies import place_enemies, place_walls, draw_revert_arrow, Refresh
 from world.collision import leg_hit, circle_circle, circle_rect, leg_hit_rect
 from world.hole import draw_hole, BitLeak
 from world.grinder import Grinder
+from world.purge import FullVaccine, draw_noise
 from world.comments import CommentNest
 from world.ads import AdSpawner
 from world.shop_enemies import Captcha, Vaccine, StarThrower, StarShot, TimeDeal, Recommender, Cart, CartRush
@@ -63,7 +64,9 @@ checkpoint = None             # 지금 사이트에 들어올 때의 {몸, 데�
 goal_reveal = [None]          # 목표 키워드 등장 연출이 시작된 뒤 지난 시간 (None = 연출 없음)
 grinder = None                # crawl://final의 데이터 깔때기 (완전 클리어 때만)
 final_time = None             # 크롤러가 다 갈린 순간의 전체 시간 (이때 시간이 멈춤)
-respawn_t = 0.0               # 다 갈린 뒤 새 크롤러가 나타나기까지 남은 시간
+respawn_t = 0.0               # 다 짜낸 뒤 눈이 튀어나오기까지 남은 시간
+site_time = 0.0               # 지금 사이트에 머문 시간 — par_time을 넘기면 완전 백신
+purge = None                  # 완전 백신 (FullVaccine) — 나타났으면
 play_time = 0.0               # 플레이 시간 (출구 깜빡임 등)
 fade = 0.0                    # 문서를 옮긴 뒤 남은 밝아짐 시간
 hit_stop = 0.0                # 피격 순간 멈칫이 남은 시간 (이동안 게임이 멈춤)
@@ -91,8 +94,9 @@ def init(start='home'):
 def reset_site(site_id):
     # 사이트 하나의 상태를 새로 (몸·데이터·시간은 건드리지 않음)
     global site, frontier, visited, pages, history, next_doc, opening, cleared, messages, clear_timer, clear_spot, lost, lost_timer
-    global grinder, final_time
+    global grinder, final_time, site_time, purge
     grinder, final_time = None, None
+    site_time, purge = 0.0, None
     goal_reveal[0] = None
     chew_jolt[0] = 0.0
     site = load_site(site_id)
@@ -191,6 +195,8 @@ def open_doc(title):
         if isinstance(enemy, RefreshBand):
             enemy.reset()                           # 띠는 들어올 때마다 처음부터 (경고 없이 오지 않게)
     show_page(pages[title])
+    if purge is not None:
+        purge.enter(*page.spawn())                  # 완전 백신은 몇 초 뒤 같은 자리로 따라 들어옴
 
 
 def is_last_site():
@@ -216,6 +222,33 @@ def open_final():
     final = CrawlPage('final', [('ALL SITES CRAWLED', 34, config.COLOR_GOLD, True)], [])
     final.slot_y = config.FINAL_SLOT_Y                # 칸은 깔때기 위에 (다 짜낸 뒤 생김)
     show_page(final)
+
+
+def update_purge(dt):
+    # 사이트에 머문 시간이 par_time을 넘기면 화면 위쪽 밖에서 완전 백신이 나타나 쫓아옴. 닿으면 다리가 전부 떨어짐 → 끝
+    global site_time, purge
+    if isinstance(page, CrawlPage) or cleared or lost:
+        return
+    site_time += dt
+    head = body.segs[0]
+    if purge is None and site_time >= site['par_time']:
+        view_top = camera.y + config.SCREEN_H - config.HUD_BAR_H
+        purge = FullVaccine(head.x + random.uniform(-200, 200), view_top + config.PURGE_SPAWN_GAP)
+    if purge is None:
+        return
+    purge.update(dt, head)
+    if purge.touches(body):
+        for leg in list(body.all_legs()):
+            body.cut_leg(leg, purge.x, purge.y)       # 격리: 다리가 한꺼번에 떨어져 나감 → check_lost가 죽음 연출
+        messages.append([head.x, head.y + 30, '격리됨', 0.0])
+
+
+def purge_warning():
+    # 완전 백신까지 남은 시간 (PURGE_WARN초 전부터) — 없으면 None
+    if isinstance(page, CrawlPage) or cleared or lost or purge is not None:
+        return None
+    left = site['par_time'] - site_time
+    return left if left <= config.PURGE_WARN else None
 
 
 def update_final():
@@ -761,6 +794,7 @@ def update():
         part.locked = not body.can_grow()             # 최대면 파츠를 흐리게 (주울 수 없음)
     debug_view.update(game_framework.frame_time)
     update_charge(game_framework.frame_time)          # 껍데기·칸 위에 서 있는 시간 → 갉기·이동
+    update_purge(game_framework.frame_time)           # 너무 오래 머물면 완전 백신
     update_final()
     if final_time is None:
         play_time += game_framework.frame_time          # 시간은 판 전체로 흐름 (크롤러가 다 갈리면 멈춤)
@@ -962,6 +996,11 @@ def draw():
     if final_page:
         grinder.draw_over(camera)                     # 깔때기 벽·주둥이가 크롤러 위 + 흘러내리는 데이터 + 눈알
         grinder.draw_panel(play_time, final_time)
+    if purge is not None and not isinstance(page, CrawlPage) and purge.present():
+        purge.draw(camera)                            # 완전 백신
+        head = body.segs[0]
+        near = math.hypot(purge.x - head.x, purge.y - head.y)
+        draw_noise(max(0.25, min(1.0, 1 - near / config.PURGE_NOISE_DIST)))   # 가까울수록 화면이 심하게 지글거림
     for enemy in page.enemies:
         if isinstance(enemy, CommentNest):
             enemy.draw_stuck(camera)                  # 몸에 붙은 댓글 벌레는 크롤러 위에
@@ -1011,6 +1050,11 @@ def draw():
     draw_bar(url, goal_text, len(visited), site['min_pages'], eaten, site['page_quota'], shown_data(), loading, loading_color,
              config.COLOR_RED if flash else config.COLOR_SKY)
     draw_goal_reveal()
+    left = purge_warning()
+    if left is not None and int(left * 4) % 2 == 0:  # 완전 백신 예고: 띠 아래 빨간 글이 깜빡이며 남은 초
+        warn = '완전 백신 실행까지 %d초' % math.ceil(left)
+        draw_static_text((config.SCREEN_W - text_width(warn, 18, 'bold')) / 2, config.SCREEN_H - config.HUD_BAR_H - 34,
+                         warn, 18, config.COLOR_RED, 1.0, 'bold')
 
     debug_view.draw(camera, body, (mouse_x, mouse_y), (target_x, target_y), page,
                     'goal %s/%s (%d hops)  data %d  queue %s  back %s' % (goal['page'], goal['keyword'], goal['hops'], data_count,
