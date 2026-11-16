@@ -378,7 +378,7 @@ SHADOW_ALPHA = 0.45       # 그림자 진하기
 
 # ── 페이지 (PRD 10.1) ─────────────────
 RANDOM_SEED = None        # 숫자를 넣으면 매번 같은 판(목표·키워드 자리), None이면 매번 다르게 (PRD 11.3-7)
-FIRST_STAGE = 'wiki'      # 처음 시작하는 사이트 (data/stages/<id>.json)
+STAGE_ORDER = ['wiki', 'news', 'shop']   # 한 판의 사이트 순서 (data/stages/<id>.json) — 홈에서 시작해 차례로
 PAGE_TRIAL_H = 100000     # 문서 높이를 재려고 한 번 배치해 보는 임시 높이
 PAGE_BOTTOM_PAD = 60      # 문서 바닥글 아래 여백
 SPAWN_FROM_TOP = 140      # 시작 위치: 문서 맨 위에서 이만큼 아래 (가운데)

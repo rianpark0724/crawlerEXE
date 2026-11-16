@@ -1,5 +1,6 @@
 {
   "id": "shop",
+  "name": "쇼핑몰",
   "url": "/shop/",
   "layout": "shop",
   "pages_dir": "shop",

@@ -29,6 +29,7 @@ SITE_DEFAULTS = {
     'dark': False,
     'pages': {},
     'layout': 'wiki',     # 문서 모양: wiki / news / shop (LAYOUTS)
+    'name': '',           # 홈·결과 페이지에 보일 사이트 이름 (비면 id)
 }
 
 
@@ -38,6 +39,7 @@ def load_site(site_id):
         site = json.load(f)
     for key, value in SITE_DEFAULTS.items():
         site.setdefault(key, value)
+    site['name'] = site['name'] or site['id']
     folder = os.path.join(config.PAGE_DIR, site['pages_dir'])
     site['docs'] = {}                                   # 제목 → 문서
     for name in sorted(os.listdir(folder)):

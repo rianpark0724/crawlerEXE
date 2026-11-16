@@ -1,5 +1,6 @@
 {
   "id": "wiki",
+  "name": "위키",
   "url": "/wiki/",
   "pages_dir": "wiki",
   "start": "웹 크롤러",

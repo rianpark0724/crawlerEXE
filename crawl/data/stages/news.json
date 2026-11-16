@@ -1,5 +1,6 @@
 {
   "id": "news",
+  "name": "뉴스",
   "url": "/news/",
   "layout": "news",
   "pages_dir": "news",

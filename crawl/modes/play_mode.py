@@ -1,6 +1,7 @@
 # 플레이 화면 — 사이트(스테이지)를 읽어 시작 문서를 페이지로 만들고, 크롤러가 커서를 따라 걷는다. F1 디버그 뷰.
 # 문서 이동: 페이지 끝 '다음 문서' 상자의 칸을 발로 밟는다 (PRD 11.3-3). 모든 상호작용은 크롤러로.
 # 클리어: 키워드 자리에서 창이 열려 crawl://complete 결과 페이지로 — 크롤러는 화면에서 사라지지 않는다 (PRD 12).
+import copy
 import math
 import random
 
@@ -57,6 +58,7 @@ history = []                  # 지나온 문서 제목들 — '뒤로' 칸이 �
 footprints = []               # 이 문서의 발자국 [(x, y) 또는 None(WAVE로 끊김)] — 되돌리기 봇이 따라옴
 next_doc = None               # 이번 프레임에 다 채운 칸 (할 일, 칸 위치) — 걷기 처리가 끝난 뒤 창 열기 시작
 opening = None                # 새 창이 열리는 중: {'action', 'name'(창 제목), 'url', 'rect'(시작 칸, 월드), 'color', 't'}
+checkpoint = None             # 지금 사이트에 들어올 때의 {몸, 데이터, 저장 조각} — 죽으면 여기서 다시
 play_time = 0.0               # 플레이 시간 (출구 깜빡임 등)
 fade = 0.0                    # 문서를 옮긴 뒤 남은 밝아짐 시간
 hit_stop = 0.0                # 피격 순간 멈칫이 남은 시간 (이동안 게임이 멈춤)
@@ -65,23 +67,72 @@ data_flash = 0.0              # 데이터를 잃어 띠의 DATA가 빨갛게 깜
 charge = {'key': None, 'n': 0, 'time': 0.0}     # 칸 채우기: 어느 칸을, 몇 번 연속 밟았는지, 마지막 착지 시각
 
 
-def init(site_id=config.FIRST_STAGE):
-    global mouse_x, mouse_y, left_down, body, site, data_count, frontier, visited, goal, pages, history, next_doc, play_time, opening, cleared, messages, clear_timer, clear_spot, lost, lost_timer
+def init(start='home'):
+    # 새 판: crawl://home에서 시작 (개발용으로 사이트 이름을 주면 그 사이트부터).
+    # 몸·데이터·시간은 판 전체에 이어진다 — 사이트를 넘어가도 그대로 (S10-7)
+    global mouse_x, mouse_y, left_down, body, data_count, ingest, play_time
     left_down = False
     body = None                                     # 새 판: 시작 마디 수로
+    data_count, play_time = 0, 0.0
+    ingest = Ingest()                               # 새 판: 몸은 비어서 시작
+    random.seed(config.RANDOM_SEED)                 # None이면 매번 다른 판
+    mouse_x, mouse_y = config.SCREEN_W / 2, config.SCREEN_H / 2   # 첫 마우스 이벤트 전에는 화면 가운데
+    if start == 'home':
+        open_home()
+    else:
+        enter_site(start)
+
+
+def reset_site(site_id):
+    # 사이트 하나의 상태를 새로 (몸·데이터·시간은 건드리지 않음)
+    global site, frontier, visited, pages, history, next_doc, opening, cleared, messages, clear_timer, clear_spot, lost, lost_timer
     chew_jolt[0] = 0.0
     site = load_site(site_id)
-    data_count, frontier, visited = 0, [], []
-    global ingest
-    ingest = Ingest()                               # 새 판: 몸은 비어서 시작
-    pages, history, next_doc, play_time, opening = {}, [], None, 0.0, None
-    random.seed(config.RANDOM_SEED)                 # None이면 매번 다른 판
-    goal = pick_goal(site)                          # 시작에서 min_hops단계 이상 떨어진 후보 중 하나
+    frontier, visited, pages, history, next_doc, opening = [], [], {}, [], None, None
     cleared, messages, clear_timer, clear_spot = False, [], 0.0, None
     lost, lost_timer = False, 0.0
     frozen[0] = False
-    mouse_x, mouse_y = config.SCREEN_W / 2, config.SCREEN_H / 2   # 첫 마우스 이벤트 전에는 화면 가운데
+
+
+def enter_site(site_id):
+    # 사이트에 들어간다: 목표를 새로 뽑고, 들어오는 순간의 몸·데이터를 체크포인트로 (죽으면 여기서 다시)
+    global goal, checkpoint
+    reset_site(site_id)
+    goal = pick_goal(site)                          # 시작에서 min_hops단계 이상 떨어진 후보 중 하나
+    checkpoint = {'body': copy.deepcopy(body), 'data': data_count, 'stored': list(ingest.stored)}
     open_doc(site['start'])                         # 시작 문서 맨 위에서 출발
+
+
+def restart_site():
+    # 다시 크롤링: 이 사이트에 들어올 때의 몸·데이터로 처음부터 (시간은 계속 흐름)
+    global body, data_count, ingest
+    body = copy.deepcopy(checkpoint['body'])        # None이면 시작 몸
+    data_count = checkpoint['data']
+    ingest = Ingest()
+    ingest.stored = list(checkpoint['stored'])
+    enter_site(site['id'])
+
+
+def next_site():
+    # 다음 사이트로: 몸·데이터를 그대로 가지고 (STAGE_ORDER 순서)
+    order = config.STAGE_ORDER
+    enter_site(order[order.index(site['id']) + 1])
+
+
+def open_home():
+    # crawl://home — 게임의 시작 페이지. 크롤러가 걸어 다니며 '크롤링 시작'이나 '종료' 칸을 밟는다
+    global goal
+    reset_site(config.STAGE_ORDER[0])               # 띠(HUD)가 쓰는 사이트 값 (홈 자체는 사이트가 아님)
+    goal = {'page': None, 'keyword': '-', 'hops': 0}
+    names = [load_site(s)['name'] for s in config.STAGE_ORDER]
+    lines = [('CRAWL.EXE', 52, config.COLOR_ORANGE, True),
+             ('웹페이지 위를 기어 다니며 링크를 먹고 사는 크롤러', 16, config.WIKI_TEXT, False),
+             ('  →  '.join(names), 20, config.COLOR_SKY, True),
+             ('사이트마다 목표 키워드를 찾아 먹으면 다음 사이트로 — 몸과 데이터는 이어집니다', 14, config.HUD_LABEL, False),
+             ('마우스 이동 · 좌클릭 질주 · 우클릭 WAVE 돌진 · 발로 링크를 밟아 먹기', 13, config.HUD_LABEL, False)]
+    slots = [{'label': '크롤링 시작', 'key': 'start', 'action': ('start',), 'enabled': True},
+             {'label': '종료', 'key': 'quit', 'action': ('quit',), 'enabled': True}]
+    show_page(CrawlPage('home', lines, slots))
 
 
 def show_page(new_page):
@@ -127,13 +178,21 @@ def open_doc(title):
 
 
 def open_complete():
-    # 결과 페이지 crawl://complete — 크롤러가 걸어 다니며 '다시 크롤링' 칸을 밟는다
-    lines = [('CRAWL COMPLETE', 34, config.COLOR_GOLD, True),
+    # 결과 페이지 crawl://complete — 크롤러가 걸어 다니며 다음 사이트·다시·홈 칸을 밟는다. 마지막 사이트면 판 끝
+    order = config.STAGE_ORDER
+    last = site['id'] not in order or order.index(site['id']) == len(order) - 1
+    lines = [('ALL SITES CRAWLED' if last else 'CRAWL COMPLETE', 34, config.COLOR_GOLD, True),
              ('"%s" — %s%s 에서 찾음' % (goal['keyword'], site['url'], goal['page']), 16, config.WIKI_TEXT, False),
-             ('시간 %d:%02d  ·  데이터 %d  ·  방문 %d' % (play_time // 60, play_time % 60, data_count, len(visited)), 16, config.WIKI_TEXT, False),
+             ('전체 시간 %d:%02d  ·  데이터 %d  ·  방문 %d' % (play_time // 60, play_time % 60, data_count, len(visited)), 16, config.WIKI_TEXT, False),
              ('경로  ' + ' → '.join(visited), 13, config.HUD_LABEL, False)]
-    slots = [{'label': '다시 크롤링', 'key': 'restart', 'action': ('restart',), 'enabled': True},
-             {'label': '다음 사이트 (준비 중)', 'key': 'next', 'action': None, 'enabled': False}]   # 다음 사이트는 S10-3
+    if last:
+        slots = [{'label': '처음부터', 'key': 'start', 'action': ('start',), 'enabled': True},
+                 {'label': '홈', 'key': 'home', 'action': ('home',), 'enabled': True}]
+    else:
+        nxt = load_site(order[order.index(site['id']) + 1])['name']
+        slots = [{'label': '다음: ' + nxt, 'key': 'next', 'action': ('next',), 'enabled': True},
+                 {'label': '다시 크롤링', 'key': 'restart', 'action': ('restart',), 'enabled': True},
+                 {'label': '홈', 'key': 'home', 'action': ('home',), 'enabled': True}]
     show_page(CrawlPage('complete', lines, slots))
 
 
@@ -147,7 +206,7 @@ def open_lost():
              ('데이터', '%d개 유실' % data_count, config.COLOR_SKY),
              ('경로', ' → '.join(visited), config.HUD_LABEL)]
     slots = [{'label': '다시 크롤링', 'key': 'restart', 'action': ('restart',), 'enabled': True},
-             {'label': '홈 (준비 중)', 'key': 'home', 'action': None, 'enabled': False}]   # crawl://home은 S10-1
+             {'label': '홈', 'key': 'home', 'action': ('home',), 'enabled': True}]
     body = None                                     # 시작 몸으로 다시 나타남
     frozen[0] = False                               # '응답 없음' 풀림
     show_page(CrawlPage('lost', lines, slots, 'report'))
@@ -541,6 +600,16 @@ def start_opening(action, rect, color):
         name, url = 'CRAWL COMPLETE', '/complete'
     elif action[0] == 'lost':
         name, url = 'CRAWL FAILED', '/lost'
+    elif action[0] == 'quit':
+        game_framework.quit()                         # 종료 칸: 창 없이 바로 끝
+        return
+    elif action[0] == 'home':
+        name, url = 'HOME', '/home'
+    elif action[0] in ('next', 'start'):              # 다음 사이트 / 처음부터 (첫 사이트)
+        order = config.STAGE_ORDER
+        sid = order[0] if action[0] == 'start' else order[order.index(site['id']) + 1]
+        nxt = load_site(sid)
+        name, url = nxt['start'], nxt['url'] + nxt['start']
     else:                                             # restart: 같은 사이트 처음 문서
         name, url = site['start'], site['url'] + site['start']
     duration = config.LOST_OPEN_TIME if action[0] == 'lost' else config.OPEN_TIME   # 죽음의 창은 천천히
@@ -562,7 +631,13 @@ def do_action(action):
     elif action[0] == 'lost':
         open_lost()
     elif action[0] == 'restart':
-        init(site['id'])                              # 같은 사이트를 처음부터 (목표는 새로 뽑음)
+        restart_site()                                # 이 사이트에 들어올 때의 몸·데이터로 처음부터 (목표는 새로 뽑음)
+    elif action[0] == 'next':
+        next_site()                                   # 몸·데이터를 가지고 다음 사이트로
+    elif action[0] == 'home':
+        open_home()
+    elif action[0] == 'start':
+        init(config.STAGE_ORDER[0])                   # 새 판: 새 몸으로 첫 사이트부터
 
 
 def go_to(title, back):
