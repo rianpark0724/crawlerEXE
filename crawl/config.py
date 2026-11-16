@@ -65,6 +65,12 @@ REVERT_HOME_SPEED = 60    # 제자리로 돌아가는 속도 (px/s)
 REVERT_TRAIL_LIFE = 0.7   # 읽은 발자국에 남는 diff 줄(빨강·초록)이 사라지는 시간 (초)
 FOOTPRINT_GAP = 20        # 발자국 = 착지할 때 머리 자리, 마지막 발자국에서 이만큼 움직였을 때만 기록 (지나간 길)
 FOOTPRINT_MAX = 600       # 문서마다 기억하는 발자국 수 (오래된 것부터 버림)
+REVERT_LINK_R = 16        # 추적 중인 봇이 먹힌 링크 상자에서 이만큼 안을 지나면 그 링크를 되돌림 (px)
+REVERT_PAUSE = 0.5        # 다리를 자르거나 링크를 되돌린 뒤 봇이 멈칫하는 시간 (초)
+REVERT_DEL_TIME = 0.35    # 되돌린 링크: 빨간 배경 + 취소선(지워짐) 시간
+REVERT_ADD_TIME = 0.8     # 그다음 초록 배경(복구됨)이 사라지는 시간
+REVERT_FX_R = 40          # 되돌릴 때 봇에서 퍼지는 원 크기
+DATA_FLASH = 0.6          # 데이터를 잃으면 띠의 DATA가 빨갛게 깜빡이는 시간 (초)
 REVERT_IDLE_SPIN = 1.5    # 대기 중 ↺ 화살표가 도는 빠르기 (rad/s)
 REVERT_AWAKE_SPIN = 9     # 깨어난 뒤 도는 빠르기
 GROW_POP = 0.15           # 새 마디가 붙을 때 납작했다 펴지는 시간 (초) — 붙는 순간이 보이게

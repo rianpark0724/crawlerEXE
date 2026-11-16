@@ -22,6 +22,12 @@ class RevertBot:
         self.speed = config.REVERT_SPEED
         self.lost_t = 0.0                    # 헤맨 시간
         self.trail = []                      # 읽은 발자국에 남긴 diff 줄 [x, y, 나이]
+        self.pause = 0.0                     # 다리를 자르거나 링크를 되돌린 뒤 멈칫이 남은 시간
+        self.burst = 0.0                     # 되돌릴 때 퍼지는 원이 남은 시간
+
+    def react(self):
+        # 다리를 잘랐거나 링크를 되돌림: 잠깐 멈추고 ↺가 크게 한 바퀴, 빨간 원이 퍼진다
+        self.pause = self.burst = config.REVERT_PAUSE
 
     def wake(self, step):
         # 이 문서에서 링크가 먹힘 → 깨어나 step번 발자국부터 따라온다 (이미 추적 중이면 그대로)
@@ -41,6 +47,11 @@ class RevertBot:
         for tr in self.trail:
             tr[2] += dt
         self.trail = [tr for tr in self.trail if tr[2] < config.REVERT_TRAIL_LIFE]
+        self.burst = max(0.0, self.burst - dt)
+        if self.pause > 0:
+            self.pause -= dt
+            self.spin += math.pi * 2 / config.REVERT_PAUSE * dt   # 멈칫하는 동안 ↺가 한 바퀴 더
+            return
         if self.state == 'track':
             self.track(dt, footprints)
         elif self.state == 'lost':
@@ -101,6 +112,9 @@ class RevertBot:
         fill_circle(sx, sy, r, config.WIKI_BOX_BG)
         draw_circle(sx, sy, r, 2, edge)
         draw_revert_arrow(sx, sy, r * 0.55, self.spin, edge)
+        if self.burst > 0:                                   # 되돌림·자름: 빨간 원이 퍼짐
+            k = 1 - self.burst / config.REVERT_PAUSE
+            draw_circle(sx, sy, r + config.REVERT_FX_R * k, 3, config.COLOR_RED, 1 - k)
         if awake:                                            # 깨어나면 바깥 고리가 숨쉬듯
             pulse = 0.5 + 0.5 * math.sin(self.t * 10)
             draw_circle(sx, sy, r + 4 + 2 * pulse, 1, config.COLOR_RED, 0.4)

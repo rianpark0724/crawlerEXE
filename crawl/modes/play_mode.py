@@ -15,7 +15,7 @@ from world.camera import Camera
 from world.stage import Page, load_site, pick_goal, mark_goal
 from world.crawl_page import CrawlPage
 from world.objects import place_parts
-from world.enemies import place_enemies
+from world.enemies import place_enemies, draw_revert_arrow
 from world.collision import leg_hit, circle_circle
 from ui.hud import draw_scrollbar, draw_bar
 from ui.draw import draw_line, draw_rect, draw_circle, fill_rect, draw_static_text, text_width, begin_zoom, end_zoom
@@ -50,6 +50,7 @@ play_time = 0.0               # 플레이 시간 (출구 깜빡임 등)
 fade = 0.0                    # 문서를 옮긴 뒤 남은 밝아짐 시간
 hit_stop = 0.0                # 피격 순간 멈칫이 남은 시간 (이동안 게임이 멈춤)
 shake = 0.0                   # 화면 흔들림이 남은 시간
+data_flash = 0.0              # 데이터를 잃어 띠의 DATA가 빨갛게 깜빡이는 시간
 charge = {'key': None, 'n': 0, 'time': 0.0}     # 칸 채우기: 어느 칸을, 몇 번 연속 밟았는지, 마지막 착지 시각
 
 
@@ -193,7 +194,9 @@ def check_hits():
     # 위험 지점에 닿은 다리를 자르거나(−1) 마디에 닿으면 다리 2개를 잃는다 (PRD 5.4)
     # 한 번 맞으면 멈칫 + 화면 흔들림 + 1초 무적(깜빡임) — 무적 동안·WAVE 공중 마디는 안 맞음
     global hit_stop, shake
-    for x, y, r in page.hazards:
+    dangers = [(x, y, r, None) for x, y, r in page.hazards]
+    dangers += [(e.x, e.y, config.REVERT_R, e) for e in page.enemies]      # 되돌리기 봇 몸통
+    for x, y, r, enemy in dangers:
         for i, seg in enumerate(body.segs):
             if not body.hit_ok(i):
                 continue
@@ -207,7 +210,31 @@ def check_hits():
                 body.cut_leg(legs[0], x, y)                 # 다리 피격: 닿은 다리 하나
             body.iframe = config.HIT_IFRAME
             hit_stop, shake = config.HIT_STOP, config.SHAKE_TIME
+            if enemy is not None:
+                enemy.react()                               # 봇: 잘라 낸 뒤 잠깐 멈칫
             return                                          # 한 번에 한 번만 맞음
+
+
+def check_reverts():
+    # 추적 중인 되돌리기 봇이 먹힌 링크 근처를 지나면 그 링크를 되돌린다 (PRD 9): 데이터 −1, 이 문서 수집 −1
+    global data_count, data_flash
+    m = config.REVERT_LINK_R
+    for enemy in page.enemies:
+        if enemy.state != 'track' or enemy.pause > 0:
+            continue
+        for x, y, w, h, text, target, lid in page.links:
+            group = page.groups[lid]
+            if group['eaten'] and x - m <= enemy.x <= x + w + m and y - m <= enemy.y <= y + h + m:
+                page.revert(group)
+                data_count = max(0, data_count - 1)
+                data_flash = config.DATA_FLASH
+                enemy.react()
+                messages.append([x + w / 2, y + h + 10, '되돌림 -1', 0.0])   # (− 기호는 굵은 글꼴에 없어 -)
+                # 같은 문서를 가리키는 먹힌 링크가 어디에도 없으면 방문 대기열에서 뺀다
+                still = any(g['eaten'] and g['target'] == target for p in pages.values() for g in p.groups.values())
+                if not still and target in frontier:
+                    frontier.remove(target)
+                break
 
 
 def toggle_hazard(x, y):
@@ -324,8 +351,9 @@ def go_to(title, back):
 
 
 def update():
-    global target_x, target_y, next_doc, play_time, fade, opening, messages, clear_timer, hit_stop, shake
+    global target_x, target_y, next_doc, play_time, fade, opening, messages, clear_timer, hit_stop, shake, data_flash
     shake = max(0.0, shake - game_framework.frame_time)
+    data_flash = max(0.0, data_flash - game_framework.frame_time)
     if hit_stop > 0:
         hit_stop -= game_framework.frame_time           # 피격 멈칫: 이 동안 아무것도 움직이지 않음
         return
@@ -348,6 +376,7 @@ def update():
     for enemy in page.enemies:
         if enemy.active(camera):                      # 화면 ± ENEMY_ACTIVE_PAD 안의 적만 움직임
             enemy.update(game_framework.frame_time, footprints)
+    check_reverts()
     check_hits()
     for part in page.parts:
         part.locked = not body.can_grow()             # 최대면 파츠를 흐리게 (주울 수 없음)
@@ -532,7 +561,10 @@ def draw():
     for x, y, text, age in messages:                  # 떠오르며 흐려지는 알림
         k = age / config.SHORT_MSG_TIME
         w = text_width(text, config.HUD_FONT, 'bold')
-        draw_static_text(x - w / 2, y + config.SHORT_MSG_RISE * k - camera.y, text, config.HUD_FONT, config.COLOR_RED, 1 - k * k, 'bold')
+        mx, my = x - w / 2, y + config.SHORT_MSG_RISE * k - camera.y
+        draw_static_text(mx, my, text, config.HUD_FONT, config.COLOR_RED, 1 - k * k, 'bold')
+        if text.startswith('되돌림'):                  # 되돌림 알림 앞에 ↺ 아이콘
+            draw_revert_arrow(mx - 12, my + 9, 6, -age * 8, config.COLOR_RED)
     if zoom > 1:
         fill_rect(0, 0, config.SCREEN_W, config.SCREEN_H, (60, 0, 0), config.DEATH_TINT * tint)   # 붉게 어두워짐
         if frozen[0]:
@@ -564,7 +596,9 @@ def draw():
     eaten = None if isinstance(page, CrawlPage) else page.eaten_count()   # crawl:// 페이지에는 '이 문서' 수가 없음
     if frozen[0] and (opening is None or lost_dialog):
         url += '   (응답 없음)'                         # 윈도우가 멈췄을 때처럼 (오류 대화상자가 떠 있는 동안에도)
-    draw_bar(url, goal_text, len(visited), site['min_pages'], eaten, site['page_quota'], shown_data(), loading, loading_color)
+    flash = data_flash > 0 and int(data_flash / 0.1) % 2 == 0      # 데이터를 잃으면 DATA가 빨갛게 깜빡
+    draw_bar(url, goal_text, len(visited), site['min_pages'], eaten, site['page_quota'], shown_data(), loading, loading_color,
+             config.COLOR_RED if flash else config.COLOR_SKY)
 
     debug_view.draw(camera, body, (mouse_x, mouse_y), (target_x, target_y), page,
                     'goal %s/%s (%d hops)  data %d  queue %s  back %s' % (goal['page'], goal['keyword'], goal['hops'], data_count,

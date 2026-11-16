@@ -123,7 +123,7 @@ class Page:
         # 링크 하나(여러 조각일 수 있음)마다: 가리키는 문서, 먹었는지, 먹은 뒤 지난 시간(번쩍임용)
         self.groups = {}
         for x, y, w, h, text, target, lid in self.links:
-            self.groups.setdefault(lid, {'target': target, 'eaten': False, 'age': 0.0})
+            self.groups.setdefault(lid, {'target': target, 'eaten': False, 'age': 0.0, 'reverted': None})
         self.bursts = []               # 수집 이펙트 [x, y, 나이]
 
     def eat_at(self, x, y):
@@ -170,6 +170,8 @@ class Page:
             part.update(dt)
         for group in self.groups.values():
             group['age'] += dt
+            if group['reverted'] is not None:
+                group['reverted'] += dt
         for b in self.bursts:
             b[2] += dt
         self.bursts = [b for b in self.bursts if b[2] < config.COLLECT_FX_TIME]
@@ -204,7 +206,9 @@ class Page:
             elif kind == 'link':
                 x, y, text, size, lid = item[3:]
                 group = self.groups[lid]
-                if group['eaten']:
+                if group['reverted'] is not None and not group['eaten']:
+                    self.draw_reverted(x, y - camera.y, text, size, group['reverted'])
+                elif group['eaten']:
                     # 먹은 링크: 하얗게 번쩍였다가 방문한 링크 색(보라)으로, 페이지 밝기로 가라앉음
                     k = min(1.0, group['age'] / config.COLLECT_FX_TIME)
                     color = tuple(int(w + (v - w) * k) for w, v in zip(config.COLOR_WHITE, config.WIKI_VISITED))
@@ -225,6 +229,24 @@ class Page:
         for x, y, age in self.bursts:
             k = age / config.COLLECT_FX_TIME
             draw_circle(x, y - camera.y, 4 + config.COLLECT_FX_R * k, 2, config.WIKI_LINK, 1 - k)
+
+    def revert(self, group):
+        # 되돌리기 봇이 먹힌 링크를 되돌림: 다시 먹을 수 있는 파란 링크로, diff 연출 시작
+        group['eaten'] = False
+        group['reverted'] = 0.0
+
+    def draw_reverted(self, x, y, text, size, age):
+        # 되돌린 링크: 위키 문서 비교(diff)처럼 빨간 배경 + 취소선(지워짐) → 초록 배경(복구됨) → 파란 링크
+        w = text_width(text, size)
+        h = size + 6
+        if age < config.REVERT_DEL_TIME:
+            fill_rect(x - 3, y - 3, w + 6, h, config.COLOR_RED, 0.55)
+            draw_static_text(x, y, text, size, config.COLOR_WHITE)
+            draw_line(x - 2, y + h / 2 - 3, x + w + 2, y + h / 2 - 3, 2, config.COLOR_WHITE)   # 취소선
+        else:
+            k = min(1.0, (age - config.REVERT_DEL_TIME) / config.REVERT_ADD_TIME)
+            fill_rect(x - 3, y - 3, w + 6, h, config.COLOR_GREEN, 0.5 * (1 - k))
+            draw_static_text(x, y, text, size, config.WIKI_LINK, config.LINK_ALPHA)
 
     def draw_exit(self, camera, choices, need, time, fill):
         # 다음 문서 상자. need = 출구가 열리려면 더 먹어야 할 링크 수 (0이면 열림)
