@@ -13,6 +13,7 @@ class Effects:
         self.ghost_timer = 0.0   # 다음 잔상까지 남은 시간
         self.cuts = []           # 잘린 다리 CutLeg — 튕겨 날아가 바닥에서 꼼지락
         self.sparks = []         # 불꽃 [x, y, vx, vy, 나이]
+        self.bits = []           # 픽셀 조각 [x, y, 높이, vx, vy, vz, 나이, 색] — 죽을 때 마디가 터진 것
 
     def add_puff(self, x, y):
         self.puffs.append([x, y, 0.0])
@@ -25,8 +26,26 @@ class Effects:
             v = config.SPARK_SPEED * random.uniform(0.5, 1.0)
             self.sparks.append([leg.shoulder_x, leg.shoulder_y, math.cos(a) * v, math.sin(a) * v, 0.0])
 
+    def add_bits(self, x, y, z, count):
+        # 데이터 조각이 쏟아진다: 사방으로 튀고 위로 솟았다 떨어지며 흐려짐 (링크 색 파랑·하늘·보라)
+        colors = (config.WIKI_LINK, config.COLOR_SKY, config.WIKI_VISITED, config.COLOR_WHITE)
+        for _ in range(count):
+            a = random.uniform(0, 2 * math.pi)
+            v = config.BIT_SPEED * random.uniform(0.4, 1.0)
+            self.bits.append([x, y, z, math.cos(a) * v, math.sin(a) * v, random.uniform(60, 160), 0.0, random.choice(colors)])
+
     def update(self, dt, body):
         # 나이 먹이고 수명이 다한 것은 지운다
+        for b in self.bits:
+            b[0] += b[3] * dt
+            b[1] += b[4] * dt
+            b[5] -= config.CUT_GRAVITY * dt
+            b[2] = max(0.0, b[2] + b[5] * dt)
+            if b[2] == 0:                              # 바닥에 닿으면 미끄러지다 멈춤
+                b[3] *= 0.85
+                b[4] *= 0.85
+            b[6] += dt
+        self.bits = [b for b in self.bits if b[6] < config.BIT_LIFE]
         for c in self.cuts:
             c.update(dt)
         self.cuts = [c for c in self.cuts if c.age < config.CUT_LIFE]
@@ -61,6 +80,9 @@ class Effects:
     def draw_cuts(self, camera):
         for c in self.cuts:
             c.draw(camera)
+        for x, y, z, vx, vy, vz, age, color in self.bits:    # 픽셀 조각 (높이만큼 화면 위로)
+            sx, sy = camera.to_screen(x, y)
+            fill_rect(sx - 1.5, sy - 1.5 + z * config.VIEW_TILT, 3, 3, color, 1 - age / config.BIT_LIFE)
         # 불꽃: 나는 방향으로 꼬리를 끄는 짧은 선, 빨강 → 흰색이 섞여 튐
         for x, y, vx, vy, age in self.sparks:
             k = age / config.SPARK_LIFE

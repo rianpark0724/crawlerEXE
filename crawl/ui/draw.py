@@ -7,7 +7,9 @@ import os
 import pico2d
 import pico2d.pico2d as p2d          # renderer(open_canvas 뒤에 생김)를 꺼내 쓰기 위해
 from pico2d import load_image, load_font, Image, SDL_SetTextureColorMod
-from sdl2 import SDL_Color, SDL_CreateTextureFromSurface, SDL_FreeSurface
+import random
+from sdl2 import (SDL_Color, SDL_CreateTextureFromSurface, SDL_FreeSurface, SDL_CreateTexture, SDL_SetRenderTarget,
+                  SDL_RenderCopy, SDL_Rect, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET)
 from sdl2.sdlttf import TTF_SizeUTF8, TTF_RenderUTF8_Blended, TTF_FontHeight
 
 import config
@@ -24,6 +26,7 @@ FONT_PATHS = {
 fonts = {}         # 글꼴 캐시 {(종류, 크기): Font}
 text_images = {}   # 글자 이미지 캐시 {(글, 크기, 종류): Image} — 같은 글은 한 번만 만든다
 images = {}        # 그림 캐시 {파일 이름: Image 또는 None(파일 없음)}
+zoom_target = None # 화면 확대용 텍스처 (처음 쓸 때 만든다)
 
 
 def load():
@@ -146,3 +149,42 @@ def draw_static_text(x, y, text, size, color=config.COLOR_WHITE, alpha=1.0, kind
     SDL_SetTextureColorMod(image.texture, r, g, b)
     image.opacify(alpha)
     image.draw_to_origin(x, y, image.w, image.h)
+
+
+# ── 화면 확대 (죽는 순간 줌인) ──
+# 화면 전체를 먼저 텍스처에 그리고, 그 텍스처에서 (cx, cy) 주변 '화면 ÷ 배율' 크기만 잘라 화면 가득 늘려 그린다.
+def begin_zoom():
+    # 이제부터 그리는 것은 확대용 텍스처에 그려진다
+    global zoom_target
+    if zoom_target is None:
+        zoom_target = SDL_CreateTexture(p2d.renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET,
+                                        config.SCREEN_W, config.SCREEN_H)
+    SDL_SetRenderTarget(p2d.renderer, zoom_target)
+
+
+def end_zoom(cx, cy, scale, tear=0.0):
+    # 화면으로 돌아와, 텍스처의 (cx, cy)(pico2d 화면 좌표) 주변을 scale배로 늘려 그린다.
+    # 잘라낸 영역이 화면 밖으로 나가지 않게 가장자리에서 멈춘다. 돌려주는 값: (cx, cy)가 화면에서 보이는 위치
+    # tear(0~1) > 0: 화면이 가로 띠로 찢어져 좌우로 어긋남 (일부 띠는 빨강·하늘색으로 물듦)
+    SDL_SetRenderTarget(p2d.renderer, None)
+    w, h = config.SCREEN_W / scale, config.SCREEN_H / scale
+    left = max(0.0, min(config.SCREEN_W - w, cx - w / 2))
+    top = max(0.0, min(config.SCREEN_H - h, (config.SCREEN_H - 1 - cy) - h / 2))   # SDL은 y가 아래로 증가
+    if tear <= 0:
+        SDL_RenderCopy(p2d.renderer, zoom_target, SDL_Rect(int(left), int(top), int(w), int(h)), None)
+    else:
+        fill_rect(0, 0, config.SCREEN_W, config.SCREEN_H, (0, 0, 0))       # 띠가 어긋난 틈은 검게
+        n = config.TEAR_STRIPS
+        for i in range(n):
+            sy0, sy1 = top + h * i / n, top + h * (i + 1) / n                 # 텍스처에서 띠 하나
+            dy0, dy1 = config.SCREEN_H * i / n, config.SCREEN_H * (i + 1) / n # 화면에서 그 띠 자리
+            dx = random.uniform(-1, 1) * tear * config.TEAR_PX               # 띠마다 좌우로 어긋남
+            tint = random.random()
+            if tint < 0.08 * tear:
+                SDL_SetTextureColorMod(zoom_target, 255, 110, 110)            # 가끔 빨강
+            elif tint < 0.16 * tear:
+                SDL_SetTextureColorMod(zoom_target, 110, 220, 255)            # 가끔 하늘색
+            SDL_RenderCopy(p2d.renderer, zoom_target, SDL_Rect(int(left), int(sy0), int(w), max(1, int(sy1 - sy0))),
+                           SDL_Rect(int(dx), int(dy0), config.SCREEN_W, max(1, int(dy1 - dy0))))
+            SDL_SetTextureColorMod(zoom_target, 255, 255, 255)
+    return (cx - left) * scale, config.SCREEN_H - 1 - ((config.SCREEN_H - 1 - cy) - top) * scale

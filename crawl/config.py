@@ -58,6 +58,30 @@ GOAL_PULSE = 4.0          # 목표 키워드가 반짝이는 빠르기
 SHORT_MSG_TIME = 1.5      # '크롤링이 부족합니다' 글이 떠 있는 시간 (초)
 SHORT_MSG_RISE = 30       # 그동안 위로 떠오르는 거리 (px)
 CLEAR_DELAY = 0.6         # 키워드를 먹고 탈출 창이 열리기까지 (그동안 금색 원이 퍼지고 크롤러는 계속 걸음)
+DEATH_ZOOM = 2.4          # 다리를 모두 잃으면 머리를 중심으로 이만큼까지 확대 (LOST_DELAY 동안)
+DEATH_TINT = 0.35         # 확대되는 동안 화면이 붉게 어두워지는 정도 (최대)
+DEATH_STOP = 0.2          # 마지막 다리가 잘리는 순간 멈칫 (보통 피격보다 김)
+# 죽음 = 데이터 유출 → 프로그램이 뻗음 (머리 하나로도 성립하는 연출)
+DIE_SPILL_TIME = 1.6      # 데스 1: 머리에서 데이터 조각이 쏟아지는 시간 (초) — 띠의 DATA가 0으로 줄어듦
+DIE_SPILL_MIN, DIE_SPILL_MAX = 14, 60     # 쏟아지는 조각 수 = DATA × 3 (이 범위로)
+DIE_GLITCH = 1.4          # 데스 2: 머리 글리치(색 어긋남·끊김) 시작 (초), 눈이 ×
+DIE_GLITCH_SHIFT = 4      # 글리치 잔상이 어긋나는 거리 (px)
+DIE_FREEZE = 2.2          # 데스 3: '응답 없음' — 화면이 하얗게 굳고 모든 움직임이 멈춤 (초)
+DIE_FREEZE_WHITE = 0.35   # 굳은 화면의 하얀 덮개 진하기
+BIT_SPEED = 150           # 데이터 조각이 튀는 속도 (px/s)
+BIT_LIFE = 1.1            # 조각 수명 (초)
+LOST_DIALOG_TIME = 1.0    # 죽음: 오류 대화상자가 떠서 '보고서 작성' 막대가 차는 시간 (초)
+LOST_OPEN_TIME = 1.35     # 대화상자 + 티어링까지 합친 시간 — 끝나면 곧바로 crawl://lost (커지는 창 없음)
+TEAR_STRIPS = 22          # 티어링: 화면을 가로 띠 몇 개로 가를지
+TEAR_PX = 140             # 티어링 최대 어긋남 (px) — 갈수록 커짐
+ERR_W, ERR_H = 380, 150   # 오류 대화상자 크기
+ERR_TITLE_H = 26          # 대화상자 제목 줄 높이
+REPORT_X = 150            # 오류 보고서 페이지: 글 왼쪽 x
+REPORT_TOP = 110          # 첫 줄 위치: 맨 위에서 이만큼 아래
+REPORT_LINE = 34          # 줄 간격
+REPORT_LABEL_W = 90       # 항목 이름 칸 폭
+REPORT_TYPE = 0.18        # 줄이 하나씩 나타나는 간격 (초)
+LOST_DELAY = 3.0          # 다리를 모두 잃고 crawl://lost 창이 열리기까지 (초) — 그동안 버둥거림
 CLEAR_FX_R = 70           # 키워드 자리에서 퍼지는 금색 원 크기
 
 # ── 크롤러 브라우저 자체 페이지 crawl://… (PRD 12) ──

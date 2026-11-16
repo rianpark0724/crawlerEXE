@@ -44,7 +44,7 @@ def draw_field(x, w, cy):
     draw_rect(x, cy - h / 2, w, h, 1, config.HUD_BAR_LINE)
 
 
-def draw_bar(url, goal, visited, min_pages, eaten, quota, data, loading=None):
+def draw_bar(url, goal, visited, min_pages, eaten, quota, data, loading=None, loading_color=config.COLOR_ORANGE):
     # 위쪽 띠: [CRAWL.EXE] [crawl:// 주소] [🔍 목표 키워드]  ……  방문 k/K  문서 n/N  DATA 07
     # loading: 새 창을 여는 중이면 0~1 — 띠 아래에 로딩 막대. eaten이 None이면 '문서 n/N'을 뺀다 (crawl:// 페이지)
     bottom = view_h()
@@ -78,4 +78,4 @@ def draw_bar(url, goal, visited, min_pages, eaten, quota, data, loading=None):
         else:
             x = draw_words(x, cy, [part])
     if loading is not None:
-        fill_rect(0, bottom - 2, config.SCREEN_W * loading, 3, config.COLOR_ORANGE)   # 로딩 막대
+        fill_rect(0, bottom - 2, config.SCREEN_W * loading, 3, loading_color)   # 로딩 막대 (여는 창의 테두리 색)

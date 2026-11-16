@@ -17,7 +17,7 @@ from world.crawl_page import CrawlPage
 from world.objects import place_parts
 from world.collision import leg_hit, circle_circle
 from ui.hud import draw_scrollbar, draw_bar
-from ui.draw import draw_line, draw_rect, draw_circle, fill_rect, draw_static_text, text_width
+from ui.draw import draw_line, draw_rect, draw_circle, fill_rect, draw_static_text, text_width, begin_zoom, end_zoom
 from ui import debug_view
 
 mouse_x, mouse_y = 0.0, 0.0   # 커서 위치 (화면 좌표, y 위로 증가) — 커서 그리기용
@@ -34,6 +34,11 @@ goal = None                   # 이번 판 목표 {'page': 문서, 'keyword': �
 cleared = False               # 목표 키워드를 먹고 탈출했는지
 clear_timer = 0.0             # 키워드를 먹은 뒤 탈출 창이 열리기까지 남은 시간
 clear_spot = None             # 먹은 키워드 상자 (x, y, w, h) — 탈출 창이 여기서 열린다
+lost = False                  # 다리를 모두 잃었는지 (GAME OVER)
+lost_timer = 0.0              # 다리를 모두 잃은 뒤 crawl://lost 창이 열리기까지 남은 시간
+lost_doc = ''                 # 다리를 모두 잃은 문서 (결과 페이지 표시용)
+frozen = [False]              # '응답 없음' — 화면이 굳어 크롤러·카메라가 움직이지 않음
+death_spot = (0.0, 0.0)       # 확대된 화면에서 머리가 보이는 위치 (빨간 창이 여기서 열림)
 messages = []                 # 떠오르는 글 [x, y, 글, 나이] (월드 좌표) — '크롤링이 부족합니다'
 pages = {}                    # 한 번 연 문서의 Page (제목 → Page) — 다시 와도 먹은 링크가 보라로 남게
 history = []                  # 지나온 문서 제목들 — '뒤로' 칸이 마지막 것으로 간다
@@ -47,7 +52,7 @@ charge = {'key': None, 'n': 0, 'time': 0.0}     # 칸 채우기: 어느 칸을, 
 
 
 def init(site_id=config.FIRST_STAGE):
-    global mouse_x, mouse_y, left_down, body, site, data_count, frontier, visited, goal, pages, history, next_doc, play_time, opening, cleared, messages, clear_timer, clear_spot
+    global mouse_x, mouse_y, left_down, body, site, data_count, frontier, visited, goal, pages, history, next_doc, play_time, opening, cleared, messages, clear_timer, clear_spot, lost, lost_timer
     left_down = False
     body = None                                     # 새 판: 시작 마디 수로
     site = load_site(site_id)
@@ -56,6 +61,8 @@ def init(site_id=config.FIRST_STAGE):
     random.seed(config.RANDOM_SEED)                 # None이면 매번 다른 판
     goal = pick_goal(site)                          # 시작에서 min_hops단계 이상 떨어진 후보 중 하나
     cleared, messages, clear_timer, clear_spot = False, [], 0.0, None
+    lost, lost_timer = False, 0.0
+    frozen[0] = False
     mouse_x, mouse_y = config.SCREEN_W / 2, config.SCREEN_H / 2   # 첫 마우스 이벤트 전에는 화면 가운데
     open_doc(site['start'])                         # 시작 문서 맨 위에서 출발
 
@@ -100,6 +107,24 @@ def open_complete():
     slots = [{'label': '다시 크롤링', 'key': 'restart', 'action': ('restart',), 'enabled': True},
              {'label': '다음 사이트 (준비 중)', 'key': 'next', 'action': None, 'enabled': False}]   # 다음 사이트는 S10-3
     show_page(CrawlPage('complete', lines, slots))
+
+
+def open_lost():
+    # 결과 페이지 crawl://lost — 크롤러는 시작 몸으로 다시 나타나 '다시 크롤링' 칸을 밟는다 (사라지지 않음)
+    global body
+    lines = [('예외', 'LegNotFound: 남은 다리 0개', config.COLOR_RED),
+             ('상태', 'CRAWL.EXE가 응답하지 않아 종료되었습니다', config.WIKI_TEXT),
+             ('위치', site['url'] + lost_doc, config.WIKI_TEXT),
+             ('시간', '%d:%02d' % (play_time // 60, play_time % 60), config.WIKI_TEXT),
+             ('데이터', '%d개 유실' % data_count, config.COLOR_SKY),
+             ('경로', ' → '.join(visited), config.HUD_LABEL)]
+    slots = [{'label': '다시 크롤링', 'key': 'restart', 'action': ('restart',), 'enabled': True},
+             {'label': '홈 (준비 중)', 'key': 'home', 'action': None, 'enabled': False}]   # crawl://home은 S10-1
+    body = None                                     # 시작 몸으로 다시 나타남
+    frozen[0] = False                               # '응답 없음' 풀림
+    show_page(CrawlPage('lost', lines, slots, 'report'))
+    global fade
+    fade = 0.0                                      # 찢어진 화면 뒤 곧바로 (밝아지는 연출 없이)
 
 
 def exit_need():
@@ -223,7 +248,7 @@ def on_land(leg):
             frontier.append(group['target'])          # 먹은 링크의 문서 → 방문 대기열
         return
     # 칸(출구 상자의 문서 칸, crawl:// 페이지의 메뉴 칸)에 착지했는지
-    if next_doc is not None or opening is not None or (cleared and not isinstance(page, CrawlPage)):
+    if next_doc is not None or opening is not None or ((cleared or lost) and not isinstance(page, CrawlPage)):
         return                                        # 탈출 창이 열리기 직전에는 다른 칸을 밟지 않게
     slots, rects = slot_list()
     for (key, action, enabled), (sx, sy, w, h) in zip(slots, rects):
@@ -252,9 +277,12 @@ def start_opening(action, rect, color):
         name, url = action[1], site['url'] + action[1]
     elif action[0] == 'complete':
         name, url = 'CRAWL COMPLETE', '/complete'
+    elif action[0] == 'lost':
+        name, url = 'CRAWL FAILED', '/lost'
     else:                                             # restart: 같은 사이트 처음 문서
         name, url = site['start'], site['url'] + site['start']
-    opening = {'action': action, 'name': name, 'url': url, 'rect': rect, 'color': color, 't': 0.0}
+    duration = config.LOST_OPEN_TIME if action[0] == 'lost' else config.OPEN_TIME   # 죽음의 창은 천천히
+    opening = {'action': action, 'name': name, 'url': url, 'rect': rect, 'color': color, 't': 0.0, 'time': duration}
 
 
 def do_action(action):
@@ -263,6 +291,8 @@ def do_action(action):
         go_to(action[1], action[2])
     elif action[0] == 'complete':
         open_complete()
+    elif action[0] == 'lost':
+        open_lost()
     elif action[0] == 'restart':
         init(site['id'])                              # 같은 사이트를 처음부터 (목표는 새로 뽑음)
 
@@ -285,10 +315,13 @@ def update():
     if opening is not None:
         # 새 창이 열리는 동안은 게임이 멈춘다. 다 열리면 할 일(문서 옮기기 등)을 한다
         opening['t'] += game_framework.frame_time
-        if opening['t'] >= config.OPEN_TIME:
+        if opening['t'] >= opening['time']:
             action = opening['action']
             opening = None
             do_action(action)
+        return
+    if frozen[0]:
+        check_lost()                                  # 응답 없음: 아무것도 움직이지 않고 창이 열릴 때만 기다림
         return
     # 커서의 월드 좌표는 매 프레임 다시 계산한다 — 마우스를 가만히 둬도 카메라가 움직이면 가리키는 곳이 바뀐다
     target_x, target_y = camera.to_world(mouse_x, mouse_y)
@@ -313,16 +346,117 @@ def update():
         if clear_timer <= 0:
             start_opening(('complete',), clear_spot, config.COLOR_GOLD)
             clear_timer = 0.0
+    check_lost()
+
+
+def check_lost():
+    # 다리 0개 → GAME OVER (PRD 5.4): 데이터 유출 → 글리치 → 응답 없음(화면이 굳음) → 머리 자리에서 빨간 창 → crawl://lost
+    global lost, lost_timer, lost_doc
+    if isinstance(page, CrawlPage) or cleared or opening is not None:
+        return
+    global hit_stop, shake
+    if not lost and not body.all_legs():
+        lost, lost_timer, lost_doc = True, config.LOST_DELAY, page.title
+        body.stun = config.LOST_DELAY + config.LOST_OPEN_TIME   # 움직이지 못하고 눈을 감음
+        body.start_dying(data_count)                        # 데이터 유출 → 글리치 → 응답 없음
+        hit_stop, shake = config.DEATH_STOP, config.SHAKE_TIME   # 쿵: 길게 멈칫 + 크게 흔들림
+        return
+    if lost:
+        lost_timer -= game_framework.frame_time
+        if dead_time() >= config.DIE_FREEZE:
+            frozen[0] = True                                # 응답 없음: 이제부터 화면이 멈춤
+        if lost_timer <= 0:
+            # 확대된 화면 속 머리 자리에서 빨간 창 (창은 확대하지 않고 화면 위에 그린다)
+            s = config.BOX_HEAD_SIZE * config.DEATH_ZOOM
+            x, y = death_spot
+            start_opening(('lost',), (x - s / 2, y - s / 2 + camera.y, s, s), config.COLOR_RED)
+
+
+def dead_time():
+    # 다리를 모두 잃은 뒤 지난 시간 (살아 있으면 −1)
+    if not lost or isinstance(page, CrawlPage):
+        return -1.0
+    return config.LOST_DELAY - lost_timer
+
+
+def shown_data():
+    # 띠에 보이는 DATA: 죽는 중엔 쏟아지는 만큼 0으로 줄어듦 (결과 페이지엔 원래 수)
+    t = dead_time()
+    if t < 0:
+        return data_count
+    return round(data_count * max(0.0, 1 - t / config.DIE_SPILL_TIME))
+
+
+def death_zoom():
+    # 죽는 중 확대 배율 1 → DEATH_ZOOM (처음 빠르고 끝에 느리게), 붉어지는 정도 0 → 1
+    if not lost or isinstance(page, CrawlPage):
+        return 1.0, 0.0
+    u = 1.0 if opening is not None else min(1.0, dead_time() / config.DIE_SPILL_TIME)   # 데이터 유출 동안 다가감
+    k = 1 - (1 - u) ** 3
+    return 1 + (config.DEATH_ZOOM - 1) * k, k
+
+
+def tear_amount():
+    # 죽음 창의 티어링 정도 0 → 1 (대화상자 뒤 LOST_OPEN_TIME까지, 갈수록 세게)
+    if opening is None or opening['action'][0] != 'lost' or opening['t'] < config.LOST_DIALOG_TIME:
+        return 0.0
+    u = (opening['t'] - config.LOST_DIALOG_TIME) / (opening['time'] - config.LOST_DIALOG_TIME)
+    return min(1.0, u) ** 2
 
 
 def open_progress():
     # 창 열기 진행 0~1, 끝으로 갈수록 느려지게 (ease-out: 1 - (1-u)³)
-    u = min(1.0, opening['t'] / config.OPEN_TIME)
+    u = min(1.0, opening['t'] / opening['time'])
     return 1 - (1 - u) ** 3
+
+
+def draw_error_dialog(x, y, k):
+    # 오류 대화상자 (왼쪽 아래 (x, y)): 제목 줄 + 빨간 ✕ 아이콘 + 문구 + 보고서 작성 막대(k = 0~1)
+    w, h, t = config.ERR_W, config.ERR_H, config.ERR_TITLE_H
+    fill_rect(x + 6, y - 6, w, h, (0, 0, 0), 0.5)                         # 그림자
+    fill_rect(x, y, w, h, config.HUD_BAR_BG)
+    fill_rect(x, y + h - t, w, t, config.HUD_FIELD_BG)
+    draw_rect(x, y, w, h, 1, config.WIKI_BORDER_STRONG)
+    draw_static_text(x + 10, y + h - t + 5, 'CRAWL.EXE', 13, config.WIKI_TEXT, 1.0, 'bold')
+    qx, qy = x + w - 16, y + h - t / 2                                   # 닫기 단추 ✕ (선 두 개)
+    draw_line(qx - 4, qy - 4, qx + 4, qy + 4, 1.5, config.HUD_LABEL)
+    draw_line(qx - 4, qy + 4, qx + 4, qy - 4, 1.5, config.HUD_LABEL)
+    cx, cy = x + 34, y + h - t - 34                                       # ✕ 아이콘
+    draw_circle(cx, cy, 13, 3, config.COLOR_RED)
+    draw_line(cx - 6, cy - 6, cx + 6, cy + 6, 3, config.COLOR_RED)
+    draw_line(cx - 6, cy + 6, cx + 6, cy - 6, 3, config.COLOR_RED)
+    draw_static_text(x + 60, cy + 2, 'CRAWL.EXE에 문제가 있어', 14, config.WIKI_TEXT)
+    draw_static_text(x + 60, cy - 18, '종료해야 합니다.', 14, config.WIKI_TEXT)
+    draw_static_text(x + 18, y + 38, '오류 보고서를 작성하는 중...', 12, config.HUD_LABEL)
+    fill_rect(x + 18, y + 16, w - 36, 12, config.HUD_FIELD_BG)
+    fill_rect(x + 18, y + 16, (w - 36) * k, 12, config.COLOR_RED)
+    draw_rect(x + 18, y + 16, w - 36, 12, 1, config.WIKI_BORDER)
 
 
 def draw_opening():
     # 밟은 칸 자리에서 새 창 테두리가 페이지 창 전체로 커지며 이전 문서를 덮는다
+    # 죽음(lost)은 먼저 오류 대화상자가 떠서 보고서 막대가 찬 뒤, 그 대화상자가 화면 가득 커진다
+    if opening['action'][0] == 'lost':
+        dw, dh = config.ERR_W, config.ERR_H
+        bx = max(10, min(config.SCREEN_W - dw - 20, death_spot[0] - dw / 2))     # 머리 자리, 화면 안으로
+        by = max(10, min(config.SCREEN_H - config.HUD_BAR_H - dh - 10, death_spot[1] - dh / 2))
+        t = opening['t']
+        if t < config.LOST_DIALOG_TIME:
+            pop = min(1.0, t / 0.08)                                       # 툭 튀어나옴: 0.08초에 커짐
+            if pop < 1:
+                s = 0.6 + 0.4 * pop
+                fill_rect(bx + dw * (1 - s) / 2, by + dh * (1 - s) / 2, dw * s, dh * s, config.HUD_BAR_BG)
+                return
+            draw_error_dialog(bx, by, min(1.0, t / (config.LOST_DIALOG_TIME * 0.85)))
+            return
+        # 티어링: 대화상자도 좌우로 찢겨 흔들리고, 가로로 잘린 틈이 생긴다 (화면 띠는 end_zoom이 찢음)
+        k = tear_amount()
+        jx = random.uniform(-1, 1) * k * config.TEAR_PX * 0.6
+        draw_error_dialog(bx + jx, by, 1.0)
+        for _ in range(int(3 + 6 * k)):
+            cy = random.uniform(by, by + dh)
+            fill_rect(bx + jx - 20, cy, dw + 40, random.uniform(2, 8), config.COLOR_BG)
+        return
     k = open_progress()
     sx, sy, sw, sh = opening['rect']
     sy -= camera.y                                    # 칸의 화면 위치에서 시작
@@ -351,6 +485,10 @@ def draw_cursor():
 
 def draw():
     # 화면 지우기·표시는 game_framework가 한다. 여기서는 그리기만.
+    global death_spot
+    zoom, tint = death_zoom()
+    if zoom > 1:
+        begin_zoom()                                  # 죽는 중: 페이지·크롤러를 텍스처에 그렸다가 확대해서 보여 줌
     fill_rect(0, 0, config.SCREEN_W, config.SCREEN_H, config.COLOR_BG)   # 남색 배경
     # 화면 흔들림: 그리는 동안만 카메라를 위아래로 흔들고 HUD 전에 되돌린다 (갈수록 잦아듦)
     camera_y = camera.y
@@ -373,6 +511,13 @@ def draw():
         k = age / config.SHORT_MSG_TIME
         w = text_width(text, config.HUD_FONT, 'bold')
         draw_static_text(x - w / 2, y + config.SHORT_MSG_RISE * k - camera.y, text, config.HUD_FONT, config.COLOR_RED, 1 - k * k, 'bold')
+    if zoom > 1:
+        fill_rect(0, 0, config.SCREEN_W, config.SCREEN_H, (60, 0, 0), config.DEATH_TINT * tint)   # 붉게 어두워짐
+        if frozen[0]:
+            fill_rect(0, 0, config.SCREEN_W, config.SCREEN_H, config.COLOR_WHITE, config.DIE_FREEZE_WHITE)   # 응답 없음: 하얗게 굳음
+        head = body.segs[0]
+        hx, hy = camera.to_screen(head.x, head.y)
+        death_spot = end_zoom(hx, hy + body.seg_h(0) * config.VIEW_TILT, zoom, tear_amount())   # 머리 중심 확대 (+티어링)
     if opening is not None:
         draw_opening()
     if fade > 0:                          # 문서를 막 옮겼으면 배경색에서 밝아진다
@@ -385,13 +530,19 @@ def draw():
     draw_scrollbar(camera, page.height, markers)    # HUD — 화면 좌표
     goal_text = goal['keyword'] + ('  (찾음)' if cleared else '')
     url = page.url if isinstance(page, CrawlPage) else site['url'] + page.title
-    loading = None
-    if opening is not None:
+    loading, loading_color = None, config.COLOR_ORANGE
+    lost_dialog = opening is not None and opening['action'][0] == 'lost' and opening['t'] < config.LOST_DIALOG_TIME
+    if opening is not None and not lost_dialog:
         # 여는 중: 주소칸에 새 주소가 한 글자씩 입력되고, 띠 아래 로딩 막대가 찬다
-        url = opening['url'][:int(len(opening['url']) * min(1.0, opening['t'] / (config.OPEN_TIME * config.OPEN_TYPE_PART)))]
-        loading = open_progress()
+        t, total = opening['t'], opening['time']
+        if opening['action'][0] == 'lost':          # 죽음 창은 대화상자가 커지기 시작할 때부터 입력
+            t, total = t - config.LOST_DIALOG_TIME, total - config.LOST_DIALOG_TIME
+        url = opening['url'][:int(len(opening['url']) * min(1.0, t / (total * config.OPEN_TYPE_PART)))]
+        loading, loading_color = min(1.0, t / total), opening['color']
     eaten = None if isinstance(page, CrawlPage) else page.eaten_count()   # crawl:// 페이지에는 '이 문서' 수가 없음
-    draw_bar(url, goal_text, len(visited), site['min_pages'], eaten, site['page_quota'], data_count, loading)
+    if frozen[0] and (opening is None or lost_dialog):
+        url += '   (응답 없음)'                         # 윈도우가 멈췄을 때처럼 (오류 대화상자가 떠 있는 동안에도)
+    draw_bar(url, goal_text, len(visited), site['min_pages'], eaten, site['page_quota'], shown_data(), loading, loading_color)
 
     debug_view.draw(camera, body, (mouse_x, mouse_y), (target_x, target_y), page,
                     'goal %s/%s (%d hops)  data %d  queue %s  back %s' % (goal['page'], goal['keyword'], goal['hops'], data_count,

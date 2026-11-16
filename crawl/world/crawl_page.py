@@ -2,13 +2,15 @@
 # 메뉴·결과도 크롤러가 걸어 다니는 페이지다. 선택은 칸을 밟아서 (출구 칸과 같은 판정·채우기).
 # play_mode가 위키 Page와 똑같이 다룰 수 있게 같은 이름의 속성·함수를 둔다 (링크·키워드는 없음).
 import config
-from ui.draw import fill_rect, draw_rect, draw_static_text, text_width
+from ui.draw import fill_rect, draw_rect, draw_line, draw_static_text, text_width
 
 
 class CrawlPage:
-    def __init__(self, name, lines, slots):
-        # name: 주소 이름 (crawl://<name>), lines: [(글, 크기, 색, 굵게?)] 가운데 정렬 글줄
-        # slots: [{'label': 칸 글, 'key': 구분 이름, 'action': 밟으면 할 일, 'enabled': 열렸는지}]
+    def __init__(self, name, lines, slots, style='center'):
+        # name: 주소 이름 (crawl://<name>), slots: [{'label': 칸 글, 'key': 구분 이름, 'action': 밟으면 할 일, 'enabled': 열렸는지}]
+        # style 'center': lines = [(글, 크기, 색, 굵게?)] 가운데 정렬 글줄 (complete)
+        # style 'report': lines = [(항목, 값, 색)] 고정폭 오류 보고서 — 위에서부터 한 줄씩 나타남 (lost)
+        self.style = style
         self.title = name
         self.url = '/' + name                      # 띠 주소칸: crawl:/ + /complete
         self.height = config.SCREEN_H - config.HUD_BAR_H   # 한 화면 (스크롤 없음)
@@ -17,6 +19,7 @@ class CrawlPage:
         # 위키 Page와 같은 이름 — 이 페이지에는 먹을 링크·키워드가 없다
         self.links, self.groups, self.goals = [], {}, []
         self.hazards = []                          # F2 시험용 위험 지점 (이 페이지에서도 시험 가능)
+        self.parts = []                            # 다리 파츠 없음 (play_mode가 매 프레임 훑음)
         self.time = 0.0
 
     def spawn(self):
@@ -45,6 +48,9 @@ class CrawlPage:
         return [(x0 + i * (w + gap), config.CRAWL_SLOT_Y, w, h) for i in range(n)]
 
     def draw(self, camera, fill=(None, 0.0)):
+        if self.style == 'report':
+            self.draw_report(camera, fill)
+            return
         # 바탕: 점 격자 (사이트 페이지와 다른, 크롤러 브라우저의 빈 페이지 느낌)
         g = config.CRAWL_GRID
         for gx in range(g // 2, config.SCREEN_W, g):
@@ -68,3 +74,34 @@ class CrawlPage:
             draw_static_text(sx + (w - tw) / 2, sy - camera.y + h / 2 - 11, slot['label'], size, color, 1.0, 'bold')
         hint = '칸을 세 번 밟으면 이동합니다'
         draw_static_text((config.SCREEN_W - text_width(hint, 12)) / 2, config.CRAWL_SLOT_Y - 34 - camera.y, hint, 12, config.HUD_LABEL)
+
+    def draw_report(self, camera, fill):
+        # 오류 보고서: 고정폭 글씨의 충돌 로그. 제목 줄 → 구분선 → 항목들(한 줄씩 나타남) → 구분선 → 버튼 칸
+        x, right = config.REPORT_X, config.SCREEN_W - config.REPORT_X
+        y = self.height - config.REPORT_TOP - camera.y
+        for gy in range(0, self.height, 4):                               # 아주 옅은 가로줄 (오래된 화면 느낌)
+            fill_rect(0, gy - camera.y, config.SCREEN_W, 1, config.HUD_BAR_BG, 0.5)
+        draw_static_text(x, y, 'CRAWL.EXE — 오류 보고서', 22, config.COLOR_RED, 1.0, 'bold')
+        tag = 'crawl://' + self.title
+        draw_static_text(right - text_width(tag, 13, 'mono'), y + 4, tag, 13, config.HUD_LABEL, 1.0, 'mono')
+        y -= 18
+        draw_line(x, y, right, y, 1, config.WIKI_BORDER_STRONG)
+        shown = int(self.time / config.REPORT_TYPE)                       # 지금까지 나타난 줄 수
+        for i, (label, value, color) in enumerate(self.lines[:shown]):
+            ly = y - 36 - i * config.REPORT_LINE
+            draw_static_text(x, ly, label, 15, config.HUD_LABEL, 1.0, 'mono')
+            draw_static_text(x + config.REPORT_LABEL_W, ly, value, 15, color, 1.0, 'mono')
+        if shown >= len(self.lines):
+            ly = y - 36 - len(self.lines) * config.REPORT_LINE + 12
+            draw_line(x, ly, right, ly, 1, config.WIKI_BORDER_STRONG)
+        # 버튼 칸: 대화상자 버튼처럼 (열린 칸은 밝은 테두리, 잠긴 칸은 회색). 밟은 만큼 차오름
+        size = config.WIKI_FONT_H3
+        for (sx, sy, w, h), slot in zip(self.slot_rects(), self.slots):
+            color = config.WIKI_TEXT if slot['enabled'] else config.COLOR_GRAY
+            fill_rect(sx, sy - camera.y, w, h, config.HUD_FIELD_BG)
+            if slot['key'] == fill[0]:
+                fill_rect(sx, sy - camera.y, w * fill[1], h, config.COLOR_RED, 0.35)
+            draw_rect(sx, sy - camera.y, w, h, 2 if slot['enabled'] else 1, color)
+            label = '[ %s ]' % slot['label']
+            tw = text_width(label, size, 'mono')
+            draw_static_text(sx + (w - tw) / 2, sy - camera.y + h / 2 - 10, label, size, color, 1.0, 'mono')

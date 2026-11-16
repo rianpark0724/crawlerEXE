@@ -42,6 +42,7 @@ class Body:
         self.stun = 0.0                              # 남은 경직 시간 — 머리가 움직이지도 돌지도 않음
         self.dust_timer = 0.0                        # 다리 없이 끌리는 마디의 다음 먼지까지 남은 시간
         self.iframe = 0.0                            # 피격 후 무적이 남은 시간 (깜빡임)
+        self.dying = None                            # 죽은 뒤 지난 시간 (None = 살아 있음) — 데스 애니메이션
         self.dropped = []                            # 떨어져 나간 마디 [x, y, 각도, 크기, 나이, 도는 속도] — 바닥에서 흐려짐
         self.stagger_v = 0.0                         # 비틀거림: 지금 머리를 꺾고 있는 회전 속도 (rad/s, 점점 사라짐)
         self.stagger_gap = 0.0                       # 다음 휘청임까지 남은 최소 시간
@@ -81,6 +82,25 @@ class Body:
                     other.partner = None                # 짝이 없어졌으니 혼자 걷는다
         self.height_v += config.HIT_POP
         self.effects.add_cut(leg, leg.knee_x - from_x, leg.knee_y - from_y)
+
+    def start_dying(self, data):
+        # 다리를 모두 잃음: 머리에서 데이터가 쏟아지고(data × 3개) → 글리치 → 응답 없음 (play_mode가 화면을 굳힘)
+        self.dying = 0.0
+        self.spill_total = max(config.DIE_SPILL_MIN, min(config.DIE_SPILL_MAX, data * 3))
+        self.spilled = 0
+
+    def update_dying(self, dt):
+        # 데이터 유출: DIE_SPILL_TIME 동안 고르게 나눠 머리에서 조각을 뿜는다
+        self.dying += dt
+        head = self.segs[0]
+        want = int(self.spill_total * min(1.0, self.dying / config.DIE_SPILL_TIME))
+        if want > self.spilled:
+            self.effects.add_bits(head.x, head.y, self.seg_h(0), want - self.spilled)
+            self.spilled = want
+
+    def glitch(self):
+        # 글리치 중인지 (머리 색 어긋남·끊김, 눈 ×)
+        return self.dying is not None and self.dying >= config.DIE_GLITCH
 
     def hit_ok(self, i):
         # 마디 i(와 그 다리)가 지금 맞을 수 있는지: 피격 무적도 WAVE 공중도 아니어야 함
@@ -240,8 +260,11 @@ class Body:
             if dt > 0:
                 seg.vx, seg.vy = (seg.x - px) / dt, (seg.y - py) / dt   # 마디 속도 = 이번 프레임 이동량 / 시간
         self.update_legs(dt)                     # 4. 다리
-        self.drag_dust(dt)                       # D: 다리 없이 끌리는 마디의 먼지
-        self.drop_segments(dt)                   # 다리를 모두 잃은 마디 탈락
+        if self.dying is not None:
+            self.update_dying(dt)                # 데스 애니메이션 (마디 탈락·먼지 대신)
+        else:
+            self.drag_dust(dt)                   # D: 다리 없이 끌리는 마디의 먼지
+            self.drop_segments(dt)               # 다리를 모두 잃은 마디 탈락
         self.update_height(dt)                   # 5. 착지 반동 (+ 질주 중 착지 흙먼지)
         self.effects.update(dt, self)            # 6. 효과
 
@@ -454,6 +477,13 @@ class Body:
             seg = self.segs[i]
             size = self.seg_size(i)
             sx, sy = camera.to_screen(seg.x + seg.ox, seg.y + seg.oy)
+            if self.glitch():
+                # 글리치: 빨강·하늘색 잔상이 좌우로 어긋나고, 몸이 덜덜 끊기듯 튄다 (프레임마다 다르게)
+                g = config.DIE_GLITCH_SHIFT
+                jx, jy = random.choice((-2, 0, 2)), random.choice((-1, 0, 1))
+                fill_rect_rotated(sx - g + jx, sy + self.seg_h(i) * config.VIEW_TILT, size, size, seg.angle, config.COLOR_RED, 0.5)
+                fill_rect_rotated(sx + g + jx, sy + self.seg_h(i) * config.VIEW_TILT + jy, size, size, seg.angle, config.COLOR_SKY, 0.5)
+                sx, sy = sx + jx, sy + jy
             draw_segment(sx, sy + self.seg_h(i) * config.VIEW_TILT, size, seg.angle, self.invincible(i) or self.blink(), *self.shape(i),
                          flash=seg.flash / config.HIT_FLASH)
         # 머리 앞쪽 가장자리 근처에 주황 점 — 어느 쪽이 앞인지 표시
@@ -462,7 +492,11 @@ class Body:
         hx, hy = camera.to_screen(head.x + head.ox, head.y + head.oy)
         r = config.BOX_HEAD_SIZE * self.shape(0)[0] / 2 - config.BOX_EYE_SIZE / 2 - 1     # 중심에서 점까지 거리 (늘어나면 앞 가장자리도)
         ex, ey = hx + math.cos(head.angle) * r, hy + lift + math.sin(head.angle) * r
-        if self.stun > 0:
+        if self.glitch():
+            # 죽음: 눈이 × (가는 선 두 개를 엇갈리게)
+            for a in (head.angle + math.pi / 4, head.angle - math.pi / 4):
+                fill_rect_rotated(ex, ey, config.EYE_CLOSED_THICK, config.BOX_EYE_SIZE + 3, a, config.COLOR_ORANGE)
+        elif self.stun > 0:
             # 착지 경직 중: 눈을 감음 — 앞뒤로 얇고 옆으로 긴 가는 선
             fill_rect_rotated(ex, ey, config.EYE_CLOSED_THICK, config.BOX_EYE_SIZE + 2, head.angle, config.COLOR_ORANGE)
         else:
