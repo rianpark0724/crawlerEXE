@@ -237,7 +237,7 @@ class Page:
                     # 먹은 링크: 하얗게 번쩍였다가 방문한 링크 색(보라)으로, 페이지 밝기로 가라앉음
                     k = min(1.0, group['age'] / config.COLLECT_FX_TIME)
                     color = tuple(int(w + (v - w) * k) for w, v in zip(config.COLOR_WHITE, self.style.VISITED))
-                    draw_static_text(x, y - camera.y, text, size, color, 1 + (a - 1) * k)
+                    draw_static_text(x, y - camera.y, text, size, color, 1 + (a * config.EATEN_SHELL - 1) * k)   # 글자가 빠져나간 흐린 껍데기
                 else:
                     # 먹을 수 있는 링크: 페이지 글보다 밝게 (밟을 수 있다는 표시)
                     draw_static_text(x, y - camera.y, text, size, self.style.LINK, config.LINK_ALPHA)

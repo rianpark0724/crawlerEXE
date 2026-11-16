@@ -42,6 +42,8 @@ class Body:
         self.stun = 0.0                              # 남은 경직 시간 — 머리가 움직이지도 돌지도 않음
         self.dust_timer = 0.0                        # 다리 없이 끌리는 마디의 다음 먼지까지 남은 시간
         self.iframe = 0.0                            # 피격 후 무적이 남은 시간 (깜빡임)
+        self.digest_t = None                         # 소화 빛이 흘러간 시간 (None = 없음)
+        self.stored = 0                              # 몸에 저장된 데이터 조각 수 (play_mode가 섭취 상태로 정함)
         self.knock_vx = self.knock_vy = 0.0          # 튕겨 나가는 속도 (보호된 문단) — 점점 줄어듦
         self.dying = None                            # 죽은 뒤 지난 시간 (None = 살아 있음) — 데스 애니메이션
         self.dropped = []                            # 떨어져 나간 마디 [x, y, 각도, 크기, 나이, 도는 속도] — 바닥에서 흐려짐
@@ -107,6 +109,27 @@ class Body:
         # (dx, dy) 방향(단위 벡터)으로 WALL_KNOCK만큼 튕겨 나가게: 처음 속도 = 거리 × 줄어드는 빠르기
         v = config.WALL_KNOCK * config.KNOCK_DECAY
         self.knock_vx, self.knock_vy = dx * v, dy * v
+
+    def gulp(self):
+        # 링크 글자가 머리에 닿음: 머리가 꿀꺽 납작해졌다 펴진다 (착지 때 쓰는 모양 변형 재활용)
+        self.segs[0].squash = max(self.segs[0].squash, config.GULP_TIME)
+
+    def digest(self):
+        # 단어를 다 삼킴: 하늘색 빛이 머리에서 꼬리로 한 번 흘러간다
+        self.digest_t = 0.0
+
+    def glow(self, i):
+        # 소화 빛이 마디 i에 얼마나 와 있는지 0~1 (빛의 중심이 머리 → 꼬리로 이동)
+        if self.digest_t is None:
+            return 0.0
+        center = self.digest_t / config.DIGEST_TIME * len(self.segs)
+        return max(0.0, 1 - abs(i - center))
+
+    def stored_in(self, i):
+        # 마디 i에 보이는 저장 조각 수: 전체를 마디들에 고르게 나눔 (앞 마디부터 하나씩 더), 마디마다 최대 9
+        n = len(self.segs)
+        k = self.stored // n + (1 if i < self.stored % n else 0)
+        return min(config.STORE_PER_SEG, k)
 
     def hit_ok(self, i):
         # 마디 i(와 그 다리)가 지금 맞을 수 있는지: 피격 무적도 WAVE 공중도 아니어야 함
@@ -225,6 +248,10 @@ class Body:
         # 파동 시간 진행, 끝나면 재사용 대기 시작. 머리가 착지하는 순간 경직 시작
         self.stun = max(0.0, self.stun - dt)
         self.iframe = max(0.0, self.iframe - dt)
+        if self.digest_t is not None:
+            self.digest_t += dt
+            if self.digest_t > config.DIGEST_TIME + 0.2:
+                self.digest_t = None
         for seg in self.segs:
             seg.squash = max(0.0, seg.squash - dt)
             seg.flash = max(0.0, seg.flash - dt)
@@ -498,7 +525,7 @@ class Body:
                 fill_rect_rotated(sx + g + jx, sy + self.seg_h(i) * config.VIEW_TILT + jy, size, size, seg.angle, config.COLOR_SKY, 0.5)
                 sx, sy = sx + jx, sy + jy
             draw_segment(sx, sy + self.seg_h(i) * config.VIEW_TILT, size, seg.angle, self.invincible(i) or self.blink(), *self.shape(i),
-                         flash=seg.flash / config.HIT_FLASH)
+                         flash=seg.flash / config.HIT_FLASH, glow=self.glow(i), dots=self.stored_in(i))
         # 머리 앞쪽 가장자리 근처에 주황 점 — 어느 쪽이 앞인지 표시
         head = self.segs[0]
         lift = self.seg_h(0) * config.VIEW_TILT
@@ -516,12 +543,12 @@ class Body:
             fill_rect_rotated(ex, ey, config.BOX_EYE_SIZE, config.BOX_EYE_SIZE, head.angle, config.COLOR_ORANGE)
 
 
-def draw_segment(x, y, size, angle, ghost=False, along=1.0, across=1.0, flash=0.0):
+def draw_segment(x, y, size, angle, ghost=False, along=1.0, across=1.0, flash=0.0, glow=0.0, dots=0):
     # 크롤러 마디 그리기 — Body와 다리 파츠(world/objects.py)가 같이 쓴다 (파츠가 크롤러 조각처럼 보이게)
     # 입체감 있는 사각 마디 하나 (화면 좌표). 빛은 LIGHT_DIR(왼쪽 위)에서 온다고 본다
     # ghost = WAVE로 공중에 뜬(무적) 마디: 전체를 WAVE_GHOST배로 흐리게 → 유령처럼 비침
     # along, across = 바라보는 방향 길이·폭 배율 (WAVE 공중엔 길쭉, 착지 땐 납작 — 평소 1, 1 = 정사각형)
-    # flash = 피격 번쩍임 0~1 (빨간 덧칠 진하기)
+    # flash = 피격 번쩍임 0~1 (빨간 덧칠 진하기), glow = 소화 빛 0~1, dots = 마디 안에 보이는 저장 조각 수
     lx, ly = config.LIGHT_DIR
     a = config.WAVE_GHOST if ghost else 1.0
     w, hgt = size * along, size * across
@@ -548,3 +575,13 @@ def draw_segment(x, y, size, angle, ghost=False, along=1.0, across=1.0, flash=0.
         draw_line(x1, y1, x2, y2, 1, color, a)
     if flash > 0:
         fill_rect_rotated(x, y, w, hgt, angle, config.COLOR_RED, 0.8 * flash)   # 피격: 빨갛게 번쩍
+    # 몸 안에 저장된 데이터: 반투명 마디 속에 하늘색 조각이 3 × 3 격자로 쌓인다 (마디 방향대로 돌려서)
+    if dots:
+        c, s = math.cos(angle), math.sin(angle)
+        step = size * 0.24
+        for k in range(dots):
+            gx, gy = (k % 3 - 1) * step, (k // 3 - 1) * step
+            fill_rect_rotated(x + gx * c - gy * s, y + gx * s + gy * c, config.STORE_DOT, config.STORE_DOT, angle,
+                              config.COLOR_SKY, 0.85 * a)
+    if glow > 0:
+        fill_rect_rotated(x, y, w, hgt, angle, config.COLOR_SKY, 0.45 * glow * a)   # 소화 빛

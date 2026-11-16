@@ -11,6 +11,7 @@ from sdl2 import (SDL_QUIT, SDL_KEYDOWN, SDLK_ESCAPE, SDLK_F1, SDLK_F2, SDL_MOUS
 import config
 import game_framework
 from crawler.body import Body
+from crawler.ingest import Ingest
 from world.camera import Camera
 from world.stage import Page, load_site, pick_goal, mark_goal, LAYOUTS
 from world.crawl_page import CrawlPage
@@ -29,6 +30,7 @@ camera = None
 page = None
 site = None                   # 지금 사이트 (설정 + 문서들, dict)
 data_count = 0                # 먹은 데이터(링크) 수 — 문서를 넘어가도 유지
+ingest = Ingest()             # 링크 섭취 연출 + 몸에 저장된 단어 (문서를 넘어가도 유지)
 frontier = []                 # 방문 대기열: 먹었지만 아직 안 간 문서 제목들 (PRD 11.3)
 visited = []                  # 방문한 문서 제목들 (순서대로)
 goal = None                   # 이번 판 목표 {'page': 문서, 'keyword': 키워드, 'hops': 시작에서 몇 단계}
@@ -60,6 +62,8 @@ def init(site_id=config.FIRST_STAGE):
     body = None                                     # 새 판: 시작 마디 수로
     site = load_site(site_id)
     data_count, frontier, visited = 0, [], []
+    global ingest
+    ingest = Ingest()                               # 새 판: 몸은 비어서 시작
     pages, history, next_doc, play_time, opening = {}, [], None, 0.0, None
     random.seed(config.RANDOM_SEED)                 # None이면 매번 다른 판
     goal = pick_goal(site)                          # 시작에서 min_hops단계 이상 떨어진 후보 중 하나
@@ -250,6 +254,13 @@ def push_out_walls():
                 head.y = e.y - r if dy < 0 else e.y + e.h + r
 
 
+def link_pieces(group):
+    # 링크 하나(여러 조각일 수 있음)의 조각들 [(x, y, 글, 크기)] — 섭취·되돌림 글자 연출용
+    lids = [lid for lid, g in page.groups.items() if g is group]
+    sizes = {item[7]: item[6] for item in page.items if item[0] == 'link'}
+    return [(x, y, text, sizes.get(lid, config.WIKI_FONT_BODY)) for x, y, w, h, text, target, lid in page.links if lid in lids]
+
+
 def check_reverts():
     # 추적 중인 되돌리기 봇이 먹힌 링크 근처를 지나면 그 링크를 되돌린다 (PRD 9): 데이터 −1, 이 문서 수집 −1
     global data_count, data_flash
@@ -262,6 +273,8 @@ def check_reverts():
             if group['eaten'] and x - m <= enemy.x <= x + w + m and y - m <= enemy.y <= y + h + m:
                 page.revert(group)
                 data_count = max(0, data_count - 1)
+                head = body.segs[0]
+                ingest.spit(link_pieces(group), head.x, head.y)   # 몸에서 그 단어가 빠져나가 링크로 돌아감
                 data_flash = config.DATA_FLASH
                 enemy.react()
                 messages.append([x + w / 2, y + h + 10, '되돌림 -1', 0.0])   # (− 기호는 굵은 글꼴에 없어 -)
@@ -322,6 +335,7 @@ def on_land(leg):
     group = page.eat_at(leg.foot_x, leg.foot_y)
     if group is not None:
         data_count += 1
+        ingest.eat(link_pieces(group), leg.foot_x, leg.foot_y)   # 글자가 떨어져 나와 머리로 빨려 들어감
         for enemy in page.enemies:                    # 링크를 먹으면 되돌리기 봇이 깨어나 지금 발자국부터 따라옴
             if isinstance(enemy, RevertBot):
                 enemy.wake(len(footprints) - 1)
@@ -413,6 +427,8 @@ def update():
     for enemy in page.enemies:
         if enemy.active(camera):                      # 화면 ± ENEMY_ACTIVE_PAD 안의 적만 움직임
             enemy.update(game_framework.frame_time, footprints)
+    ingest.update(game_framework.frame_time, body)    # 날아가는 글자, 도착하면 꿀꺽·저장
+    body.stored = len(ingest.stored)
     check_reverts()
     push_out_walls()
     check_hits()
@@ -596,6 +612,7 @@ def draw():
         for r in (k, k * 0.6):
             draw_circle(x + w / 2, y + h / 2 - camera.y, 6 + config.CLEAR_FX_R * r, 3, config.COLOR_GOLD, 1 - k)
     body.draw(camera)
+    ingest.draw(camera)                               # 날아가는 링크 글자 (몸 위에)
     for x, y, text, age in messages:                  # 떠오르며 흐려지는 알림
         k = age / config.SHORT_MSG_TIME
         w = text_width(text, config.HUD_FONT, 'bold')
