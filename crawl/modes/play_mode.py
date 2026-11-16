@@ -12,7 +12,7 @@ import config
 import game_framework
 from crawler.body import Body
 from world.camera import Camera
-from world.stage import Page, load_site, pick_goal, mark_goal
+from world.stage import Page, load_site, pick_goal, mark_goal, LAYOUTS
 from world.crawl_page import CrawlPage
 from world.objects import place_parts
 from world.enemies import place_enemies, place_walls, draw_revert_arrow, RefreshBand, RevertBot, ProtectedBlock
@@ -92,7 +92,7 @@ def open_doc(title):
         doc = site['docs'][title]
         if title == goal['page']:
             doc = mark_goal(doc, goal['keyword'])   # 목표 문서: 키워드 자리 중 하나를 뽑아 금색 키워드로
-        pages[title] = Page(doc, set(site['docs']))  # 링크 색은 사이트의 문서 제목으로 정함
+        pages[title] = Page(doc, set(site['docs']), LAYOUTS[site['layout']])  # 링크 색은 사이트의 문서 제목으로, 모양은 사이트 layout으로
         counts = site['pages'].get(title, {}).get('parts', {})   # 이 문서의 파츠 종류별 개수 (사이트 JSON)
         pages[title].parts = place_parts(pages[title], counts)  # 위치는 무작위 (처음 열 때 한 번)
         enemies = site['pages'].get(title, {}).get('enemies', {})   # 이 문서의 적 종류별 개수

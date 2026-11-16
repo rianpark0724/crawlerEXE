@@ -1,5 +1,5 @@
 # 페이지(스테이지 하나) — 폭 1280, 세로로 긴 웹페이지 (PRD 10.1)
-# 배경은 위키 문서(data/pages/*.json)를 위키백과 모양으로 배치한 것 (world/wiki_layout.py).
+# 배경은 문서(data/pages/<사이트>/*.json)를 그 사이트 모양으로 배치한 것 (world/page_layout.py + 사이트별 레이아웃).
 # 외전(PRD 21장)에서는 실제 웹페이지 글이 같은 형식으로 들어간다.
 import copy
 import json
@@ -13,6 +13,8 @@ import config
 from ui.draw import draw_line, draw_rect, draw_circle, fill_rect, draw_static_text, get_image, text_width
 from world.wiki_layout import WikiLayout
 
+LAYOUTS = {'wiki': WikiLayout}   # 사이트 JSON의 layout → 레이아웃 클래스 (뉴스·쇼핑은 S10에서 추가)
+
 
 # 사이트(스테이지) JSON에 없는 항목의 기본값 (PRD 11.2 스키마)
 SITE_DEFAULTS = {
@@ -25,6 +27,7 @@ SITE_DEFAULTS = {
     'autoscroll': 0,
     'dark': False,
     'pages': {},
+    'layout': 'wiki',     # 문서 모양: wiki / news / shop (LAYOUTS)
 }
 
 
@@ -104,12 +107,14 @@ def mark_goal(doc, keyword):
 
 
 class Page:
-    def __init__(self, doc, titles):
+    def __init__(self, doc, titles, layout_cls=WikiLayout):
         # 문서 높이는 글 길이로 정한다: 아주 높은 페이지에 한 번 배치해 쓴 높이를 재고, 그 높이로 다시 배치
-        trial = WikiLayout(config.PAGE_TRIAL_H, titles)
+        # layout_cls: 사이트 모양 (위키·뉴스·쇼핑). 링크 색·페이지 밝기 같은 꾸밈 값도 여기서 가져온다
+        self.style = layout_cls
+        trial = layout_cls(config.PAGE_TRIAL_H, titles)
         used = config.PAGE_TRIAL_H - trial.build(doc)
         self.height = max(config.SCREEN_H, int(used + config.PAGE_BOTTOM_PAD))
-        layout = WikiLayout(self.height, titles)
+        layout = layout_cls(self.height, titles)
         layout.build(doc)
         self.title = doc['title']
         self.items = layout.items      # 그리기 목록 (월드 좌표)
@@ -183,7 +188,7 @@ class Page:
 
     def draw(self, camera):
         bottom, top = camera.y, camera.y + config.SCREEN_H   # 화면에 보이는 월드 y 범위
-        a = config.WIKI_ALPHA
+        a = self.style.ALPHA
         for item in self.items:
             kind, lo, hi = item[0], item[1], item[2]
             if hi < bottom or lo > top:            # 화면 밖은 그리지 않는다
@@ -212,11 +217,11 @@ class Page:
                 elif group['eaten']:
                     # 먹은 링크: 하얗게 번쩍였다가 방문한 링크 색(보라)으로, 페이지 밝기로 가라앉음
                     k = min(1.0, group['age'] / config.COLLECT_FX_TIME)
-                    color = tuple(int(w + (v - w) * k) for w, v in zip(config.COLOR_WHITE, config.WIKI_VISITED))
+                    color = tuple(int(w + (v - w) * k) for w, v in zip(config.COLOR_WHITE, self.style.VISITED))
                     draw_static_text(x, y - camera.y, text, size, color, 1 + (a - 1) * k)
                 else:
                     # 먹을 수 있는 링크: 페이지 글보다 밝게 (밟을 수 있다는 표시)
-                    draw_static_text(x, y - camera.y, text, size, config.WIKI_LINK, config.LINK_ALPHA)
+                    draw_static_text(x, y - camera.y, text, size, self.style.LINK, config.LINK_ALPHA)
             elif kind == 'goal':
                 # 목표 키워드: 금색, 밝기가 숨쉬듯 오르내리고 아래에 금색 밑줄
                 x, y, text, size = item[3:]
@@ -229,7 +234,7 @@ class Page:
         # 수집 이펙트: 착지한 자리에서 링크 색 원이 퍼지며 사라짐
         for x, y, age in self.bursts:
             k = age / config.COLLECT_FX_TIME
-            draw_circle(x, y - camera.y, 4 + config.COLLECT_FX_R * k, 2, config.WIKI_LINK, 1 - k)
+            draw_circle(x, y - camera.y, 4 + config.COLLECT_FX_R * k, 2, self.style.LINK, 1 - k)
 
     def revert(self, group):
         # 되돌리기 봇이 먹힌 링크를 되돌림: 다시 먹을 수 있는 파란 링크로, diff 연출 시작
@@ -247,7 +252,7 @@ class Page:
         else:
             k = min(1.0, (age - config.REVERT_DEL_TIME) / config.REVERT_ADD_TIME)
             fill_rect(x - 3, y - 3, w + 6, h, config.COLOR_GREEN, 0.5 * (1 - k))
-            draw_static_text(x, y, text, size, config.WIKI_LINK, config.LINK_ALPHA)
+            draw_static_text(x, y, text, size, self.style.LINK, config.LINK_ALPHA)
 
     def draw_exit(self, camera, choices, need, time, fill):
         # 다음 문서 상자. need = 출구가 열리려면 더 먹어야 할 링크 수 (0이면 열림)
@@ -275,7 +280,7 @@ class Page:
             draw_static_text(bx + config.EXIT_PAD, y + bh / 2 - 20, '갈 수 있는 문서가 없습니다. 링크를 더 먹어 보세요.',
                              size, config.WIKI_SUBTLE)
         for (sx, sy, w, h), (label, title, back) in zip(self.slot_rects(len(choices)), choices):
-            color = config.WIKI_SUBTLE if back else config.WIKI_LINK        # 뒤로 칸은 회색, 새 문서 칸은 링크 색
+            color = config.WIKI_SUBTLE if back else self.style.LINK         # 뒤로 칸은 회색, 새 문서 칸은 링크 색
             fill_rect(sx, sy - camera.y, w, h, config.COLOR_BG)
             if title == fill[0]:
                 fill_rect(sx, sy - camera.y, w * fill[1], h, config.COLOR_ORANGE, 0.35)   # 연속으로 밟은 만큼 차오름
