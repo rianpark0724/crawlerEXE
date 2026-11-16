@@ -18,6 +18,7 @@ class Segment:
         self.ox = self.oy = 0.0  # 좌우 쏠림 (디딘 다리 쪽으로). 그리기와 어깨 위치에 더한다
         self.squash = 0.0        # WAVE 착지 후 납작함이 남은 시간
         self.flash = 0.0         # 피격 후 빨갛게 번쩍임이 남은 시간
+        self.legless = 0.0       # 다리를 모두 잃고 끌린 시간 — DROP_DELAY가 되면 떨어져 나감
         self.legs = [Leg(+1), Leg(-1)]   # 다리 한 쌍 (왼쪽, 오른쪽)
         self.legs[0].partner, self.legs[1].partner = self.legs[1], self.legs[0]   # 서로 반대쪽 다리
 
@@ -41,6 +42,7 @@ class Body:
         self.stun = 0.0                              # 남은 경직 시간 — 머리가 움직이지도 돌지도 않음
         self.dust_timer = 0.0                        # 다리 없이 끌리는 마디의 다음 먼지까지 남은 시간
         self.iframe = 0.0                            # 피격 후 무적이 남은 시간 (깜빡임)
+        self.dropped = []                            # 떨어져 나간 마디 [x, y, 각도, 크기, 나이, 도는 속도] — 바닥에서 흐려짐
         self.stagger_v = 0.0                         # 비틀거림: 지금 머리를 꺾고 있는 회전 속도 (rad/s, 점점 사라짐)
         self.stagger_gap = 0.0                       # 다음 휘청임까지 남은 최소 시간
         self.gaps = [config.SEG_SPACING] * len(self.segs)   # 마디 i와 앞 마디 사이 간격 (평소 19, WAVE 중 늘어남). gaps[0]은 안 씀
@@ -239,8 +241,30 @@ class Body:
                 seg.vx, seg.vy = (seg.x - px) / dt, (seg.y - py) / dt   # 마디 속도 = 이번 프레임 이동량 / 시간
         self.update_legs(dt)                     # 4. 다리
         self.drag_dust(dt)                       # D: 다리 없이 끌리는 마디의 먼지
+        self.drop_segments(dt)                   # 다리를 모두 잃은 마디 탈락
         self.update_height(dt)                   # 5. 착지 반동 (+ 질주 중 착지 흙먼지)
         self.effects.update(dt, self)            # 6. 효과
+
+    def drop_segments(self, dt):
+        # 다리를 모두 잃은 마디(머리 제외)는 DROP_DELAY초 끌리다 떨어져 나가고 앞뒤 마디가 이어진다 (PRD 5.4)
+        for d in self.dropped:
+            d[4] += dt
+            d[2] += d[5] * dt
+            d[5] *= max(0.0, 1 - 3 * dt)                 # 도는 게 점점 멈춤
+        self.dropped = [d for d in self.dropped if d[4] < config.DROP_LIFE]
+        for i in range(len(self.segs) - 1, 0, -1):       # 꼬리 쪽부터, 머리(0)는 빼고
+            seg = self.segs[i]
+            seg.legless = seg.legless + dt if not seg.legs else 0.0
+            if seg.legless < config.DROP_DELAY:
+                continue
+            self.dropped.append([seg.x, seg.y, seg.angle, self.seg_size(i), 0.0, config.DROP_SPIN * random.choice((-1, 1))])
+            self.effects.add_puff(seg.x, seg.y)
+            del self.segs[i]
+            del self.gaps[i]
+            if i < len(self.segs):
+                # 뒤 마디는 지금 거리에서 시작해 초당 WAVE_RESTORE로 줄어들며 앞 마디에 붙는다 (순간이동 없이)
+                front, back = self.segs[i - 1], self.segs[i]
+                self.gaps[i] = max(config.SEG_SPACING, math.hypot(front.x - back.x, front.y - back.y))
 
     def drag_dust(self, dt):
         # D: 다리가 하나도 없는 마디가 움직이면 바닥을 긁으며 먼지가 난다
@@ -410,6 +434,9 @@ class Body:
                               (0, 0, 0), config.SHADOW_ALPHA)
         self.effects.draw_ground(camera)       # 흙먼지 (바닥)
         self.effects.draw_cuts(camera)         # 잘린 다리 (바닥)
+        for x, y, angle, size, age, spin in self.dropped:   # 떨어진 마디: 바닥에 붙어 흐려짐
+            sx, sy = camera.to_screen(x, y)
+            draw_segment(sx, sy, size, angle, ghost=age > config.DROP_LIFE / 2)
         self.effects.draw_ghosts(camera)       # 질주 잔상
         # 2. 다리 (마디 아래에)
         for leg in self.all_legs():
