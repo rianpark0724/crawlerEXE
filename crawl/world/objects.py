@@ -61,8 +61,10 @@ def random_spot(page, taken, spawn_gap, apart):
     sx, sy = page.spawn()
     top = sy - spawn_gap                                   # 시작 위치 아래부터
     bottom = page.exit_rect[1] + page.exit_rect[3] + avoid  # 출구 상자 위까지
-    left = config.WIKI_CONTENT_X + avoid
-    right = config.WIKI_CONTENT_X + config.WIKI_CONTENT_W - avoid
+    style = getattr(page, 'style', None)                  # 사이트별 본문 단 (뉴스·쇼핑은 위키와 다름)
+    cx = getattr(style, 'CONTENT_X', config.WIKI_CONTENT_X)
+    cw = getattr(style, 'CONTENT_W', config.WIKI_CONTENT_W)
+    left, right = cx + avoid, cx + cw - avoid
     if top <= bottom:
         return None                                        # 문서가 너무 짧음
     for _try in range(200):                               # 조건에 맞는 자리를 찾을 때까지 다시 뽑기

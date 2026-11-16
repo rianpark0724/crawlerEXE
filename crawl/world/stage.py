@@ -1,7 +1,6 @@
 # 페이지(스테이지 하나) — 폭 1280, 세로로 긴 웹페이지 (PRD 10.1)
 # 배경은 문서(data/pages/<사이트>/*.json)를 그 사이트 모양으로 배치한 것 (world/page_layout.py + 사이트별 레이아웃).
 # 외전(PRD 21장)에서는 실제 웹페이지 글이 같은 형식으로 들어간다.
-import copy
 import json
 import math
 import os
@@ -13,8 +12,9 @@ import config
 from ui.draw import draw_line, draw_rect, draw_circle, fill_rect, draw_static_text, get_image, text_width, fill_rect_rotated
 from world.wiki_layout import WikiLayout
 from world.news_layout import NewsLayout
+from world.shop_layout import ShopLayout
 
-LAYOUTS = {'wiki': WikiLayout, 'news': NewsLayout}   # 사이트 JSON의 layout → 레이아웃 클래스 (쇼핑은 S10-5)
+LAYOUTS = {'wiki': WikiLayout, 'news': NewsLayout, 'shop': ShopLayout}   # 사이트 JSON의 layout → 레이아웃 클래스
 
 
 # 사이트(스테이지) JSON에 없는 항목의 기본값 (PRD 11.2 스키마)
@@ -51,17 +51,23 @@ def load_site(site_id):
 LINK = re.compile(r'\[\[(!?)([^\]|]+?)(?:\|(.+?))?\]\]')   # [[제목]] [[제목|표시]] [[!빨간]]
 
 
+def rewrite(value, fn):
+    # 문서 안의 글(문자열)을 전부 fn으로 바꾼 사본 — 목록·사전 속까지 (문서 모양이 사이트마다 달라서)
+    if isinstance(value, str):
+        return fn(value)
+    if isinstance(value, list):
+        return [rewrite(v, fn) for v in value]
+    if isinstance(value, dict):
+        return {k: rewrite(v, fn) for k, v in value.items()}
+    return value
+
+
 def doc_texts(doc):
-    # 문서에서 표기가 들어갈 수 있는 글 전부, 배치되는 순서대로:
-    # 안내문 + 본문 블록(글·목록·사진 캡션) + 관련 기사 카드(뉴스 — 제목이 그 기사로 가는 링크)
-    texts = [doc.get('hatnote', '')]
-    for block in doc['blocks']:
-        if isinstance(block[1], str):
-            texts.append(block[1])
-        elif isinstance(block[1], dict):
-            texts.append(block[1].get('caption', ''))     # 사진 블록
-        else:
-            texts.extend(block[1])                          # 목록
+    # 문서에서 표기가 들어갈 수 있는 글 전부 (제목 빼고 문서 안의 모든 글) + 관련 기사 카드(뉴스 — 제목이 그 기사로 가는 링크)
+    texts = []
+    for key, value in doc.items():
+        if key not in ('title', 'related'):
+            rewrite(value, lambda t: texts.append(t))
     texts += ['[[%s]]' % card['title'] for card in doc.get('related', [])]
     return texts
 
@@ -105,15 +111,8 @@ def mark_goal(doc, keyword):
         seen[0] += 1
         return '<<' + keyword + '>>' if hit else m.group(0)
 
-    doc = copy.deepcopy(doc)
-    if doc.get('hatnote'):
-        doc['hatnote'] = slot.sub(replace, doc['hatnote'])
-    for block in doc['blocks']:
-        if isinstance(block[1], str):
-            block[1] = slot.sub(replace, block[1])
-        else:
-            block[1] = [slot.sub(replace, t) for t in block[1]]
-    return doc
+    # doc_texts와 같은 순서로 글을 훑으며 바꾼다 (센 자리 번호가 맞도록)
+    return {k: (v if k in ('title', 'related') else rewrite(v, lambda t: slot.sub(replace, t))) for k, v in doc.items()}
 
 
 def fit_text(text, size, width):

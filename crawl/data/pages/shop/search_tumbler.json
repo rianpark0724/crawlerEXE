@@ -1,0 +1,116 @@
+{
+  "title": "검색: 텀블러",
+  "kind": "search",
+  "query": "텀블러",
+  "count": "1-8 / 2,000개 이상",
+  "filters": [
+    [
+      "카테고리",
+      [
+        "[[검색: 주방용품|주방용품]]",
+        "캠핑·아웃도어",
+        "사무용품"
+      ]
+    ],
+    [
+      "고객 평점",
+      [
+        "★★★★☆ 이상"
+      ]
+    ],
+    [
+      "가격",
+      [
+        "1만 원 이하",
+        "1만 – 3만 원",
+        "3만 원 이상"
+      ]
+    ],
+    [
+      "브랜드",
+      [
+        "W·E·B 베이직",
+        "홈웹",
+        "크롤가드"
+      ]
+    ],
+    [
+      "배송",
+      [
+        "내일 도착 보장",
+        "무료 배송"
+      ]
+    ]
+  ],
+  "results": [
+    {
+      "name": "[[스텐 진공 텀블러 500ml, 12시간 보온보랭, 뚜껑 분리 세척]]",
+      "image": "shop/tumbler.png",
+      "rating": 4.6,
+      "reviews": 12408,
+      "price": 18900,
+      "list_price": 25000,
+      "badge": "베스트셀러",
+      "delivery": "무료 배송 내일(화) 도착 보장"
+    },
+    {
+      "name": "[[크롤러 퇴치 스프레이 300ml, 다리 달린 사각형 접근 방지]]",
+      "image": "shop/spray.png",
+      "rating": 2.9,
+      "reviews": 7713,
+      "price": 9900,
+      "list_price": 12900,
+      "sponsored": true,
+      "delivery": "무료 배송 모레 도착"
+    },
+    {
+      "name": "[[무소음 전기포트 1.7L, 온도 조절 5단계]]",
+      "image": "shop/kettle.png",
+      "rating": 4.4,
+      "reviews": 3120,
+      "price": 32900,
+      "list_price": 45000
+    },
+    {
+      "name": "[[3칸 밀폐 도시락통, 전자레인지 가능, 수저 세트 포함]]",
+      "image": "shop/lunchbox.png",
+      "rating": 4.3,
+      "reviews": 2210,
+      "price": 12800,
+      "delivery": "무료 배송 내일(화) 도착 보장"
+    },
+    {
+      "name": "[[LED 책상 스탠드, 밝기 5단계, 눈 보호]]",
+      "image": "shop/lamp.png",
+      "rating": 4.5,
+      "reviews": 4389,
+      "price": 27900,
+      "list_price": 39000,
+      "badge": "추천"
+    },
+    {
+      "name": "[[자동 장우산, 방풍 프레임, 대형 120cm]]",
+      "image": "shop/umbrella.png",
+      "rating": 4.2,
+      "reviews": 1876,
+      "price": 15900
+    },
+    {
+      "name": "[[무선 이어폰, 노이즈 캔슬링, 30시간 재생]]",
+      "image": "shop/earbuds.png",
+      "rating": 4.1,
+      "reviews": 8731,
+      "price": 49000,
+      "list_price": 69000,
+      "sponsored": true
+    },
+    {
+      "name": "[[링크 보호 필름, 파란 링크 코팅, 먹힘 방지]]",
+      "image": "shop/film.png",
+      "rating": 3.1,
+      "reviews": 2045,
+      "price": 4900,
+      "delivery": "배송비 2,500원"
+    }
+  ]
+}

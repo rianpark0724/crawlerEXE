@@ -11,16 +11,24 @@ LINK = re.compile(r'\[\[(!?)([^\]|]+?)(?:\|(.+?))?\]\]')
 SLOT = re.compile(r'\{\{(.+?)\|(.+?)\}\}')
 
 
+def strings(value, out):
+    # 문서 안의 글(문자열)을 목록·사전 속까지 전부 모은다 (사이트마다 문서 모양이 달라서)
+    if isinstance(value, str):
+        out.append(value)
+    elif isinstance(value, list):
+        for v in value:
+            strings(v, out)
+    elif isinstance(value, dict):
+        for v in value.values():
+            strings(v, out)
+
+
 def all_text(doc):
-    # 문서에서 링크가 들어갈 수 있는 모든 글 (안내문 + 본문 블록 + 사진 캡션 + 뉴스 관련 기사 카드)
-    texts = [doc.get('hatnote', '')]
-    for block in doc['blocks']:
-        if isinstance(block[1], str):
-            texts.append(block[1])
-        elif isinstance(block[1], dict):
-            texts.append(block[1].get('caption', ''))
-        else:
-            texts.extend(block[1])
+    # 문서에서 링크가 들어갈 수 있는 모든 글 (제목 빼고 전부) + 뉴스 관련 기사 카드
+    texts = []
+    for key, value in doc.items():
+        if key not in ('title', 'related'):
+            strings(value, texts)
     texts += ['[[%s]]' % card['title'] for card in doc.get('related', [])]
     return ' '.join(texts)
 
