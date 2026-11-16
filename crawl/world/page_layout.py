@@ -80,6 +80,7 @@ class PageLayout:
     BG = config.COLOR_BG                   # 페이지 바탕색
     CONTENT_X = config.WIKI_CONTENT_X      # 본문 왼쪽 x
     CONTENT_W = config.WIKI_CONTENT_W      # 본문 폭
+    LINK_UNDERLINE = False                 # 링크에 밑줄 (뉴스처럼)
 
     def __init__(self, height, titles):
         self.height = height

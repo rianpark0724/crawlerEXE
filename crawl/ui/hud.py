@@ -56,6 +56,11 @@ def draw_bar(url, goal, visited, min_pages, eaten, quota, data, loading=None, lo
 
     # 주소칸: 회색 crawl:/ + 사이트 주소와 문서 제목
     draw_field(config.HUD_URL_X, config.HUD_URL_W, cy)
+    room = config.HUD_URL_W - 20 - text_width('crawl:/', config.HUD_FONT)
+    if text_width(url, config.HUD_FONT) > room:                 # 칸보다 긴 주소(긴 기사 제목)는 끝을 …로
+        while url and text_width(url + '…', config.HUD_FONT) > room:
+            url = url[:-1]
+        url += '…'
     draw_words(config.HUD_URL_X + 10, cy, [('crawl:/', config.HUD_LABEL, False), (url, config.WIKI_TEXT, False)])
 
     # 목표칸: 돋보기 + 찾는 키워드 (검색어처럼)

@@ -12,8 +12,9 @@ from collections import deque
 import config
 from ui.draw import draw_line, draw_rect, draw_circle, fill_rect, draw_static_text, get_image, text_width
 from world.wiki_layout import WikiLayout
+from world.news_layout import NewsLayout
 
-LAYOUTS = {'wiki': WikiLayout}   # 사이트 JSON의 layout → 레이아웃 클래스 (뉴스·쇼핑은 S10에서 추가)
+LAYOUTS = {'wiki': WikiLayout, 'news': NewsLayout}   # 사이트 JSON의 layout → 레이아웃 클래스 (쇼핑은 S10-5)
 
 
 # 사이트(스테이지) JSON에 없는 항목의 기본값 (PRD 11.2 스키마)
@@ -78,6 +79,8 @@ def pick_goal(site):
     # 목표 후보 중 시작에서 갈 수 있고 min_hops단계 이상 떨어진 것 하나를 무작위로. {'page', 'keyword', 'hops'}
     hops = link_hops(site)
     usable = [t for t in site['targets'] if hops.get(t['page'], -1) >= site['min_hops']]
+    if not usable:
+        return {'page': None, 'keyword': '-', 'hops': 0}   # 목표 후보가 없는 사이트(만드는 중)는 목표 없이 둘러보기
     goal = dict(random.choice(usable))
     goal['hops'] = hops[goal['page']]
     return goal
@@ -104,6 +107,15 @@ def mark_goal(doc, keyword):
         else:
             block[1] = [slot.sub(replace, t) for t in block[1]]
     return doc
+
+
+def fit_text(text, size, width):
+    # 글이 width보다 길면 뒤를 잘라 '…'를 붙인다 (출구 칸 글자처럼 좁은 칸에)
+    if text_width(text, size) <= width:
+        return text
+    while text and text_width(text + '…', size) > width:
+        text = text[:-1]
+    return text + '…'
 
 
 class Page:
@@ -222,6 +234,8 @@ class Page:
                 else:
                     # 먹을 수 있는 링크: 페이지 글보다 밝게 (밟을 수 있다는 표시)
                     draw_static_text(x, y - camera.y, text, size, self.style.LINK, config.LINK_ALPHA)
+                    if self.style.LINK_UNDERLINE:                # 밑줄 링크 (뉴스)
+                        draw_line(x, y - camera.y - 1, x + text_width(text, size), y - camera.y - 1, 1, self.style.LINK)
             elif kind == 'goal':
                 # 목표 키워드: 금색, 밝기가 숨쉬듯 오르내리고 아래에 금색 밑줄
                 x, y, text, size = item[3:]
@@ -285,6 +299,7 @@ class Page:
             if title == fill[0]:
                 fill_rect(sx, sy - camera.y, w * fill[1], h, config.COLOR_ORANGE, 0.35)   # 연속으로 밟은 만큼 차오름
             draw_rect(sx, sy - camera.y, w, h, 1, color)
+            label = fit_text(label, size, w - 20)                        # 칸보다 길면 끝을 …로
             draw_static_text(sx + 12, sy - camera.y + h / 2 - 9, label, size, color)
 
     def draw_dashed(self, x, y, w, h, color):
@@ -304,6 +319,12 @@ class Page:
             image.opacify(alpha)
             image.draw_to_origin(x, y, w, h)
         else:
+            # 그림이 아직 없음: 어두운 판 + X + 파일 이름 (docs/IMAGES.md 요청서대로 만들어 넣으면 바로 보임)
+            fill_rect(x, y, w, h, config.WIKI_BOX_BG, alpha)
             draw_rect(x, y, w, h, 1, config.WIKI_BORDER, alpha)
-            draw_line(x, y, x + w, y + h, 1, config.WIKI_BORDER, alpha)     # X 표시 = 그림 들어갈 자리
+            draw_line(x, y, x + w, y + h, 1, config.WIKI_BORDER, alpha)
             draw_line(x, y + h, x + w, y, 1, config.WIKI_BORDER, alpha)
+            if w > 80:
+                tw = text_width(name, 11)
+                fill_rect(x + (w - tw) / 2 - 4, y + h / 2 - 9, tw + 8, 18, config.COLOR_BG)
+                draw_static_text(x + (w - tw) / 2, y + h / 2 - 7, name, 11, config.WIKI_SUBTLE)

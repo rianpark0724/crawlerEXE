@@ -1,0 +1,14 @@
+{
+  "id": "news",
+  "url": "/news/",
+  "layout": "news",
+  "pages_dir": "news",
+  "start": "웹페이지 곳곳서 '다리 달린 사각형' 목격 잇따라… 정체는 여전히 미궁",
+  "targets": [],
+  "min_pages": 3,
+  "min_hops": 2,
+  "page_quota": 3,
+  "par_time": 180,
+  "dark": true,
+  "pages": {}
+}
