@@ -1,0 +1,30 @@
+{
+  "id": "demo_news",
+  "name": "뉴스 (데모)",
+  "url": "/news/",
+  "layout": "news",
+  "pages_dir": "news",
+  "start": "동네 도서관, 이달부터 밤 10시까지 문 연다",
+  "targets": [
+    {
+      "page": "동네 도서관, 이달부터 밤 10시까지 문 연다",
+      "keyword": "사서",
+      "slot": 0
+    }
+  ],
+  "min_pages": 1,
+  "min_hops": 0,
+  "page_quota": 1,
+  "par_time": 60,
+  "dark": true,
+  "pages": {
+    "동네 도서관, 이달부터 밤 10시까지 문 연다": {
+      "enemies": {
+        "comments": 1,
+        "ads": 1
+      }
+    }
+  },
+  "transfer_time": 1.5,
+  "safe_start": false
+}

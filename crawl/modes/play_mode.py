@@ -21,7 +21,7 @@ from world.enemies import place_enemies, place_walls, draw_revert_arrow, Refresh
 from world.collision import leg_hit, circle_circle, circle_rect, leg_hit_rect
 from world.hole import draw_hole, BitLeak
 from world.grinder import Grinder, Eye
-from world.purge import FullVaccine, draw_noise
+from world.purge import FullVaccine, Installer, draw_noise
 from world.comments import CommentNest
 from world.ads import AdSpawner
 from world.shop_enemies import Captcha, Vaccine, StarThrower, StarShot, TimeDeal, Recommender, Cart, CartRush
@@ -61,6 +61,7 @@ footprints = []               # 이 문서의 발자국 [(x, y) 또는 None(WAVE
 next_doc = None               # 이번 프레임에 다 채운 칸 (할 일, 칸 위치) — 걷기 처리가 끝난 뒤 창 열기 시작
 opening = None                # 새 창이 열리는 중: {'action', 'name'(창 제목), 'url', 'rect'(시작 칸, 월드), 'color', 't'}
 checkpoint = None             # 지금 사이트에 들어올 때의 {몸, 데이터, 저장 조각} — 죽으면 여기서 다시
+stage_order = config.STAGE_ORDER   # 이번 판의 사이트 순서 (데모 판이면 DEMO_ORDER)
 goal_reveal = [None]          # 목표 키워드 등장 연출이 시작된 뒤 지난 시간 (None = 연출 없음)
 grinder = None                # crawl://final의 데이터 깔때기 (완전 클리어 때만)
 final_time = None             # 크롤러가 다 갈린 순간의 전체 시간 (이때 시간이 멈춤)
@@ -68,7 +69,8 @@ respawn_t = 0.0               # 다 짜낸 뒤 눈이 튀어나오기까지 남�
 site_time = 0.0               # 지금 사이트에 머문 시간 — par_time을 넘기면 완전 백신
 paused = [False]              # ESC 일시정지 중 (세상과 몸은 멈추고, 머리에서 빠져나온 눈이 칸을 고름)
 pause_eye = None              # 일시정지 때 머리에서 빠져나온 네모 눈 (Eye)
-purge = None                  # 완전 백신 (FullVaccine) — 나타났으면
+purge = None                  # 완전 백신 NULL.EXE (FullVaccine) — 나타났으면
+installer = None              # NULL.EXE 설치 창 (Installer, 벽) — 게이지가 차는 중이면
 play_time = 0.0               # 플레이 시간 (출구 깜빡임 등)
 fade = 0.0                    # 문서를 옮긴 뒤 남은 밝아짐 시간
 hit_stop = 0.0                # 피격 순간 멈칫이 남은 시간 (이동안 게임이 멈춤)
@@ -87,6 +89,12 @@ def init(start='home'):
     ingest = Ingest()                               # 새 판: 몸은 비어서 시작
     random.seed(config.RANDOM_SEED)                 # None이면 매번 다른 판
     mouse_x, mouse_y = config.SCREEN_W / 2, config.SCREEN_H / 2   # 첫 마우스 이벤트 전에는 화면 가운데
+    global stage_order
+    if start == 'demo':                             # 데모 판: 사이트마다 바로 넘어가는 짧은 경로 (python main.py demo)
+        stage_order = config.DEMO_ORDER
+        start = stage_order[0]
+    elif start in config.STAGE_ORDER or start == 'home':
+        stage_order = config.STAGE_ORDER
     if start == 'home':
         open_home()
     else:
@@ -96,9 +104,9 @@ def init(start='home'):
 def reset_site(site_id):
     # 사이트 하나의 상태를 새로 (몸·데이터·시간은 건드리지 않음)
     global site, frontier, visited, pages, history, next_doc, opening, cleared, messages, clear_timer, clear_spot, lost, lost_timer
-    global grinder, final_time, site_time, purge
+    global grinder, final_time, site_time, purge, installer
     grinder, final_time = None, None
-    site_time, purge = 0.0, None
+    site_time, purge, installer = 0.0, None, None
     goal_reveal[0] = None
     paused[0] = False
     chew_jolt[0] = 0.0
@@ -130,8 +138,8 @@ def restart_site():
 
 
 def next_site():
-    # 다음 사이트로: 몸·데이터를 그대로 가지고 (STAGE_ORDER 순서)
-    order = config.STAGE_ORDER
+    # 다음 사이트로: 몸·데이터를 그대로 가지고 (이번 판의 사이트 순서)
+    order = stage_order
     enter_site(order[order.index(site['id']) + 1])
 
 
@@ -177,13 +185,13 @@ def open_doc(title):
     if title not in pages:
         doc = site['docs'][title]
         if title == goal['page']:
-            doc = mark_goal(doc, goal['keyword'])   # 목표 문서: 키워드 자리 중 하나를 뽑아 금색 키워드로
+            doc = mark_goal(doc, goal['keyword'], goal.get('slot'))   # 목표 문서: 키워드 자리 중 하나를 금색 키워드로 (데모는 정해 둔 자리)
         pages[title] = Page(doc, set(site['docs']), LAYOUTS[site['layout']])  # 링크 색은 사이트의 문서 제목으로, 모양은 사이트 layout으로
         counts = site['pages'].get(title, {}).get('parts', {})   # 이 문서의 파츠 종류별 개수 (사이트 JSON)
         pages[title].parts = place_parts(pages[title], counts)  # 위치는 무작위 (처음 열 때 한 번)
         setup = site['pages'].get(title, {})
         counts = setup.get('enemies', {})           # 이 문서의 적 종류별 개수
-        if title == site['start']:                  # 사이트 첫 문서에는 적이 없다 (들어와서 숨 돌리기) — 보너스(타임딜)만 남김
+        if title == site['start'] and site.get('safe_start', True):   # 사이트 첫 문서에는 적이 없다 (숨 돌리기) — 보너스(타임딜)만 남김 (데모는 끌 수 있음)
             counts = {k: n for k, n in counts.items() if k in config.START_SAFE_KINDS}
             setup = {}
         pages[title].enemies = place_enemies(pages[title], counts)
@@ -200,18 +208,21 @@ def open_doc(title):
     show_page(pages[title])
     if purge is not None:
         purge.enter(*page.spawn())                  # 완전 백신은 몇 초 뒤 같은 자리로 따라 들어옴
+    if installer is not None:
+        installer.place(camera)                     # 설치 창은 새 화면 구석에 다시 뜸 (게이지는 이어서)
 
 
 def is_last_site():
-    order = config.STAGE_ORDER
+    order = stage_order
     return site['id'] not in order or order.index(site['id']) == len(order) - 1
 
 
 def open_transfer():
     # crawl://transfer — 파일 복사 창처럼 '다음 장소로 이동 중'. 크롤러는 그 위를 걸어 다니고, 막대가 다 차면 다음 사이트로
-    order = config.STAGE_ORDER
+    order = stage_order
     nxt = load_site(order[order.index(site['id']) + 1])
-    info = {'from': 'crawl:/' + site['url'], 'to': 'crawl:/' + nxt['url'], 'items': data_count, 'names': list(visited)}
+    info = {'from': 'crawl:/' + site['url'], 'to': 'crawl:/' + nxt['url'], 'items': data_count, 'names': list(visited),
+            'time': site.get('transfer_time', config.TRANSFER_TIME)}   # 데모 사이트는 짧게
     show_page(CrawlPage('transfer', [], [], 'transfer', info))
 
 
@@ -219,7 +230,7 @@ def open_final():
     # crawl://final (S10-7d) — 마지막 사이트까지 깸: 화면 위쪽에 나타난 크롤러를 플레이어가 아래쪽 깔때기 입구로 몰면
     # 짓눌리며 빨려 들어가고 데이터가 주둥이로 주르륵 흘러나온다. 다 짜내야 시간이 멈추고 최종 점수. 그 뒤 새 크롤러가 나와 칸을 밟음
     global grinder, final_time
-    par_total = sum(load_site(s)['par_time'] for s in config.STAGE_ORDER)
+    par_total = sum(load_site(s)['par_time'] for s in stage_order)
     grinder = Grinder(data_count, par_total)
     final_time = None
     final = CrawlPage('final', [('ALL SITES CRAWLED', 34, config.COLOR_GOLD, True)], [])
@@ -228,15 +239,20 @@ def open_final():
 
 
 def update_purge(dt):
-    # 사이트에 머문 시간이 par_time을 넘기면 화면 위쪽 밖에서 완전 백신이 나타나 쫓아옴. 닿으면 다리가 전부 떨어짐 → 끝
-    global site_time, purge
+    # 사이트에 머문 시간이 par_time − PURGE_INSTALL이 되면 화면 구석에 NULL.EXE 설치 창(벽)이 떠서 게이지가 차고,
+    # 다 차면(= par_time) 창이 닫히며 그 자리에서 검은 구체가 나와 쫓아옴. 닿으면 다리가 전부 떨어짐 → 끝
+    global site_time, purge, installer
     if isinstance(page, CrawlPage) or cleared or lost:
         return
     site_time += dt
     head = body.segs[0]
-    if purge is None and site_time >= site['par_time']:
-        view_top = camera.y + config.SCREEN_H - config.HUD_BAR_H
-        purge = FullVaccine(head.x + random.uniform(-200, 200), view_top + config.PURGE_SPAWN_GAP)
+    if purge is None and installer is None and site_time >= site['par_time'] - config.PURGE_INSTALL:
+        installer = Installer(camera)
+    if installer is not None:
+        installer.update(dt)
+        if installer.progress() >= 1:
+            purge = FullVaccine(*installer.center())  # 설치 끝: 창 자리에서 나옴
+            installer = None
     if purge is None:
         return
     purge.update(dt, head)
@@ -246,12 +262,6 @@ def update_purge(dt):
         messages.append([head.x, head.y + 30, '격리됨', 0.0])
 
 
-def purge_warning():
-    # 완전 백신까지 남은 시간 (PURGE_WARN초 전부터) — 없으면 None
-    if isinstance(page, CrawlPage) or cleared or lost or purge is not None:
-        return None
-    left = site['par_time'] - site_time
-    return left if left <= config.PURGE_WARN else None
 
 
 def update_final():
@@ -470,6 +480,8 @@ def push_out_walls():
     for e in page.enemies:
         if isinstance(e, (AdSpawner, Recommender)):
             walls += e.walls()                        # 떨어진 광고·추천 상품 카드도 벽
+    if installer is not None and not isinstance(page, CrawlPage):
+        walls.append(installer)                       # NULL.EXE 설치 창도 벽
     for e in walls:
         if circle_rect(head.x, head.y, r, *e.rect()):
             dx, dy = e.push_dir(head.x, head.y)
@@ -735,7 +747,7 @@ def start_opening(action, rect, color):
     elif action[0] == 'home':
         name, url = 'HOME', '/home'
     elif action[0] in ('next', 'start'):              # 다음 사이트 / 처음부터 (첫 사이트)
-        order = config.STAGE_ORDER
+        order = stage_order
         sid = order[0] if action[0] == 'start' else order[order.index(site['id']) + 1]
         nxt = load_site(sid)
         name, url = nxt['start'], nxt['url'] + nxt['start']
@@ -772,7 +784,7 @@ def do_action(action):
             body = None                               # 깔때기로 짜낸 몸 대신 새 몸으로 홈에 나타남
         open_home()
     elif action[0] == 'start':
-        init(config.STAGE_ORDER[0])                   # 새 판: 새 몸으로 첫 사이트부터
+        init(stage_order[0])                          # 새 판: 새 몸으로 첫 사이트부터 (데모 판이면 데모 첫 사이트)
 
 
 def go_to(title, back):
@@ -1056,8 +1068,10 @@ def draw():
     if final_page:
         grinder.draw_over(camera)                     # 깔때기 벽·주둥이가 크롤러 위 + 흘러내리는 데이터 + 눈알
         grinder.draw_panel(play_time, final_time)
+    if installer is not None and not isinstance(page, CrawlPage):
+        installer.draw(camera)                        # NULL.EXE 설치 창 (게이지)
     if purge is not None and not isinstance(page, CrawlPage) and purge.present():
-        purge.draw(camera)                            # 완전 백신
+        purge.draw(camera)                            # 완전 백신 NULL.EXE (블랙홀)
         head = body.segs[0]
         near = math.hypot(purge.x - head.x, purge.y - head.y)
         draw_noise(max(0.25, min(1.0, 1 - near / config.PURGE_NOISE_DIST)))   # 가까울수록 화면이 심하게 지글거림
@@ -1110,11 +1124,6 @@ def draw():
     draw_bar(url, goal_text, len(visited), site['min_pages'], eaten, site['page_quota'], shown_data(), loading, loading_color,
              config.COLOR_RED if flash else config.COLOR_SKY)
     draw_goal_reveal()
-    left = purge_warning()
-    if left is not None and int(left * 4) % 2 == 0:  # 완전 백신 예고: 띠 아래 빨간 글이 깜빡이며 남은 초
-        warn = '완전 백신 실행까지 %d초' % math.ceil(left)
-        draw_static_text((config.SCREEN_W - text_width(warn, 18, 'bold')) / 2, config.SCREEN_H - config.HUD_BAR_H - 34,
-                         warn, 18, config.COLOR_RED, 1.0, 'bold')
 
     debug_view.draw(camera, body, (mouse_x, mouse_y), (target_x, target_y), page,
                     'goal %s/%s (%d hops)  data %d  queue %s  back %s' % (goal['page'], goal['keyword'], goal['hops'], data_count,

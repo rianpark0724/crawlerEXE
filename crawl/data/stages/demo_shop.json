@@ -1,0 +1,39 @@
+{
+  "id": "demo_shop",
+  "name": "쇼핑몰 (데모)",
+  "url": "/shop/",
+  "layout": "shop",
+  "pages_dir": "shop",
+  "start": "검색: 크롤러 퇴치",
+  "targets": [
+    {
+      "page": "링크 보호 필름, 파란 링크 코팅, 먹힘 방지",
+      "keyword": "코팅",
+      "slot": 0
+    }
+  ],
+  "min_pages": 2,
+  "min_hops": 1,
+  "page_quota": 1,
+  "par_time": 12,
+  "dark": true,
+  "pages": {
+    "링크 보호 필름, 파란 링크 코팅, 먹힘 방지": {
+      "enemies": {
+        "captcha": 1,
+        "recommend": 1,
+        "stars": 2,
+        "cart": 1
+      }
+    },
+    "검색: 크롤러 퇴치": {
+      "enemies": {
+        "deal": 2,
+        "stars": 4,
+        "cart": 1
+      }
+    }
+  },
+  "safe_start": false,
+  "transfer_time": 1.5
+}

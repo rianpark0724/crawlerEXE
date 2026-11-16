@@ -101,11 +101,12 @@ def pick_goal(site):
     return goal
 
 
-def mark_goal(doc, keyword):
+def mark_goal(doc, keyword, fixed=None):
     # 목표 문서의 {{키워드|대체어}} 자리 중 하나를 뽑아 <<키워드>>로 바꾼 사본 (나머지 자리는 그대로 → 대체어로 보임)
+    # fixed: 몇 번째 자리를 쓸지 정해 둠 (데모: 0 = 문서 맨 앞쪽 자리). None이면 무작위
     slot = re.compile(r'\{\{' + re.escape(keyword) + r'\|(.+?)\}\}')
     count = sum(len(slot.findall(t)) for t in doc_texts(doc))
-    chosen = random.randrange(count)            # 몇 번째 자리를 쓸지
+    chosen = random.randrange(count) if fixed is None else min(fixed, count - 1)   # 몇 번째 자리를 쓸지
     seen = [0]
 
     def replace(m):

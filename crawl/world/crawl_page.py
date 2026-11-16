@@ -53,11 +53,14 @@ class CrawlPage:
 
     def progress(self):
         # 전송 창: 0 → 1 (TRANSFER_TIME 동안 — 처음엔 빠르고 끝에서 느려지는 진짜 전송 막대처럼)
-        u = min(1.0, self.time / config.TRANSFER_TIME)
+        u = min(1.0, self.time / self.transfer_time())
         return 1 - (1 - u) ** 2
 
+    def transfer_time(self):
+        return self.info.get('time', config.TRANSFER_TIME)    # 사이트가 정한 전송 시간 (데모는 짧게)
+
     def transfer_done(self):
-        return self.style == 'transfer' and self.time >= config.TRANSFER_TIME + config.TRANSFER_HOLD
+        return self.style == 'transfer' and self.time >= self.transfer_time() + config.TRANSFER_HOLD
 
     def draw(self, camera, fill=(None, 0.0)):
         if self.style == 'report':
@@ -142,7 +145,7 @@ class CrawlPage:
         names = info.get('names') or ['-']
         name = names[min(len(names) - 1, int(k * len(names)))]
         items = info.get('items', 0)
-        left_t = max(0.0, config.TRANSFER_TIME - self.time)
+        left_t = max(0.0, self.transfer_time() - self.time)
         rows = [('이름', name), ('남은 시간', '약 %d초' % (left_t + 0.99) if k < 1 else '완료'),
                 ('남은 항목', '%d개 (데이터 조각)' % round(items * (1 - k)))]
         for i, (label, value) in enumerate(rows):

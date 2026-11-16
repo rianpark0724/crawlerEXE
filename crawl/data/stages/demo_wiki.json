@@ -1,0 +1,36 @@
+{
+  "id": "demo_wiki",
+  "name": "위키 (데모)",
+  "url": "/wiki/",
+  "layout": "wiki",
+  "pages_dir": "wiki",
+  "start": "로봇 배제 표준",
+  "targets": [
+    {
+      "page": "방화벽",
+      "keyword": "차단",
+      "slot": 0
+    }
+  ],
+  "min_pages": 2,
+  "min_hops": 1,
+  "page_quota": 1,
+  "par_time": 60,
+  "dark": false,
+  "pages": {
+    "방화벽": {
+      "enemies": {
+        "revert": 1
+      },
+      "protect": 1,
+      "beams": [
+        {
+          "axis": "h",
+          "period": 4.0,
+          "offset": 1.0
+        }
+      ]
+    }
+  },
+  "transfer_time": 1.5
+}
