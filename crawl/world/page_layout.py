@@ -191,9 +191,7 @@ class PageLayout:
 
     # ── 페이지 출구 ──
     def exit_box(self, y):
-        # 다음 문서 상자(페이지 출구) 자리만 잡는다. 안의 칸은 방문 대기열에 따라 바뀌므로 Page가 그린다
-        rows = config.EXIT_ROWS
-        h = config.EXIT_PAD * 2 + config.EXIT_TITLE_H + rows * config.EXIT_SLOT_H + (rows - 1) * config.EXIT_GAP
-        y -= 8
-        self.exit_rect = (self.left, y - h, self.right - self.left, h)      # (x, 아래 y, w, h)
-        return y - h - 24
+        # 본문 끝 표시 (높이 0). 다음 문서로는 먹은 링크를 갉아 구멍을 내서 간다 — 출구 상자는 없다
+        # (무작위 배치·보호된 문단이 '본문이 끝나는 곳'으로 이 자리를 쓴다)
+        self.exit_rect = (self.left, y - 8, self.right - self.left, 0)
+        return y - 32

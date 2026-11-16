@@ -43,6 +43,7 @@ class Body:
         self.dust_timer = 0.0                        # 다리 없이 끌리는 마디의 다음 먼지까지 남은 시간
         self.iframe = 0.0                            # 피격 후 무적이 남은 시간 (깜빡임)
         self.digest_t = None                         # 소화 빛이 흘러간 시간 (None = 없음)
+        self.drop_h, self.drop_v = 0.0, 0.0          # 구멍으로 새 문서에 떨어져 들어올 때 높이·속도
         self.stored = 0                              # 몸에 저장된 데이터 조각 수 (play_mode가 섭취 상태로 정함)
         self.knock_vx = self.knock_vy = 0.0          # 튕겨 나가는 속도 (보호된 문단) — 점점 줄어듦
         self.dying = None                            # 죽은 뒤 지난 시간 (None = 살아 있음) — 데스 애니메이션
@@ -204,11 +205,15 @@ class Body:
         return start <= self.wave_t < start + config.WAVE_HOLD
 
     def air(self, i):
-        # 마디 i가 공중에 뜬 높이: 공중 시간 동안 포물선 sin(π × 진행)으로 0 → WAVE_JUMP_H → 0
+        # 마디 i가 공중에 뜬 높이: WAVE 공중이면 포물선 sin(π × 진행)으로 0 → WAVE_JUMP_H → 0, + 떨어지는 중인 높이
         if not self.invincible(i):
-            return 0.0
+            return self.drop_h
         u = (self.wave_t - i * config.WAVE_STEP) / config.WAVE_HOLD
-        return config.WAVE_JUMP_H * math.sin(math.pi * u)
+        return config.WAVE_JUMP_H * math.sin(math.pi * u) + self.drop_h
+
+    def drop(self):
+        # 구멍을 지나 새 문서에 위에서 떨어져 들어온다 (다리는 접힌 채, 땅에 닿으면 착지 이벤트)
+        self.drop_h, self.drop_v = config.DROP_HEIGHT, 0.0
 
     def shape(self, i):
         # 마디 i의 (길이 배율, 폭 배율) — 길이는 바라보는 방향. 넓이(길이×폭)는 1로 유지해 쫀득하게
@@ -248,6 +253,13 @@ class Body:
         # 파동 시간 진행, 끝나면 재사용 대기 시작. 머리가 착지하는 순간 경직 시작
         self.stun = max(0.0, self.stun - dt)
         self.iframe = max(0.0, self.iframe - dt)
+        if self.drop_h > 0:                                  # 떨어지는 중: 중력, 땅에 닿으면 툭
+            self.drop_v -= config.DROP_GRAVITY * dt
+            self.drop_h = max(0.0, self.drop_h + self.drop_v * dt)
+            if self.drop_h == 0:
+                self.height_v -= config.WAVE_LAND_KICK * 2
+                for seg in self.segs:
+                    seg.squash = config.WAVE_SQUASH_TIME
         if self.digest_t is not None:
             self.digest_t += dt
             if self.digest_t > config.DIGEST_TIME + 0.2:

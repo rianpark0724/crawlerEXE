@@ -46,6 +46,15 @@ class Ingest:
                 self.waiting[word] += 1
                 k += 1
 
+    def crumbs(self, text, x, y, foot_x, foot_y, count):
+        # 갉아먹기: 껍데기 글자 부스러기 몇 개가 머리로 빨려 들어감 (단어로 저장하지는 않는다)
+        import random
+        chars = [ch for ch in text if ch != ' '] or ['·']
+        for k in range(count):
+            g = Glyph(random.choice(chars), x + random.uniform(-10, 10), y + random.uniform(-4, 4), foot_x,
+                      foot_y + config.INGEST_ARC, 11, k * config.INGEST_STAGGER, None, True)
+            self.glyphs.append(g)
+
     def spit(self, pieces, head_x, head_y):
         # 되돌림: 저장된 단어 하나를 빼고, 그 글자들이 머리에서 링크 자리로 돌아간다
         word = ''.join(p[2] for p in pieces)
@@ -76,7 +85,9 @@ class Ingest:
                 done.append(g)
         for g in done:
             self.glyphs.remove(g)
-            if g.inward:
+            if g.inward and g.word is None:
+                body.gulp()                                  # 부스러기: 꿀꺽만
+            elif g.inward:
                 body.gulp()
                 self.waiting[g.word] -= 1
                 if self.waiting[g.word] == 0:

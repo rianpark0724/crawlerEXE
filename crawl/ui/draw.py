@@ -83,7 +83,8 @@ def draw_circle(x, y, r, width=1, color=config.COLOR_WHITE, alpha=1.0):
 def fill_circle(x, y, r, color=config.COLOR_WHITE, alpha=1.0):
     # 꽉 찬 원 = 가로 한 줄씩 원 폭만큼 채운 띠를 쌓는다 (r × 2줄)
     set_color(color, alpha)
-    for i in range(-int(r), int(r) + 1):
+    lo, hi = max(-int(r), int(-y) - 1), min(int(r), int(config.SCREEN_H - y) + 1)   # 화면 밖 줄은 건너뜀 (큰 원)
+    for i in range(lo, hi + 1):
         half = math.sqrt(max(0.0, r * r - i * i))          # 그 높이에서 원의 반폭
         pixel.draw_to_origin(x - half, y + i, half * 2, 1)
 

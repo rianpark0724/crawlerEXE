@@ -13,13 +13,14 @@ import game_framework
 from crawler.body import Body
 from crawler.ingest import Ingest
 from world.camera import Camera
-from world.stage import Page, load_site, pick_goal, mark_goal, LAYOUTS
+from world.stage import Page, load_site, pick_goal, mark_goal, LAYOUTS, fit_text
 from world.crawl_page import CrawlPage
 from world.objects import place_parts
 from world.enemies import place_enemies, place_walls, draw_revert_arrow, RefreshBand, RevertBot, ProtectedBlock
 from world.collision import leg_hit, circle_circle, circle_rect, leg_hit_rect
+from world.hole import draw_hole, BitLeak
 from ui.hud import draw_scrollbar, draw_bar
-from ui.draw import draw_line, draw_rect, draw_circle, fill_rect, draw_static_text, text_width, begin_zoom, end_zoom
+from ui.draw import draw_line, draw_rect, draw_circle, fill_circle, fill_rect, draw_static_text, text_width, begin_zoom, end_zoom
 from ui import debug_view
 
 mouse_x, mouse_y = 0.0, 0.0   # 커서 위치 (화면 좌표, y 위로 증가) — 커서 그리기용
@@ -41,6 +42,11 @@ lost = False                  # 다리를 모두 잃었는지 (GAME OVER)
 lost_timer = 0.0              # 다리를 모두 잃은 뒤 crawl://lost 창이 열리기까지 남은 시간
 lost_doc = ''                 # 다리를 모두 잃은 문서 (결과 페이지 표시용)
 frozen = [False]              # '응답 없음' — 화면이 굳어 크롤러·카메라가 움직이지 않음
+arrive_hole = [0.0]           # 구멍으로 들어온 새 문서 맨 위의 도착 구멍이 메워지기까지 남은 시간
+chew_ready = [None]           # 이 문서에서 껍데기를 갉을 수 있게 되는 시각 (링크를 다 먹은 순간 + CHEW_UNLOCK)
+leak = BitLeak()              # 구멍에서 새어 나오는 0·1 조각
+leak_timer = [0.0]
+chew_jolt = [0.0]             # 갉을 때마다 구멍이 흔들리는 남은 시간
 death_spot = (0.0, 0.0)       # 확대된 화면에서 머리가 보이는 위치 (빨간 창이 여기서 열림)
 messages = []                 # 떠오르는 글 [x, y, 글, 나이] (월드 좌표) — '크롤링이 부족합니다'
 pages = {}                    # 한 번 연 문서의 Page (제목 → Page) — 다시 와도 먹은 링크가 보라로 남게
@@ -60,6 +66,7 @@ def init(site_id=config.FIRST_STAGE):
     global mouse_x, mouse_y, left_down, body, site, data_count, frontier, visited, goal, pages, history, next_doc, play_time, opening, cleared, messages, clear_timer, clear_spot, lost, lost_timer
     left_down = False
     body = None                                     # 새 판: 시작 마디 수로
+    chew_jolt[0] = 0.0
     site = load_site(site_id)
     data_count, frontier, visited = 0, [], []
     global ingest
@@ -78,6 +85,8 @@ def show_page(new_page):
     # 페이지를 화면에 띄우고 그 페이지 맨 위에 크롤러를 세운다 (문서·crawl:// 페이지 공통)
     global page, camera, body, target_x, target_y, fade, charge, footprints
     charge = {'key': None, 'n': 0, 'time': 0.0}
+    chew_ready[0] = None                            # 새 문서는 다시 링크를 먹어야 갉을 수 있음
+    leak.bits.clear()
     footprints = []                                 # 발자국은 문서마다 새로
     page = new_page
     camera = Camera(page.height)                    # 페이지 맨 위에서 시작
@@ -159,13 +168,33 @@ def exit_choices():
 
 
 def slot_list():
-    # 지금 페이지에서 밟을 수 있는 칸들 → ([(구분 이름, 할 일, 열렸는지)], [칸 위치])
+    # 지금 페이지에서 밟을 수 있는 칸들 → ([(구분 이름, 할 일, 열렸는지)], [칸 위치]) — crawl:// 페이지의 메뉴 칸
     if isinstance(page, CrawlPage):
         return [(s['key'], s['action'], s['enabled']) for s in page.slots], page.slot_rects()
-    if exit_need() > 0:
-        return [], []                               # 출구가 아직 잠김
-    choices = exit_choices()
-    return [(t, ('doc', t, back), True) for label, t, back in choices], page.slot_rects(len(choices))
+    return [], []
+
+
+def chew_spots():
+    # 갉을 수 있는 곳 [(구분 이름, 상자 (x, y, w, h), 할 일, 보일 글)]: 이 문서에서 링크를 page_quota개 먹으면
+    # 먹은 링크 껍데기마다 그 링크의 문서로 가는 구멍 자리가 된다. 지나온 문서가 있으면 왼쪽 위에 '← 뒤로' 껍데기
+    if isinstance(page, CrawlPage) or exit_need() > 0 or chew_ready[0] is None or play_time < chew_ready[0]:
+        return []                                    # 아직 덜 먹었거나, 다 먹은 직후의 텀 (먹자마자 떠나지 않게)
+    boxes = {}
+    for x, y, w, h, text, target, lid in page.links:
+        group = page.groups[lid]
+        if group['eaten'] and group['age'] >= config.CHEW_FRESH and target != page.title:   # 막 먹은 링크는 아직
+            if lid in boxes:                         # 여러 조각 링크: 상자를 합침
+                bx, by, bw, bh, t, tg = boxes[lid]
+                x2, y2 = max(bx + bw, x + w), max(by + bh, y + h)
+                bx, by = min(bx, x), min(by, y)
+                boxes[lid] = (bx, by, x2 - bx, y2 - by, t + ' ' + text, tg)
+            else:
+                boxes[lid] = (x, y, w, h, text, target)
+    spots = [(lid, (x, y, w, h), ('doc', target, False), text) for lid, (x, y, w, h, text, target) in boxes.items()]
+    if history:
+        bx, from_top, bw, bh = config.BACK_SPOT
+        spots.append(('back', (bx, page.height - from_top, bw, bh), ('doc', history[-1], True), '← 뒤로: ' + history[-1]))
+    return spots
 
 
 def finish():
@@ -307,7 +336,7 @@ def draw_hazards():
 
 def on_land(leg):
     # 발이 착지한 순간 한 번: 그 자리의 파란 링크를 먹는다 (몸통은 먹지 못함 — 발 착지만 판정)
-    global data_count, next_doc, cleared, clear_timer, clear_spot
+    global data_count, next_doc, cleared, clear_timer, clear_spot, shake
     debug_view.note_landing(leg.foot_x, leg.foot_y)
     # 발자국 = 지나간 길: 착지할 때 머리 자리를, 마지막 발자국에서 FOOTPRINT_GAP 이상 움직였으면 기록
     head = body.segs[0]
@@ -342,9 +371,25 @@ def on_land(leg):
         if group['target'] not in visited and group['target'] not in frontier:
             frontier.append(group['target'])          # 먹은 링크의 문서 → 방문 대기열
         return
-    # 칸(출구 상자의 문서 칸, crawl:// 페이지의 메뉴 칸)에 착지했는지
     if next_doc is not None or opening is not None or ((cleared or lost) and not isinstance(page, CrawlPage)):
         return                                        # 탈출 창이 열리기 직전에는 다른 칸을 밟지 않게
+    # 먹은 링크 껍데기 갉기: 같은 껍데기를 CHEW_STEPS번 이어서 디디면 구멍이 뚫려 그 문서로 떨어진다
+    m = config.CHEW_MARGIN
+    for key, (x, y, w, h), action, text in chew_spots():
+        if x - m <= leg.foot_x <= x + w + m and y - m <= leg.foot_y <= y + h + m:
+            if charge['key'] == key and play_time - charge['time'] < config.CHEW_FORGET:
+                charge['n'] += 1
+            else:
+                charge['key'], charge['n'] = key, 1
+            charge['time'] = play_time
+            ingest.crumbs(text, x + w / 2, y + h / 2, leg.foot_x, leg.foot_y, 3)   # 부스러기가 머리로
+            chew_jolt[0] = config.CHEW_JOLT               # 뜯길 때마다 구멍이 흔들리고
+            shake = max(shake, config.CHEW_JOLT)          # 화면도 살짝 (흔들림 폭은 남은 시간에 비례 → 피격보다 약함)
+            leak.emit(x + w / 2, y + h / 2, config.CHEW_BURST)   # 0·1이 확 튀어 나옴
+            if charge['n'] >= config.CHEW_STEPS:
+                next_doc = (action, (x, y, w, h))
+            return
+    # 칸(crawl:// 페이지의 메뉴 칸)에 착지했는지
     slots, rects = slot_list()
     for (key, action, enabled), (sx, sy, w, h) in zip(slots, rects):
         if enabled and sx <= leg.foot_x <= sx + w and sy <= leg.foot_y <= sy + h:   # 여유 없이 칸 안
@@ -365,6 +410,51 @@ def exit_fill():
     return charge['key'], charge['n'] / config.EXIT_STEPS
 
 
+def chew_fill():
+    # 갉고 있는 껍데기와 구멍 크기 0~1 (한참 안 디디면 비워짐)
+    if charge['key'] is None or play_time - charge['time'] >= config.CHEW_FORGET:
+        return None, 0.0
+    return charge['key'], min(1.0, charge['n'] / config.CHEW_STEPS)
+
+
+def update_leak():
+    # 갉는 중인 구멍·도착 구멍에서 0·1이 조금씩 새어 나온다
+    leak.update(game_framework.frame_time)
+    leak_timer[0] -= game_framework.frame_time
+    if leak_timer[0] > 0:
+        return
+    leak_timer[0] = config.LEAK_RATE
+    key, k = chew_fill()
+    for skey, (x, y, w, h), action, text in chew_spots():
+        if skey == key and k > 0:
+            leak.emit(x + w / 2, y + h / 2, 1 + int(k * 2))
+    if arrive_hole[0] > 0 and not isinstance(page, CrawlPage):
+        sx, sy = page.spawn()
+        leak.emit(sx, sy, 2)
+
+
+def draw_chew_spots():
+    # 갉을 수 있는 껍데기: 주황 점선 테두리가 숨쉬듯 / 갉는 중이면 껍데기 가운데 검은 구멍이 커짐 (가장자리는 들쭉날쭉)
+    spots = chew_spots()
+    key, k = chew_fill()
+    pulse = 0.5 + 0.5 * math.sin(play_time * 5)
+    for n, (skey, (x, y, w, h), action, text) in enumerate(spots):
+        sy = y - camera.y
+        reveal = (play_time - chew_ready[0]) / config.CHEW_REVEAL - n * 0.25   # 열릴 때 껍데기마다 차례로 나타남
+        if reveal <= 0:
+            continue
+        if skey == 'back':                          # '← 뒤로' 껍데기 글
+            draw_static_text(x + 4, sy + 2, fit_text(text, 13, w - 8), 13, config.WIKI_SUBTLE)
+        for i in range(0, int(w) + 8, 8):           # 점선 테두리 (위·아래)
+            a = (0.4 + 0.5 * pulse) * min(1.0, reveal)
+            fill_rect(x - 4 + i, sy - 4, 4, 1.5, config.COLOR_ORANGE, a)
+            fill_rect(x - 4 + i, sy + h + 3, 4, 1.5, config.COLOR_ORANGE, a)
+        if skey == key and k > 0:                   # 갉는 중: 찢긴 구멍 (0·1이 보이고 불씨가 깜빡임)
+            j = config.CHEW_JOLT_AMP * chew_jolt[0] / config.CHEW_JOLT     # 막 뜯겼으면 덜덜
+            jx, jy = random.uniform(-j, j), random.uniform(-j, j)
+            draw_hole(x + w / 2 + jx, sy + h / 2 + jy, config.CHEW_HOLE_R * k, play_time, hash(str(skey)) % 1000)
+
+
 def start_opening(action, rect, color):
     # 새 창 열기 시작: rect(월드)에서 창이 화면 가득 커진다. 다 열리면 action을 한다
     global opening
@@ -377,13 +467,19 @@ def start_opening(action, rect, color):
     else:                                             # restart: 같은 사이트 처음 문서
         name, url = site['start'], site['url'] + site['start']
     duration = config.LOST_OPEN_TIME if action[0] == 'lost' else config.OPEN_TIME   # 죽음의 창은 천천히
-    opening = {'action': action, 'name': name, 'url': url, 'rect': rect, 'color': color, 't': 0.0, 'time': duration}
+    hole = action[0] == 'doc' and not isinstance(page, CrawlPage)           # 문서 사이는 갉은 구멍으로 빨려 들어감
+    if hole:
+        duration = config.HOLE_TIME
+    opening = {'action': action, 'name': name, 'url': url, 'rect': rect, 'color': color, 't': 0.0, 'time': duration,
+               'hole': hole}
 
 
 def do_action(action):
     # 창이 다 열린 뒤 할 일
     if action[0] == 'doc':
         go_to(action[1], action[2])
+        body.drop()                                   # 구멍으로 떨어져 들어옴
+        arrive_hole[0] = config.ARRIVE_HOLE_TIME
     elif action[0] == 'complete':
         open_complete()
     elif action[0] == 'lost':
@@ -405,6 +501,14 @@ def update():
     global target_x, target_y, next_doc, play_time, fade, opening, messages, clear_timer, hit_stop, shake, data_flash
     shake = max(0.0, shake - game_framework.frame_time)
     data_flash = max(0.0, data_flash - game_framework.frame_time)
+    arrive_hole[0] = max(0.0, arrive_hole[0] - game_framework.frame_time)
+    chew_jolt[0] = max(0.0, chew_jolt[0] - game_framework.frame_time)
+    if not isinstance(page, CrawlPage):
+        if exit_need() > 0:
+            chew_ready[0] = None                      # 모자람 (처음이거나 봇이 되돌림)
+        elif chew_ready[0] is None:
+            chew_ready[0] = play_time + config.CHEW_UNLOCK   # 다 먹은 순간부터 텀
+    update_leak()
     if hit_stop > 0:
         hit_stop -= game_framework.frame_time           # 피격 멈칫: 이 동안 아무것도 움직이지 않음
         return
@@ -537,6 +641,14 @@ def draw_error_dialog(x, y, k):
 
 
 def draw_opening():
+    # 구멍(문서 사이): 갉은 구멍이 검게 화면 전체로 번지며 빨려 들어간다
+    if opening.get('hole'):
+        x, y, w, h = opening['rect']
+        cx, cy = x + w / 2, y + h / 2 - camera.y
+        k = open_progress()
+        r = config.CHEW_HOLE_R + (config.SCREEN_W * 1.2) * k * k
+        draw_hole(cx, cy, r, play_time + opening['t'], 3)
+        return
     # 밟은 칸 자리에서 새 창 테두리가 페이지 창 전체로 커지며 이전 문서를 덮는다
     # 죽음(lost)은 먼저 오류 대화상자가 떠서 보고서 막대가 찬 뒤, 그 대화상자가 화면 가득 커진다
     if opening['action'][0] == 'lost':
@@ -601,7 +713,11 @@ def draw():
         page.draw(camera, exit_fill())                # crawl:// 페이지: 글줄 + 메뉴 칸
     else:
         page.draw(camera)
-        page.draw_exit(camera, exit_choices(), exit_need(), play_time, exit_fill())
+        draw_chew_spots()                             # 먹은 링크 껍데기 = 다음 문서로 가는 구멍 자리
+        if arrive_hole[0] > 0:                        # 새 문서 맨 위의 도착 구멍이 메워지는 중
+            sx, sy = camera.to_screen(*page.spawn())
+            draw_hole(sx, sy, config.CHEW_HOLE_R * 1.6 * arrive_hole[0] / config.ARRIVE_HOLE_TIME, play_time, 7)
+    leak.draw(camera)                                 # 구멍에서 새어 나오는 0·1
     draw_hazards()
     for enemy in page.enemies:
         enemy.draw(camera)
@@ -617,7 +733,8 @@ def draw():
         k = age / config.SHORT_MSG_TIME
         w = text_width(text, config.HUD_FONT, 'bold')
         mx, my = x - w / 2, y + config.SHORT_MSG_RISE * k - camera.y
-        draw_static_text(mx, my, text, config.HUD_FONT, config.COLOR_RED, 1 - k * k, 'bold')
+        color = config.COLOR_ORANGE if text.startswith('먹은 링크') else config.COLOR_RED   # 안내는 주황, 경고는 빨강
+        draw_static_text(mx, my, text, config.HUD_FONT, color, 1 - k * k, 'bold')
         if text.startswith('되돌림'):                  # 되돌림 알림 앞에 ↺ 아이콘
             draw_revert_arrow(mx - 12, my + 9, 6, -age * 8, config.COLOR_RED)
     if zoom > 1:
@@ -635,10 +752,7 @@ def draw():
     for enemy in page.enemies:
         if isinstance(enemy, RefreshBand):
             enemy.draw_warning()                      # 새로 고침 띠 경고는 덮개 위에 (놓치지 않게)
-    markers = []
-    if not isinstance(page, CrawlPage):
-        exit_y = page.exit_rect[1] + page.exit_rect[3] / 2
-        markers = [(exit_y, config.COLOR_ORANGE if exit_need() == 0 else config.COLOR_GRAY)]
+    markers = [(y + h / 2, config.COLOR_ORANGE) for key, (x, y, w, h), a, t in chew_spots()]   # 갉을 수 있는 곳 (주황 점)
     draw_scrollbar(camera, page.height, markers)    # HUD — 화면 좌표
     goal_text = goal['keyword'] + ('  (찾음)' if cleared else '')
     url = page.url if isinstance(page, CrawlPage) else site['url'] + page.title
