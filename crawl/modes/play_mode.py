@@ -298,9 +298,38 @@ def link_pieces(group):
     return [(x, y, text, sizes.get(lid, config.WIKI_FONT_BODY)) for x, y, w, h, text, target, lid in page.links if lid in lids]
 
 
+def bitten(leg):
+    # 낚시 링크를 밟음 (PRD 9 뉴스): 턱이 다물려 그 다리가 잘리고, 이 문서에서 먹은 링크 하나를 토해 낸다 (데이터 -1)
+    global hit_stop, shake
+    seg_i = next((i for i, seg in enumerate(body.segs) if leg in seg.legs), 0)
+    if body.hit_ok(seg_i):                            # 무적·공중이면 다리는 무사 (데이터는 그래도 뺏김)
+        body.cut_leg(leg, leg.foot_x, leg.foot_y + 10)
+        body.iframe = config.HIT_IFRAME
+        hit_stop, shake = config.HIT_STOP, config.SHAKE_TIME
+    eaten = [g for g in page.groups.values() if g['eaten']]
+    if eaten:
+        lose_link(min(eaten, key=lambda g: g['age']))   # 가장 최근에 먹은 링크
+        messages.append([leg.foot_x, leg.foot_y + 20, '낚였다! -1', 0.0])
+    else:
+        messages.append([leg.foot_x, leg.foot_y + 20, '낚였다!', 0.0])
+
+
+def lose_link(group):
+    # 먹은 링크를 잃음 (되돌리기 봇·낚시 링크): 다시 파란 링크로, 데이터 -1, 몸에서 그 단어가 빠져나가 링크로 돌아감
+    global data_count, data_flash
+    page.revert(group)
+    data_count = max(0, data_count - 1)
+    head = body.segs[0]
+    ingest.spit(link_pieces(group), head.x, head.y)
+    data_flash = config.DATA_FLASH
+    # 같은 문서를 가리키는 먹힌 링크가 어디에도 없으면 방문 대기열에서 뺀다
+    still = any(g['eaten'] and g['target'] == group['target'] for p in pages.values() for g in p.groups.values())
+    if not still and group['target'] in frontier:
+        frontier.remove(group['target'])
+
+
 def check_reverts():
     # 추적 중인 되돌리기 봇이 먹힌 링크 근처를 지나면 그 링크를 되돌린다 (PRD 9): 데이터 −1, 이 문서 수집 −1
-    global data_count, data_flash
     m = config.REVERT_LINK_R
     for enemy in page.enemies:
         if not isinstance(enemy, RevertBot) or enemy.state != 'track' or enemy.pause > 0:
@@ -308,17 +337,9 @@ def check_reverts():
         for x, y, w, h, text, target, lid in page.links:
             group = page.groups[lid]
             if group['eaten'] and x - m <= enemy.x <= x + w + m and y - m <= enemy.y <= y + h + m:
-                page.revert(group)
-                data_count = max(0, data_count - 1)
-                head = body.segs[0]
-                ingest.spit(link_pieces(group), head.x, head.y)   # 몸에서 그 단어가 빠져나가 링크로 돌아감
-                data_flash = config.DATA_FLASH
+                lose_link(group)                      # 데이터 -1, 몸에서 그 단어가 빠져나가 링크로 돌아감
                 enemy.react()
                 messages.append([x + w / 2, y + h + 10, '되돌림 -1', 0.0])   # (− 기호는 굵은 글꼴에 없어 -)
-                # 같은 문서를 가리키는 먹힌 링크가 어디에도 없으면 방문 대기열에서 뺀다
-                still = any(g['eaten'] and g['target'] == target for p in pages.values() for g in p.groups.values())
-                if not still and target in frontier:
-                    frontier.remove(target)
                 break
 
 
@@ -375,6 +396,9 @@ def on_land(leg):
         part.taken = True                             # 다리 파츠 획득 → 꼬리에 마디 1 + 다리 2
         body.grow()
         page.bursts.append([part.x, part.y, 0.0])
+        return
+    if not isinstance(page, CrawlPage) and page.bait_at(leg.foot_x, leg.foot_y) is not None:
+        bitten(leg)                                   # 낚시 링크에 물림
         return
     group = page.eat_at(leg.foot_x, leg.foot_y)
     if group is not None:

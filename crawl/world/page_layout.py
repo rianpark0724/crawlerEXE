@@ -6,6 +6,7 @@
 #   [[제목]]         링크 — 그 제목의 문서가 사이트에 있으면 파랑(데이터 조각), 없으면 빨강
 #   [[제목|표시글]]  링크 대상과 화면에 보일 글이 다를 때
 #   [[!단어]]        항상 빨간 링크 (없는 문서)
+#   [[~말머리|글]]   낚시 링크 (뉴스 적) — '[말머리] 글'로 보이는 파란 링크지만 밟으면 물림. [[~글]]이면 말머리 없이
 #   **단어**         굵게
 #   [1], [출처 필요]   각주 표시 (작게, 위로)
 #   {{키워드|대체어}}  목표 키워드가 들어갈 수 있는 자리. 뽑힌 자리만 키워드, 나머지는 대체어
@@ -25,7 +26,7 @@ import config
 from ui.draw import text_width, text_height
 
 # 링크: [[!?대상(|표시글)?]] / 굵게: **글** / 각주: [숫자] [출처 필요] / 키워드 자리 {{키워드|대체어}} / 뽑힌 키워드 <<키워드>>
-TOKEN = re.compile(r'\[\[(!?)([^\]|]+?)(?:\|(.+?))?\]\]|\*\*(.+?)\*\*|\[(\d+|출처 필요)\]|\{\{(.+?)\|(.+?)\}\}|<<(.+?)>>')
+TOKEN = re.compile(r'\[\[([!~]?)([^\]|]+?)(?:\|(.+?))?\]\]|\*\*(.+?)\*\*|\[(\d+|출처 필요)\]|\{\{(.+?)\|(.+?)\}\}|<<(.+?)>>')
 
 
 def parse(markup, titles):
@@ -38,7 +39,12 @@ def parse(markup, titles):
             target = m.group(2)
             shown = m.group(3) if m.group(3) else target
             blue = not m.group(1) and target in titles        # 사이트에 그 문서가 있어야 파랑
-            spans.append((shown, 'link' if blue else 'red', target))
+            if m.group(1) == '~':
+                if m.group(3):
+                    shown = '[' + target + '] ' + m.group(3)       # 말머리: [충격] [단독] …
+                spans.append((shown, 'bait', None))             # 낚시 링크
+            else:
+                spans.append((shown, 'link' if blue else 'red', target))
         elif m.group(4) is not None:
             spans.append((m.group(4), 'b', None))
         elif m.group(5) is not None:
@@ -88,6 +94,7 @@ class PageLayout:
         self.items = []
         self.links = []          # 파란 링크 조각 위치 (x, y, w, h, 글, 대상 문서, 링크 번호) — 데이터 조각
         self.goals = []          # 목표 키워드 조각 위치 (x, y, w, h)
+        self.baits = []          # 낚시 링크 조각 (x, y, w, h, 낚시 번호)
         self.paragraphs = []     # 본문 문단 (x, 아래 y, w, h, 링크·키워드 없는 평범한 문단인지) — 보호된 문단 후보
         self.exit_rect = None    # 다음 문서 상자 (x, 아래 y, w, h) — 페이지 출구
         self.nest_spot = None    # 댓글 둥지 자리 (x, y) — 댓글란이 있는 사이트(뉴스)만
@@ -184,6 +191,10 @@ class PageLayout:
                 elif kind == 'goal':
                     self.items.append(('goal', base, base + text_height(size), cx, base, text, size))
                     self.goals.append((cx, base, pw, text_height(size)))
+                elif kind == 'bait':
+                    bid = self.link_count + n                 # 여러 단어로 나뉜 낚시 링크도 한 번호
+                    self.items.append(('bait', base, base + text_height(size), cx, base, text, size, bid))
+                    self.baits.append((cx, base, pw, text_height(size), bid))
                 elif kind == 'red':
                     self.text(cx, base, text, size, 'ui', self.REDLINK)
                 else:

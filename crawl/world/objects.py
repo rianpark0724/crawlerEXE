@@ -57,6 +57,7 @@ def random_spot(page, taken, spawn_gap, apart):
     # 시작 위치에서 spawn_gap 아래, 이미 놓인 것(taken = [(x, y)])과 apart 이상 떨어진 곳. 못 찾으면 None
     avoid = config.PART_AVOID
     boxes = [(x, y, w, h) for x, y, w, h, *_ in page.links] + list(page.goals) + [page.exit_rect]
+    boxes += [(x, y, w, h) for x, y, w, h, bid in getattr(page, 'baits', [])]   # 낚시 링크 (CrawlPage엔 없음)
     sx, sy = page.spawn()
     top = sy - spawn_gap                                   # 시작 위치 아래부터
     bottom = page.exit_rect[1] + page.exit_rect[3] + avoid  # 출구 상자 위까지

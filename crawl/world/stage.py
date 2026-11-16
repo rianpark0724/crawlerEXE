@@ -10,7 +10,7 @@ import re
 from collections import deque
 
 import config
-from ui.draw import draw_line, draw_rect, draw_circle, fill_rect, draw_static_text, get_image, text_width
+from ui.draw import draw_line, draw_rect, draw_circle, fill_rect, draw_static_text, get_image, text_width, fill_rect_rotated
 from world.wiki_layout import WikiLayout
 from world.news_layout import NewsLayout
 
@@ -142,6 +142,8 @@ class Page:
         self.goals = layout.goals           # 목표 키워드 조각 (x, y, w, h) — 목표 문서에만 있음
         self.paragraphs = layout.paragraphs # 본문 문단 위치 — 보호된 문단 고르기용
         self.nest_spot = layout.nest_spot   # 댓글 둥지 자리 (기사 끝 댓글란) — 없으면 None
+        self.baits = layout.baits           # 낚시 링크 조각 (x, y, w, h, 낚시 번호)
+        self.sprung = {}                    # 낚시 번호 → [물고 난 뒤 지난 시간, 물린 x, 물린 y] (BAIT_REARM 동안 힘 빠짐)
         self.time = 0.0                     # 키워드 반짝임용
         self.parts = []                     # 다리 파츠 (play_mode가 사이트 설정 개수대로 무작위 배치)
         self.hazards = []                   # 위험 지점 [x, y, 반지름] — F2 시험용
@@ -162,6 +164,14 @@ class Page:
                 group['age'] = 0.0
                 self.bursts.append([x, y, 0.0])
                 return group
+        return None
+
+    def bait_at(self, x, y):
+        # 발이 (x, y)에 착지: 힘이 남은 낚시 링크 조각 위면 물고(번호 돌려줌), 아니면 None. 여유 없이 글자 상자 안만
+        for bx, by, w, h, bid in self.baits:
+            if bid not in self.sprung and bx <= x <= bx + w and by <= y <= by + h:
+                self.sprung[bid] = [0.0, x, y]
+                return bid
         return None
 
     def part_at(self, x, y):
@@ -200,6 +210,9 @@ class Page:
                 group['reverted'] += dt
         for b in self.bursts:
             b[2] += dt
+        for s in self.sprung.values():
+            s[0] += dt
+        self.sprung = {bid: s for bid, s in self.sprung.items() if s[0] < config.BAIT_REARM}   # 다시 힘이 참
         self.bursts = [b for b in self.bursts if b[2] < config.COLLECT_FX_TIME]
 
     def spawn(self):
@@ -244,6 +257,8 @@ class Page:
                     draw_static_text(x, y - camera.y, text, size, self.style.LINK, config.LINK_ALPHA)
                     if self.style.LINK_UNDERLINE:                # 밑줄 링크 (뉴스)
                         draw_line(x, y - camera.y - 1, x + text_width(text, size), y - camera.y - 1, 1, self.style.LINK)
+            elif kind == 'bait':
+                self.draw_bait(*item[3:], camera, a)
             elif kind == 'goal':
                 # 목표 키워드: 금색, 밝기가 숨쉬듯 오르내리고 아래에 금색 밑줄
                 x, y, text, size = item[3:]
@@ -253,10 +268,27 @@ class Page:
         for part in self.parts:                    # 다리 파츠 (페이지 글 위, 크롤러 아래)
             if not part.taken and bottom - 20 <= part.y <= top + 20:
                 part.draw(camera)
+        for age, x, y in self.sprung.values():     # 낚시 링크가 문 자리: 이빨 달린 턱이 콱 다물림
+            if age < config.BAIT_SNAP_TIME:
+                draw_jaws(x, y - camera.y, age / config.BAIT_SNAP_TIME)
         # 수집 이펙트: 착지한 자리에서 링크 색 원이 퍼지며 사라짐
         for x, y, age in self.bursts:
             k = age / config.COLLECT_FX_TIME
             draw_circle(x, y - camera.y, 4 + config.COLLECT_FX_R * k, 2, self.style.LINK, 1 - k)
+
+    def draw_bait(self, x, y, text, size, bid, camera, a):
+        # 낚시 링크: 평소엔 파란 링크와 똑같다. 가끔 아주 잠깐 빨갛게 지직거리는 게 유일한 티 (읽고 피하는 적)
+        sy = y - camera.y
+        if bid in self.sprung:                       # 물고 난 뒤: 힘 빠진 흐린 빨강 (다시 힘이 찰 때까지 안전)
+            draw_static_text(x, sy, text, size, config.WIKI_REDLINK, a * 0.6)
+            return
+        phase = (self.time + bid * 0.37) % config.BAIT_FLICKER
+        glitch = phase < config.BAIT_GLITCH
+        color = config.COLOR_RED if glitch else self.style.LINK
+        dx = 1.5 if glitch else 0.0
+        draw_static_text(x + dx, sy, text, size, color, config.LINK_ALPHA)
+        if self.style.LINK_UNDERLINE:
+            draw_line(x + dx, sy - 1, x + dx + text_width(text, size), sy - 1, 1, color)
 
     def revert(self, group):
         # 되돌리기 봇이 먹힌 링크를 되돌림: 다시 먹을 수 있는 파란 링크로, diff 연출 시작
@@ -336,3 +368,17 @@ class Page:
                 tw = text_width(name, 11)
                 fill_rect(x + (w - tw) / 2 - 4, y + h / 2 - 9, tw + 8, 18, config.COLOR_BG)
                 draw_static_text(x + (w - tw) / 2, y + h / 2 - 7, name, 11, config.WIKI_SUBTLE)
+
+
+def draw_jaws(x, y, k):
+    # 덫 턱: 위·아래 턱이 이빨을 세우고 (x, y)로 콱 다물렸다가 흐려진다. k = 0 → 1
+    close = min(1.0, k / 0.35)                       # 앞 35% 동안 다물림
+    gap = config.BAIT_JAW_GAP * (1 - close)
+    alpha = 1.0 if k < 0.6 else (1 - k) / 0.4
+    w = config.BAIT_JAW_W
+    for side in (1, -1):                             # 위턱(+) · 아래턱(-)
+        jy = y + side * (gap + 4)
+        fill_rect(x - w / 2, jy - 2 + side * 2, w, 4, config.COLOR_RED, alpha)
+        for i in range(5):                           # 이빨: 턱에서 가운데로 향한 작은 마름모
+            tx = x - w / 2 + 4 + i * (w - 8) / 4
+            fill_rect_rotated(tx, jy - side * 2, 5, 5, math.pi / 4, config.COLOR_WHITE, alpha)
