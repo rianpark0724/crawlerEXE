@@ -323,7 +323,7 @@
 ## 12. 화면 흐름 · HUD
 
 ```
-crawl://home ──▶ 사이트 (문서들) ──▶ crawl://complete ──▶ 다시 / 다음 사이트 / home
+crawl://home ──▶ 사이트 (문서들) ──▶ crawl://transfer (이동 중) ──▶ 다음 사이트 … 마지막 ──▶ crawl://complete
      ▲                     └──▶ crawl://lost ──▶ 다시 / home
      └──────────────────────────────────────────┘
 ```

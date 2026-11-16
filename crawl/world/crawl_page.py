@@ -6,11 +6,13 @@ from ui.draw import fill_rect, draw_rect, draw_line, draw_static_text, text_widt
 
 
 class CrawlPage:
-    def __init__(self, name, lines, slots, style='center'):
+    def __init__(self, name, lines, slots, style='center', info=None):
         # name: 주소 이름 (crawl://<name>), slots: [{'label': 칸 글, 'key': 구분 이름, 'action': 밟으면 할 일, 'enabled': 열렸는지}]
         # style 'center': lines = [(글, 크기, 색, 굵게?)] 가운데 정렬 글줄 (complete)
         # style 'report': lines = [(항목, 값, 색)] 고정폭 오류 보고서 — 위에서부터 한 줄씩 나타남 (lost)
+        # style 'transfer': 파일 전송 창 — info = {from, to, items(옮길 데이터 수), names(옮기는 문서 이름들)}
         self.style = style
+        self.info = info or {}
         self.title = name
         self.url = '/' + name                      # 띠 주소칸: crawl:/ + /complete
         self.height = config.SCREEN_H - config.HUD_BAR_H   # 한 화면 (스크롤 없음)
@@ -48,9 +50,20 @@ class CrawlPage:
         x0 = (config.SCREEN_W - (n * w + (n - 1) * gap)) / 2
         return [(x0 + i * (w + gap), config.CRAWL_SLOT_Y, w, h) for i in range(n)]
 
+    def progress(self):
+        # 전송 창: 0 → 1 (TRANSFER_TIME 동안 — 처음엔 빠르고 끝에서 느려지는 진짜 전송 막대처럼)
+        u = min(1.0, self.time / config.TRANSFER_TIME)
+        return 1 - (1 - u) ** 2
+
+    def transfer_done(self):
+        return self.style == 'transfer' and self.time >= config.TRANSFER_TIME + config.TRANSFER_HOLD
+
     def draw(self, camera, fill=(None, 0.0)):
         if self.style == 'report':
             self.draw_report(camera, fill)
+            return
+        if self.style == 'transfer':
+            self.draw_transfer(camera)
             return
         # 바탕: 점 격자 (사이트 페이지와 다른, 크롤러 브라우저의 빈 페이지 느낌)
         g = config.CRAWL_GRID
@@ -75,6 +88,64 @@ class CrawlPage:
             draw_static_text(sx + (w - tw) / 2, sy - camera.y + h / 2 - 11, slot['label'], size, color, 1.0, 'bold')
         hint = '칸을 세 번 밟으면 이동합니다'
         draw_static_text((config.SCREEN_W - text_width(hint, 12)) / 2, config.CRAWL_SLOT_Y - 34 - camera.y, hint, 12, config.HUD_LABEL)
+
+    def draw_transfer(self, camera):
+        # 파일 복사 창처럼: 제목 줄 → 어디서 어디로 → 두 폴더 사이를 날아가는 종이 → 퍼센트·막대 → 이름·남은 시간·남은 항목
+        g = config.CRAWL_GRID
+        for gx in range(g // 2, config.SCREEN_W, g):                     # 바탕 점 격자 (다른 crawl:// 페이지와 같음)
+            for gy in range(g // 2, self.height, g):
+                fill_rect(gx, gy - camera.y, 2, 2, config.HUD_BAR_LINE)
+        w, h = config.TRANSFER_W, config.TRANSFER_H
+        x = (config.SCREEN_W - w) / 2
+        y = (self.height - h) / 2 - 20 - camera.y
+        k = self.progress()
+        fill_rect(x + 6, y - 6, w, h, (0, 0, 0), 0.5)                    # 그림자
+        fill_rect(x, y, w, h, config.HUD_FIELD_BG)
+        draw_rect(x, y, w, h, 1, config.WIKI_BORDER_STRONG)
+        fill_rect(x, y + h - 34, w, 34, config.HUD_BAR_BG)                # 제목 줄
+        title = '다음 장소로 이동 중' if k < 1 else '이동 완료'
+        draw_static_text(x + 14, y + h - 26, title, 14, config.WIKI_TEXT, 1.0, 'bold')
+        bx = x + w - 30                                                   # 닫기 X (눌리지 않는 장식)
+        draw_line(bx, y + h - 22, bx + 10, y + h - 12, 1, config.HUD_LABEL)
+        draw_line(bx, y + h - 12, bx + 10, y + h - 22, 1, config.HUD_LABEL)
+        info = self.info
+        line = '%s  →  %s' % (info.get('from', ''), info.get('to', ''))
+        draw_static_text(x + 24, y + h - 70, line, 15, config.WIKI_TEXT)   # (→는 고정폭 글꼴에 없어 일반 글꼴)
+        # 두 폴더 + 날아가는 종이 (포물선, 차례로)
+        fy = y + h - 150
+        lx, rx = x + 60, x + w - 120
+        for px in (lx, rx):
+            fill_rect(px, fy, 60, 42, (200, 160, 60))
+            fill_rect(px, fy + 42, 24, 8, (200, 160, 60))
+        if k < 1:
+            for i in range(4):
+                u = (self.time * 0.9 + i / 4) % 1.0
+                px = lx + 30 + (rx - lx) * u
+                py = fy + 40 + 46 * 4 * u * (1 - u)                         # 포물선: 가운데서 가장 높이
+                fill_rect(px - 8, py - 10, 16, 20, config.WIKI_TEXT, 0.9)
+                for j in range(3):
+                    fill_rect(px - 5, py + 4 - j * 5, 10, 1, config.HUD_LABEL)
+        # 퍼센트 + 진행 막대 (초록, 위로 흐르는 줄무늬)
+        pct = '%d%% 완료' % round(k * 100)
+        draw_static_text(x + 24, fy - 40, pct, 20, config.WIKI_TEXT, 1.0, 'bold')
+        by, bw = fy - 72, w - 48
+        fill_rect(x + 24, by, bw, 18, config.HUD_BAR_BG)
+        fill_rect(x + 24, by, bw * k, 18, (60, 190, 90))
+        for sx in range(0, int(bw * k), 16):                               # 흐르는 줄무늬
+            off = (self.time * 40) % 16
+            fill_rect(x + 24 + sx + off, by, 6, 18, (120, 230, 140), 0.35)
+        draw_rect(x + 24, by, bw, 18, 1, config.WIKI_BORDER_STRONG)
+        # 이름 · 남은 시간 · 남은 항목
+        names = info.get('names') or ['-']
+        name = names[min(len(names) - 1, int(k * len(names)))]
+        items = info.get('items', 0)
+        left_t = max(0.0, config.TRANSFER_TIME - self.time)
+        rows = [('이름', name), ('남은 시간', '약 %d초' % (left_t + 0.99) if k < 1 else '완료'),
+                ('남은 항목', '%d개 (데이터 조각)' % round(items * (1 - k)))]
+        for i, (label, value) in enumerate(rows):
+            ry = by - 32 - i * 24
+            draw_static_text(x + 24, ry, label, 13, config.HUD_LABEL)
+            draw_static_text(x + 130, ry, value[:46], 13, config.WIKI_TEXT)
 
     def draw_report(self, camera, fill):
         # 오류 보고서: 고정폭 글씨의 충돌 로그. 제목 줄 → 구분선 → 항목들(한 줄씩 나타남) → 구분선 → 버튼 칸

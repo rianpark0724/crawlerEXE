@@ -177,10 +177,23 @@ def open_doc(title):
     show_page(pages[title])
 
 
+def is_last_site():
+    order = config.STAGE_ORDER
+    return site['id'] not in order or order.index(site['id']) == len(order) - 1
+
+
+def open_transfer():
+    # crawl://transfer — 파일 복사 창처럼 '다음 장소로 이동 중'. 크롤러는 그 위를 걸어 다니고, 막대가 다 차면 다음 사이트로
+    order = config.STAGE_ORDER
+    nxt = load_site(order[order.index(site['id']) + 1])
+    info = {'from': 'crawl:/' + site['url'], 'to': 'crawl:/' + nxt['url'], 'items': data_count, 'names': list(visited)}
+    show_page(CrawlPage('transfer', [], [], 'transfer', info))
+
+
 def open_complete():
     # 결과 페이지 crawl://complete — 크롤러가 걸어 다니며 다음 사이트·다시·홈 칸을 밟는다. 마지막 사이트면 판 끝
     order = config.STAGE_ORDER
-    last = site['id'] not in order or order.index(site['id']) == len(order) - 1
+    last = is_last_site()
     lines = [('ALL SITES CRAWLED' if last else 'CRAWL COMPLETE', 34, config.COLOR_GOLD, True),
              ('"%s" — %s%s 에서 찾음' % (goal['keyword'], site['url'], goal['page']), 16, config.WIKI_TEXT, False),
              ('전체 시간 %d:%02d  ·  데이터 %d  ·  방문 %d' % (play_time // 60, play_time % 60, data_count, len(visited)), 16, config.WIKI_TEXT, False),
@@ -627,7 +640,10 @@ def do_action(action):
         body.drop()                                   # 구멍으로 떨어져 들어옴
         arrive_hole[0] = config.ARRIVE_HOLE_TIME
     elif action[0] == 'complete':
-        open_complete()
+        if is_last_site():
+            open_complete()                           # 마지막 사이트: 판 끝
+        else:
+            open_transfer()                           # 중간 사이트: '다음 장소로 이동 중' 전송 창
     elif action[0] == 'lost':
         open_lost()
     elif action[0] == 'restart':
@@ -707,6 +723,10 @@ def update():
         action, rect = next_doc
         next_doc = None
         start_opening(action, rect, config.COLOR_ORANGE)
+    if isinstance(page, CrawlPage) and page.transfer_done() and opening is None:
+        # 전송 끝: 전송 창 가운데에서 다음 사이트 창이 열린다
+        rect = (config.SCREEN_W / 2 - 40, page.height / 2 - 40, 80, 40)
+        start_opening(('next',), rect, config.COLOR_GREEN)
     if cleared and clear_spot is not None and not isinstance(page, CrawlPage):
         clear_timer -= game_framework.frame_time      # 키워드를 먹고 잠시 뒤 그 자리에서 탈출 창
         if clear_timer <= 0:

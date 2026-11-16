@@ -215,6 +215,9 @@ CRAWL_GRID = 32           # 바탕 점 격자 간격
 CRAWL_SLOT_W, CRAWL_SLOT_H = 260, 64   # 칸 크기
 CRAWL_SLOT_GAP = 40       # 칸 사이 간격
 CRAWL_SLOT_Y = 150        # 칸 아래 y (페이지 아래쪽)
+TRANSFER_TIME = 3.5       # 탈출 전송 창: 막대가 다 차는 시간 (초) — 끝나면 다음 사이트
+TRANSFER_HOLD = 0.5       # 100%가 된 뒤 창이 열리기 전 잠깐 (초)
+TRANSFER_W, TRANSFER_H = 620, 330   # 전송 창 크기 (px)
 
 # ── 페이지 출구 = 다음 문서 상자 (PRD 11.3-3) ──
 EXIT_ROWS, EXIT_COLS = 1, 5   # 칸 배치: 한 줄 5칸 (방문 대기열 4 + 뒤로). 두 줄이면 아래 칸에 가다 위 칸을 밟게 됨
