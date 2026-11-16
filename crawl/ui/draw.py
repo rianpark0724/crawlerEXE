@@ -80,6 +80,14 @@ def draw_circle(x, y, r, width=1, color=config.COLOR_WHITE, alpha=1.0):
                   x + r * math.cos(a2), y + r * math.sin(a2), width, color, alpha)
 
 
+def fill_circle(x, y, r, color=config.COLOR_WHITE, alpha=1.0):
+    # 꽉 찬 원 = 가로 한 줄씩 원 폭만큼 채운 띠를 쌓는다 (r × 2줄)
+    set_color(color, alpha)
+    for i in range(-int(r), int(r) + 1):
+        half = math.sqrt(max(0.0, r * r - i * i))          # 그 높이에서 원의 반폭
+        pixel.draw_to_origin(x - half, y + i, half * 2, 1)
+
+
 def draw_rect(x, y, w, h, width=1, color=config.COLOR_WHITE, alpha=1.0):
     # 사각 윤곽. (x, y)는 왼쪽 아래 모서리 — 스테이지 JSON의 walls [x, y, w, h]와 같은 기준.
     # 가로 변을 두께의 절반만큼 양옆으로 늘려 모서리가 비지 않게 한다.

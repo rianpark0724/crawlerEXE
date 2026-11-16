@@ -118,7 +118,8 @@ class Page:
         self.goals = layout.goals           # 목표 키워드 조각 (x, y, w, h) — 목표 문서에만 있음
         self.time = 0.0                     # 키워드 반짝임용
         self.parts = []                     # 다리 파츠 (play_mode가 사이트 설정 개수대로 무작위 배치)
-        self.hazards = []                   # 위험 지점 [x, y, 반지름] — F2 시험용 (적은 S09)
+        self.hazards = []                   # 위험 지점 [x, y, 반지름] — F2 시험용
+        self.enemies = []                   # 적 (play_mode가 사이트 설정 개수대로 무작위 배치, world/enemies.py)
         # 링크 하나(여러 조각일 수 있음)마다: 가리키는 문서, 먹었는지, 먹은 뒤 지난 시간(번쩍임용)
         self.groups = {}
         for x, y, w, h, text, target, lid in self.links:

@@ -20,6 +20,7 @@ class CrawlPage:
         self.links, self.groups, self.goals = [], {}, []
         self.hazards = []                          # F2 시험용 위험 지점 (이 페이지에서도 시험 가능)
         self.parts = []                            # 다리 파츠 없음 (play_mode가 매 프레임 훑음)
+        self.enemies = []                          # 적 없음
         self.time = 0.0
 
     def spawn(self):

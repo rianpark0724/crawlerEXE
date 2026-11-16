@@ -42,11 +42,17 @@
     "웹페이지": {
       "parts": {
         "plain": 1
+      },
+      "enemies": {
+        "revert": 1
       }
     },
     "데이터": {
       "parts": {
         "plain": 1
+      },
+      "enemies": {
+        "revert": 1
       }
     },
     "스파이더": {

@@ -52,25 +52,34 @@ class LegPart:
         draw_circle(sx, sy + lift, config.PART_PICK_R + 4 + 2 * pulse, 1, config.COLOR_BODY_LIGHT, 0.2 + 0.2 * pulse)
 
 
-def place_parts(page, counts):
-    # 문서 본문 안 무작위 위치에 파츠를 놓는다. 링크 단어·목표 키워드·출구 상자·시작 위치 근처는 피한다
-    # counts: {'plain': 1} 같은 종류별 개수
+def random_spot(page, taken, spawn_gap, apart):
+    # 문서 본문 안 무작위 자리 하나 (x, y): 링크 단어·목표 키워드·출구 상자에서 PART_AVOID 떨어지고,
+    # 시작 위치에서 spawn_gap 아래, 이미 놓인 것(taken = [(x, y)])과 apart 이상 떨어진 곳. 못 찾으면 None
     avoid = config.PART_AVOID
     boxes = [(x, y, w, h) for x, y, w, h, *_ in page.links] + list(page.goals) + [page.exit_rect]
     sx, sy = page.spawn()
-    top = sy - config.PART_SPAWN_GAP                       # 시작 위치 아래부터
+    top = sy - spawn_gap                                   # 시작 위치 아래부터
     bottom = page.exit_rect[1] + page.exit_rect[3] + avoid  # 출구 상자 위까지
     left = config.WIKI_CONTENT_X + avoid
     right = config.WIKI_CONTENT_X + config.WIKI_CONTENT_W - avoid
+    if top <= bottom:
+        return None                                        # 문서가 너무 짧음
+    for _try in range(200):                               # 조건에 맞는 자리를 찾을 때까지 다시 뽑기
+        x, y = random.uniform(left, right), random.uniform(bottom, top)
+        near_box = any(bx - avoid <= x <= bx + bw + avoid and by - avoid <= y <= by + bh + avoid
+                       for bx, by, bw, bh in boxes)
+        near_other = any(math.hypot(x - ox, y - oy) < apart for ox, oy in taken)
+        if not near_box and not near_other:
+            return x, y
+    return None
+
+
+def place_parts(page, counts):
+    # 문서 본문 안 무작위 위치에 파츠를 놓는다 (counts: {'plain': 1} 같은 종류별 개수)
     parts = []
     for kind, n in counts.items():
         for _ in range(n):
-            for _try in range(200):                       # 조건에 맞는 자리를 찾을 때까지 다시 뽑기
-                x, y = random.uniform(left, right), random.uniform(bottom, top)
-                near_box = any(bx - avoid <= x <= bx + bw + avoid and by - avoid <= y <= by + bh + avoid
-                               for bx, by, bw, bh in boxes)
-                near_part = any(math.hypot(x - p.x, y - p.y) < avoid * 3 for p in parts)
-                if not near_box and not near_part:
-                    parts.append(LegPart(x, y, kind))
-                    break
+            spot = random_spot(page, [(p.x, p.y) for p in parts], config.PART_SPAWN_GAP, config.PART_AVOID * 3)
+            if spot is not None:
+                parts.append(LegPart(spot[0], spot[1], kind))
     return parts

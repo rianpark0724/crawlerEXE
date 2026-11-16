@@ -15,6 +15,7 @@ from world.camera import Camera
 from world.stage import Page, load_site, pick_goal, mark_goal
 from world.crawl_page import CrawlPage
 from world.objects import place_parts
+from world.enemies import place_enemies
 from world.collision import leg_hit, circle_circle
 from ui.hud import draw_scrollbar, draw_bar
 from ui.draw import draw_line, draw_rect, draw_circle, fill_rect, draw_static_text, text_width, begin_zoom, end_zoom
@@ -91,6 +92,8 @@ def open_doc(title):
         pages[title] = Page(doc, set(site['docs']))  # 링크 색은 사이트의 문서 제목으로 정함
         counts = site['pages'].get(title, {}).get('parts', {})   # 이 문서의 파츠 종류별 개수 (사이트 JSON)
         pages[title].parts = place_parts(pages[title], counts)  # 위치는 무작위 (처음 열 때 한 번)
+        enemies = site['pages'].get(title, {}).get('enemies', {})   # 이 문서의 적 종류별 개수
+        pages[title].enemies = place_enemies(pages[title], enemies)
     if title not in visited:
         visited.append(title)                       # 방문 수 (HUD 방문 k/K)
     if title in frontier:
@@ -328,6 +331,9 @@ def update():
     body.update(target_x, target_y, game_framework.frame_time, left_down)
     camera.update(body.segs[0].y, game_framework.frame_time)
     page.update(game_framework.frame_time)
+    for enemy in page.enemies:
+        if enemy.active(camera):                      # 화면 ± ENEMY_ACTIVE_PAD 안의 적만 움직임
+            enemy.update(game_framework.frame_time)
     check_hits()
     for part in page.parts:
         part.locked = not body.can_grow()             # 최대면 파츠를 흐리게 (주울 수 없음)
@@ -500,6 +506,8 @@ def draw():
         page.draw(camera)
         page.draw_exit(camera, exit_choices(), exit_need(), play_time, exit_fill())
     draw_hazards()
+    for enemy in page.enemies:
+        enemy.draw(camera)
     if cleared and clear_spot is not None and clear_timer > 0:
         # 키워드를 먹은 순간: 키워드 자리에서 금색 원 두 겹이 퍼진다
         x, y, w, h = clear_spot

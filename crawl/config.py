@@ -51,6 +51,13 @@ PART_KNEE_Z = 12          # 파츠 다리: 무릎 높이 (크롤러 다리처럼
 PART_WIGGLE = 6           # 다리 꼼지락 빠르기
 PART_WIGGLE_ANGLE = 0.35  # 꼼지락 폭 (rad)
 PART_PICK_R = 14          # 발이 상자 중심에서 이 거리 안에 착지하면 주움
+# ── 적 (PRD 9) ──
+ENEMY_ACTIVE_PAD = 200    # 화면 위아래로 이만큼 안에 있는 적만 움직인다 (활성 범위)
+ENEMY_SPAWN_GAP = 260     # 적은 시작 위치에서 이만큼 아래부터 놓는다 (시작하자마자 만나지 않게)
+ENEMY_APART = 160         # 적끼리 떨어질 거리
+REVERT_R = 12             # 되돌리기 봇 판정 반지름
+REVERT_IDLE_SPIN = 1.5    # 대기 중 ↺ 화살표가 도는 빠르기 (rad/s)
+REVERT_AWAKE_SPIN = 9     # 깨어난 뒤 도는 빠르기
 GROW_POP = 0.15           # 새 마디가 붙을 때 납작했다 펴지는 시간 (초) — 붙는 순간이 보이게
 PART_AVOID = 40           # 무작위 배치 때 링크·키워드·출구에서 떨어질 거리
 PART_SPAWN_GAP = 160      # 시작 위치에서 이만큼 아래부터 배치
