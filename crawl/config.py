@@ -56,6 +56,15 @@ ENEMY_ACTIVE_PAD = 200    # 화면 위아래로 이만큼 안에 있는 적만 �
 ENEMY_SPAWN_GAP = 260     # 적은 시작 위치에서 이만큼 아래부터 놓는다 (시작하자마자 만나지 않게)
 ENEMY_APART = 160         # 적끼리 떨어질 거리
 REVERT_R = 12             # 되돌리기 봇 판정 반지름
+REVERT_SPEED = 70         # 깨어났을 때 처음 속도 (px/s)
+REVERT_GAIN = 4           # 발자국 하나를 읽을 때마다 빨라지는 양 (px/s)
+REVERT_MAX = 220          # 최대 속도 (px/s)
+REVERT_READ = 4           # 발자국에 이만큼 가까워지면 '읽음' → 다음 발자국으로 (px)
+REVERT_LOST_TIME = 1.5    # 발자국이 끊기면(WAVE) 이 시간 동안 두리번거림 (초)
+REVERT_HOME_SPEED = 60    # 제자리로 돌아가는 속도 (px/s)
+REVERT_TRAIL_LIFE = 0.7   # 읽은 발자국에 남는 diff 줄(빨강·초록)이 사라지는 시간 (초)
+FOOTPRINT_GAP = 20        # 발자국 = 착지할 때 머리 자리, 마지막 발자국에서 이만큼 움직였을 때만 기록 (지나간 길)
+FOOTPRINT_MAX = 600       # 문서마다 기억하는 발자국 수 (오래된 것부터 버림)
 REVERT_IDLE_SPIN = 1.5    # 대기 중 ↺ 화살표가 도는 빠르기 (rad/s)
 REVERT_AWAKE_SPIN = 9     # 깨어난 뒤 도는 빠르기
 GROW_POP = 0.15           # 새 마디가 붙을 때 납작했다 펴지는 시간 (초) — 붙는 순간이 보이게

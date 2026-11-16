@@ -43,6 +43,7 @@ death_spot = (0.0, 0.0)       # 확대된 화면에서 머리가 보이는 위�
 messages = []                 # 떠오르는 글 [x, y, 글, 나이] (월드 좌표) — '크롤링이 부족합니다'
 pages = {}                    # 한 번 연 문서의 Page (제목 → Page) — 다시 와도 먹은 링크가 보라로 남게
 history = []                  # 지나온 문서 제목들 — '뒤로' 칸이 마지막 것으로 간다
+footprints = []               # 이 문서의 발자국 [(x, y) 또는 None(WAVE로 끊김)] — 되돌리기 봇이 따라옴
 next_doc = None               # 이번 프레임에 다 채운 칸 (할 일, 칸 위치) — 걷기 처리가 끝난 뒤 창 열기 시작
 opening = None                # 새 창이 열리는 중: {'action', 'name'(창 제목), 'url', 'rect'(시작 칸, 월드), 'color', 't'}
 play_time = 0.0               # 플레이 시간 (출구 깜빡임 등)
@@ -70,8 +71,9 @@ def init(site_id=config.FIRST_STAGE):
 
 def show_page(new_page):
     # 페이지를 화면에 띄우고 그 페이지 맨 위에 크롤러를 세운다 (문서·crawl:// 페이지 공통)
-    global page, camera, body, target_x, target_y, fade, charge
+    global page, camera, body, target_x, target_y, fade, charge, footprints
     charge = {'key': None, 'n': 0, 'time': 0.0}
+    footprints = []                                 # 발자국은 문서마다 새로
     page = new_page
     camera = Camera(page.height)                    # 페이지 맨 위에서 시작
     target_x, target_y = camera.to_world(mouse_x, mouse_y)
@@ -183,7 +185,8 @@ def handle_events():
         elif event.type == SDL_MOUSEBUTTONUP and event.button == SDL_BUTTON_LEFT:
             left_down = False
         elif event.type == SDL_MOUSEBUTTONDOWN and event.button == SDL_BUTTON_RIGHT:
-            body.start_wave(target_x, target_y)       # □ WAVE 점프 돌진 (재사용 대기 중이면 무시)
+            if body.start_wave(target_x, target_y):   # □ WAVE 점프 돌진 (재사용 대기 중이면 무시)
+                footprints.append(None)               # 뛰면 발자국이 끊긴다 (되돌리기 봇이 길을 잃음)
 
 
 def check_hits():
@@ -231,6 +234,15 @@ def on_land(leg):
     # 발이 착지한 순간 한 번: 그 자리의 파란 링크를 먹는다 (몸통은 먹지 못함 — 발 착지만 판정)
     global data_count, next_doc, cleared, clear_timer, clear_spot
     debug_view.note_landing(leg.foot_x, leg.foot_y)
+    # 발자국 = 지나간 길: 착지할 때 머리 자리를, 마지막 발자국에서 FOOTPRINT_GAP 이상 움직였으면 기록
+    head = body.segs[0]
+    last = footprints[-1] if footprints else None
+    if last is None or math.hypot(head.x - last[0], head.y - last[1]) >= config.FOOTPRINT_GAP:
+        footprints.append((head.x, head.y))           # (WAVE 끊김 뒤 첫 발자국도 새로 시작)
+    if len(footprints) > config.FOOTPRINT_MAX:
+        del footprints[0]
+        for enemy in page.enemies:                    # 버린 만큼 봇이 읽을 번호도 당긴다
+            enemy.step = max(0, enemy.step - 1)
     if page.goal_at(leg.foot_x, leg.foot_y) and not cleared:
         if len(visited) >= site['min_pages']:
             cleared = True                            # 탈출! (PRD 11.3-4) — 잠시 뒤 키워드 자리에서 창이 열린다
@@ -247,6 +259,8 @@ def on_land(leg):
     group = page.eat_at(leg.foot_x, leg.foot_y)
     if group is not None:
         data_count += 1
+        for enemy in page.enemies:                    # 링크를 먹으면 되돌리기 봇이 깨어나 지금 발자국부터 따라옴
+            enemy.wake(len(footprints) - 1)
         if group['target'] not in visited and group['target'] not in frontier:
             frontier.append(group['target'])          # 먹은 링크의 문서 → 방문 대기열
         return
@@ -333,7 +347,7 @@ def update():
     page.update(game_framework.frame_time)
     for enemy in page.enemies:
         if enemy.active(camera):                      # 화면 ± ENEMY_ACTIVE_PAD 안의 적만 움직임
-            enemy.update(game_framework.frame_time)
+            enemy.update(game_framework.frame_time, footprints)
     check_hits()
     for part in page.parts:
         part.locked = not body.can_grow()             # 최대면 파츠를 흐리게 (주울 수 없음)

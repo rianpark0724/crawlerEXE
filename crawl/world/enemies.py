@@ -2,6 +2,7 @@
 # 배치: 사이트 JSON의 pages.<제목>.enemies에 종류별 개수, 위치는 문서를 처음 열 때 무작위 (PRD 11.3-7)
 # 그림은 코드로 그린다 — 그림 파일로 바꾸려면 각 적의 draw()만 고치면 된다.
 import math
+import random
 
 import config
 from ui.draw import fill_circle, draw_circle, draw_line, fill_rect
@@ -17,19 +18,81 @@ class RevertBot:
         self.state = 'idle'                  # idle 대기 / track 추적 / lost 헤맴 / home 복귀
         self.spin = 0.0                      # ↺ 화살표 각도
         self.t = 0.0
+        self.step = 0                        # 다음에 읽을 발자국 번호 (footprints 목록의 위치)
+        self.speed = config.REVERT_SPEED
+        self.lost_t = 0.0                    # 헤맨 시간
+        self.trail = []                      # 읽은 발자국에 남긴 diff 줄 [x, y, 나이]
+
+    def wake(self, step):
+        # 이 문서에서 링크가 먹힘 → 깨어나 step번 발자국부터 따라온다 (이미 추적 중이면 그대로)
+        if self.state != 'track':
+            self.state, self.step, self.speed = 'track', step, config.REVERT_SPEED
 
     def active(self, camera):
         # 화면 위아래 ENEMY_ACTIVE_PAD 안에 있을 때만 움직인다
         pad = config.ENEMY_ACTIVE_PAD
         return camera.y - pad <= self.y <= camera.y + config.SCREEN_H + pad
 
-    def update(self, dt):
+    def update(self, dt, footprints):
+        # footprints: 이 문서의 발자국 [(x, y) 또는 None(WAVE로 끊김)] — play_mode가 착지마다 쌓는다
         self.t += dt
         awake = self.state != 'idle'
         self.spin += (config.REVERT_AWAKE_SPIN if awake else config.REVERT_IDLE_SPIN) * dt
+        for tr in self.trail:
+            tr[2] += dt
+        self.trail = [tr for tr in self.trail if tr[2] < config.REVERT_TRAIL_LIFE]
+        if self.state == 'track':
+            self.track(dt, footprints)
+        elif self.state == 'lost':
+            # 두리번거림: 제자리에서 작게 흔들리다가 시간이 다 되면 제자리로
+            self.lost_t += dt
+            self.x += math.cos(self.t * 7) * 30 * dt
+            self.y += math.sin(self.t * 5) * 30 * dt
+            if self.lost_t >= config.REVERT_LOST_TIME:
+                self.state = 'home'
+        elif self.state == 'home':
+            if self.move_to(self.home_x, self.home_y, config.REVERT_HOME_SPEED, dt):
+                self.state = 'idle'
+
+    def track(self, dt, footprints):
+        # 발자국을 순서대로 되짚는다. 읽을 때마다 빨라짐. 끊김(None)을 만나면 길을 잃음
+        move = self.speed * dt
+        while move > 0 and self.step < len(footprints):
+            spot = footprints[self.step]
+            if spot is None:                                   # WAVE로 끊긴 자리
+                self.state, self.lost_t = 'lost', 0.0
+                self.step += 1
+                return
+            d = math.hypot(spot[0] - self.x, spot[1] - self.y)
+            if d <= config.REVERT_READ or d <= move:            # 이 발자국에 닿음 → 읽고 다음으로
+                self.x, self.y = spot
+                move -= d
+                self.trail.append([spot[0], spot[1], 0.0])
+                self.step += 1
+                self.speed = min(config.REVERT_MAX, self.speed + config.REVERT_GAIN)
+            else:
+                self.x += (spot[0] - self.x) / d * move
+                self.y += (spot[1] - self.y) / d * move
+                move = 0
+
+    def move_to(self, x, y, speed, dt):
+        # (x, y)로 speed만큼 다가감. 도착하면 True
+        d = math.hypot(x - self.x, y - self.y)
+        if d <= speed * dt:
+            self.x, self.y = x, y
+            return True
+        self.x += (x - self.x) / d * speed * dt
+        self.y += (y - self.y) / d * speed * dt
+        return False
 
     def draw(self, camera):
         # 위키 아이콘 같은 둥근 원판 + 가운데 ↺(되돌리기) 화살표가 돈다. 깨어나면 빨갛게
+        # 읽은 발자국: 위키 문서 비교(diff)처럼 빨강(지움)·초록(되돌림) 짧은 줄이 남았다 사라짐
+        for x, y, age in self.trail:
+            tx, ty = camera.to_screen(x, y)
+            a = 1 - age / config.REVERT_TRAIL_LIFE
+            fill_rect(tx - 7, ty + 1, 14, 2, config.COLOR_RED, 0.7 * a)
+            fill_rect(tx - 7, ty - 3, 14, 2, config.COLOR_GREEN, 0.7 * a)
         sx, sy = camera.to_screen(self.x, self.y)
         awake = self.state != 'idle'
         r = config.REVERT_R
