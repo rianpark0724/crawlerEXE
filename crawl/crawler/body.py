@@ -50,6 +50,7 @@ class Body:
         self.dropped = []                            # 떨어져 나간 마디 [x, y, 각도, 크기, 나이, 도는 속도] — 바닥에서 흐려짐
         self.stagger_v = 0.0                         # 비틀거림: 지금 머리를 꺾고 있는 회전 속도 (rad/s, 점점 사라짐)
         self.stagger_gap = 0.0                       # 다음 휘청임까지 남은 최소 시간
+        self.burden = 0                              # 몸에 달라붙은 방해꾼 수 (댓글 벌레) — 그만큼 느려짐 (play_mode가 정함)
         self.gaps = [config.SEG_SPACING] * len(self.segs)   # 마디 i와 앞 마디 사이 간격 (평소 19, WAVE 중 늘어남). gaps[0]은 안 씀
         self.update_legs(0.0)                        # 발을 처음 위치에 놓는다
 
@@ -413,6 +414,7 @@ class Body:
             if any(leg.partner is None and leg.stepping for leg in legs):
                 want_speed *= 1 - config.LIMP_SLOW
             want_speed *= (1 - config.DRAG_SLOW) ** sum(1 for seg in self.segs if not seg.legs)
+            want_speed *= 1 - min(config.COMMENT_SLOW_MAX, config.COMMENT_SLOW * self.burden)   # 달라붙은 댓글 벌레
 
         # 3. 제동: 속도는 바로 올릴 수 있지만 줄일 때는 brake(px/s²)보다 빨리 못 줄인다.
         #    걸을 땐 브레이크가 세서 거의 바로 서고, 질주 중엔 약해서 커서를 지나쳐 미끄러진다 (대가)

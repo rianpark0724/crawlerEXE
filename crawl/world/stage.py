@@ -141,6 +141,7 @@ class Page:
         self.exit_rect = layout.exit_rect   # 다음 문서 상자 (x, 아래 y, w, h) — 페이지 출구
         self.goals = layout.goals           # 목표 키워드 조각 (x, y, w, h) — 목표 문서에만 있음
         self.paragraphs = layout.paragraphs # 본문 문단 위치 — 보호된 문단 고르기용
+        self.nest_spot = layout.nest_spot   # 댓글 둥지 자리 (기사 끝 댓글란) — 없으면 None
         self.time = 0.0                     # 키워드 반짝임용
         self.parts = []                     # 다리 파츠 (play_mode가 사이트 설정 개수대로 무작위 배치)
         self.hazards = []                   # 위험 지점 [x, y, 반지름] — F2 시험용

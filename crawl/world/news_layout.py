@@ -52,6 +52,7 @@ class NewsLayout(PageLayout):
         if 'lead' in doc:
             y = self.photo(doc['lead'], y)
         y = self.body(doc, y)
+        y = self.comments(y)
         y = self.related(doc, y)
         y = self.exit_box(y)
         return self.footer(y)
@@ -148,6 +149,14 @@ class NewsLayout(PageLayout):
                 self.fill(x, y, 4, top - y, self.LINK)               # 인용 왼쪽 굵은 막대
                 y -= 18
         return y
+
+    def comments(self, y):
+        # 댓글란: 본문이 끝난 바로 아래, 관련 기사 위 (실제 기사처럼). 버튼(댓글 둥지)은 적이 그린다 — 여기선 자리만
+        x = self.left
+        y -= 6
+        self.line(x, y, x + self.CONTENT_W, y, 1, SUBTLE)
+        self.nest_spot = (x + 70, y - 26)
+        return y - 58
 
     def related(self, doc, y):
         # 관련 기사: 구분선 + 제목 + 카드 3장 (썸네일 + 제목 링크)

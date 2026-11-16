@@ -276,7 +276,10 @@ def draw_revert_arrow(x, y, r, angle, color, width=2):
         draw_line(ex, ey, ex + math.cos(wa) * r * 0.7, ey + math.sin(wa) * r * 0.7, width, color)
 
 
-KINDS = {'revert': RevertBot}
+from world.comments import CommentNest   # 뉴스 사이트: 댓글 부대
+from world.ads import AdSpawner          # 뉴스 사이트: 광고 팝업 (ads.py가 위의 ProtectedBlock을 쓰므로 여기서 가져옴)
+
+KINDS = {'revert': RevertBot, 'comments': CommentNest, 'ads': AdSpawner}
 
 
 def place_enemies(page, counts):
@@ -284,7 +287,10 @@ def place_enemies(page, counts):
     enemies = []
     for kind, n in counts.items():
         for _ in range(n):
-            spot = random_spot(page, [(e.x, e.y) for e in enemies], config.ENEMY_SPAWN_GAP, config.ENEMY_APART)
+            if kind == 'comments' and page.nest_spot is not None:
+                spot = page.nest_spot                      # 댓글 둥지는 기사 끝 댓글란 자리
+            else:
+                spot = random_spot(page, [(e.x, e.y) for e in enemies], config.ENEMY_SPAWN_GAP, config.ENEMY_APART)
             if spot is not None:
                 enemies.append(KINDS[kind](*spot))
     return enemies

@@ -19,6 +19,8 @@ from world.objects import place_parts
 from world.enemies import place_enemies, place_walls, draw_revert_arrow, RefreshBand, RevertBot, ProtectedBlock
 from world.collision import leg_hit, circle_circle, circle_rect, leg_hit_rect
 from world.hole import draw_hole, BitLeak
+from world.comments import CommentNest
+from world.ads import AdSpawner
 from ui.hud import draw_scrollbar, draw_bar
 from ui.draw import draw_line, draw_rect, draw_circle, fill_circle, fill_rect, draw_static_text, text_width, begin_zoom, end_zoom
 from ui import debug_view
@@ -240,6 +242,8 @@ def check_hits():
             dangers.append(('circle', (e.x, e.y, config.REVERT_R), e))
         elif isinstance(e, (RefreshBand, ProtectedBlock)) and e.rect(camera) is not None:
             dangers.append(('rect', e.rect(camera), e))
+        elif isinstance(e, AdSpawner):
+            dangers += [('rect', ad.rect(), ad) for ad in e.slamming()]   # 광고가 떨어지는 순간만 맞음
     for shape, d, enemy in dangers:
         if shape == 'circle':
             hit_seg = lambda seg, r_seg, d=d: circle_circle(d[0], d[1], d[2], seg.x, seg.y, r_seg)
@@ -274,8 +278,12 @@ def push_out_walls():
     # 보호된 문단은 벽: 무적 중이라도 머리가 안으로 파고들면 가장 가까운 변 바깥으로 밀어낸다
     head = body.segs[0]
     r = body.seg_size(0) / 2
+    walls = [e for e in page.enemies if isinstance(e, ProtectedBlock)]
     for e in page.enemies:
-        if isinstance(e, ProtectedBlock) and circle_rect(head.x, head.y, r, *e.rect()):
+        if isinstance(e, AdSpawner):
+            walls += e.walls()                        # 떨어진 광고도 벽
+    for e in walls:
+        if circle_rect(head.x, head.y, r, *e.rect()):
             dx, dy = e.push_dir(head.x, head.y)
             if dx:
                 head.x = e.x - r if dx < 0 else e.x + e.w + r
@@ -343,6 +351,13 @@ def on_land(leg):
     last = footprints[-1] if footprints else None
     if last is None or math.hypot(head.x - last[0], head.y - last[1]) >= config.FOOTPRINT_GAP:
         footprints.append((head.x, head.y))           # (WAVE 끊김 뒤 첫 발자국도 새로 시작)
+    for enemy in page.enemies:                        # 떨어져 어리둥절한 댓글 벌레를 밟으면 터짐
+        if isinstance(enemy, CommentNest) and enemy.stomp(leg.foot_x, leg.foot_y):
+            leak.emit(leg.foot_x, leg.foot_y, 4)
+            break
+    for enemy in page.enemies:                        # 광고 닫기 칸을 디딤
+        if isinstance(enemy, AdSpawner) and any(ad.step_close(leg.foot_x, leg.foot_y) for ad in enemy.ads):
+            return
     if len(footprints) > config.FOOTPRINT_MAX:
         del footprints[0]
         for enemy in page.enemies:                    # 버린 만큼 봇이 읽을 번호도 당긴다
@@ -531,6 +546,11 @@ def update():
     for enemy in page.enemies:
         if enemy.active(camera):                      # 화면 ± ENEMY_ACTIVE_PAD 안의 적만 움직임
             enemy.update(game_framework.frame_time, footprints)
+            if isinstance(enemy, CommentNest):
+                enemy.swarm(game_framework.frame_time, body)   # 댓글 벌레: 쫓아가 달라붙기·떨쳐지기
+            if isinstance(enemy, AdSpawner) and not cleared:
+                enemy.drop(game_framework.frame_time, body, page)   # 광고: 가는 길 앞에 떨어뜨림
+    body.burden = sum(e.stuck_count() for e in page.enemies if isinstance(e, CommentNest))
     ingest.update(game_framework.frame_time, body)    # 날아가는 글자, 도착하면 꿀꺽·저장
     body.stored = len(ingest.stored)
     check_reverts()
@@ -728,6 +748,9 @@ def draw():
         for r in (k, k * 0.6):
             draw_circle(x + w / 2, y + h / 2 - camera.y, 6 + config.CLEAR_FX_R * r, 3, config.COLOR_GOLD, 1 - k)
     body.draw(camera)
+    for enemy in page.enemies:
+        if isinstance(enemy, CommentNest):
+            enemy.draw_stuck(camera)                  # 몸에 붙은 댓글 벌레는 크롤러 위에
     ingest.draw(camera)                               # 날아가는 링크 글자 (몸 위에)
     for x, y, text, age in messages:                  # 떠오르며 흐려지는 알림
         k = age / config.SHORT_MSG_TIME
