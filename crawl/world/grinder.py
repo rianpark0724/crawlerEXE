@@ -225,16 +225,20 @@ class Grinder:
 class Eye:
     # 다 짜낸 크롤러에서 남은 네모 눈 (머리에 붙어 있던 픽셀 눈). 주스에서 퐁 튀어나와 마우스 쪽으로 찰박찰박 뛰어다닌다 (높이 z: 0이면 땅)
     # 메뉴 칸은 이 눈알이 그 위에 서 있으면 넘어간다 (play_mode의 standing_spot)
-    def __init__(self, x, y):
+    def __init__(self, x, y, splash=True):
+        # splash: 주스에서 튀어나올 땐 방울이 튐 (ESC 일시정지로 머리에서 빠져나올 땐 없음)
         self.x, self.y = x, y
         self.z, self.vz = 0.0, config.EYE_POP_VZ             # 튀어나옴: 위로 높이 솟았다가
         self.vx, self.vy = 0.0, config.EYE_POP_VY            # 통 위쪽(화면 위)으로 떨어짐
         self.rest = 0.0                                      # 다음 뜀까지 남은 시간
         self.squash = 0.0                                    # 착지 납작함 남은 시간
         self.drops = []                                      # 튄 주스 방울 [x, y, z, vx, vy, vz]
+        self.wet = splash                                    # 주스에 젖었는지 (방울·젖은 자국)
         self.splash(14)
 
     def splash(self, n):
+        if not self.wet:
+            return
         for _ in range(n):
             a = random.uniform(0, math.pi * 2)
             v = random.uniform(30, 110)
@@ -283,5 +287,5 @@ class Eye:
         k = self.squash / config.EYE_SQUASH
         w, h = s * (1 + 0.4 * k), s * (1 - 0.35 * k)
         fill_rect(sx - w / 2, sy + self.z, w, h, config.EYE_COLOR)
-        if self.grounded():                                       # 젖은 자국: 밑에 주스가 살짝
+        if self.grounded() and self.wet:                          # 젖은 자국: 밑에 주스가 살짝
             fill_rect(sx - s * 0.7, sy - 2, s * 1.4, 2, config.COLOR_SKY, 0.4)

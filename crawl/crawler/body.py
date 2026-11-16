@@ -54,6 +54,7 @@ class Body:
         self.burden = 0                              # 몸에 달라붙은 방해꾼 수 (댓글 벌레) — 그만큼 느려짐 (play_mode가 정함)
         self.in_funnel = False                       # 깔때기에 빨려 들어가는 중 (다리 없는 마디도 떨어져 나가지 않음)
         self.hide_below = None                       # 이 y보다 아래 마디는 그리지 않음 (깔때기 주둥이 속으로 들어감)
+        self.eye_out = False                         # 눈이 빠져나가 있음 (ESC 일시정지) — 머리에 눈을 그리지 않음
         self.gaps = [config.SEG_SPACING] * len(self.segs)   # 마디 i와 앞 마디 사이 간격 (평소 19, WAVE 중 늘어남). gaps[0]은 안 씀
         self.update_legs(0.0)                        # 발을 처음 위치에 놓는다
 
@@ -556,7 +557,7 @@ class Body:
             draw_segment(sx, sy + self.seg_h(i) * config.VIEW_TILT, size, seg.angle, self.invincible(i) or self.blink(), *self.shape(i),
                          flash=seg.flash / config.HIT_FLASH, glow=self.glow(i), dots=self.stored_in(i))
         # 머리 앞쪽 가장자리 근처에 주황 점 — 어느 쪽이 앞인지 표시
-        if self.hidden(0):
+        if self.hidden(0) or self.eye_out:
             return
         head = self.segs[0]
         lift = self.seg_h(0) * config.VIEW_TILT

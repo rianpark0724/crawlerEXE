@@ -20,7 +20,7 @@ from world.objects import place_parts
 from world.enemies import place_enemies, place_walls, draw_revert_arrow, RefreshBand, RevertBot, ProtectedBlock
 from world.collision import leg_hit, circle_circle, circle_rect, leg_hit_rect
 from world.hole import draw_hole, BitLeak
-from world.grinder import Grinder
+from world.grinder import Grinder, Eye
 from world.purge import FullVaccine, draw_noise
 from world.comments import CommentNest
 from world.ads import AdSpawner
@@ -66,6 +66,8 @@ grinder = None                # crawl://final의 데이터 깔때기 (완전 클
 final_time = None             # 크롤러가 다 갈린 순간의 전체 시간 (이때 시간이 멈춤)
 respawn_t = 0.0               # 다 짜낸 뒤 눈이 튀어나오기까지 남은 시간
 site_time = 0.0               # 지금 사이트에 머문 시간 — par_time을 넘기면 완전 백신
+paused = [False]              # ESC 일시정지 중 (세상과 몸은 멈추고, 머리에서 빠져나온 눈이 칸을 고름)
+pause_eye = None              # 일시정지 때 머리에서 빠져나온 네모 눈 (Eye)
 purge = None                  # 완전 백신 (FullVaccine) — 나타났으면
 play_time = 0.0               # 플레이 시간 (출구 깜빡임 등)
 fade = 0.0                    # 문서를 옮긴 뒤 남은 밝아짐 시간
@@ -98,6 +100,7 @@ def reset_site(site_id):
     grinder, final_time = None, None
     site_time, purge = 0.0, None
     goal_reveal[0] = None
+    paused[0] = False
     chew_jolt[0] = 0.0
     site = load_site(site_id)
     frontier, visited, pages, history, next_doc, opening = [], [], {}, [], None, None
@@ -302,8 +305,46 @@ def exit_choices():
     return choices
 
 
+PAUSE_SLOTS = [('resume', '계속'), ('restart', '다시 크롤링'), ('home', '홈')]
+
+
+def toggle_pause():
+    # ESC (S10-8): 사이트 문서에서만. 머리에서 네모 눈이 톡 빠져나와 칸을 고르고, 몸은 멈춘 자리에 그대로. 다시 누르면 계속
+    global pause_eye, charge
+    if paused[0]:
+        resume_play()
+        return
+    if isinstance(page, CrawlPage) or opening is not None or lost or cleared or frozen[0]:
+        return
+    paused[0] = True
+    head = body.segs[0]
+    pause_eye = Eye(head.x, head.y, splash=False)
+    body.eye_out = True
+    charge = {'key': None, 'fill': 0.0, 'tick': 0.0}
+
+
+def resume_play():
+    # 일시정지 끝: 눈이 머리로 돌아감
+    global pause_eye, charge
+    paused[0] = False
+    pause_eye = None
+    body.eye_out = False
+    charge = {'key': None, 'fill': 0.0, 'tick': 0.0}
+
+
+def pause_rects():
+    # 일시정지 칸 위치 (월드) — 화면 가운데 한 줄 (카메라가 멈춰 있으므로 화면에 고정)
+    w, h, gap = config.CRAWL_SLOT_W, config.CRAWL_SLOT_H, config.CRAWL_SLOT_GAP
+    n = len(PAUSE_SLOTS)
+    x0 = (config.SCREEN_W - (n * w + (n - 1) * gap)) / 2
+    y = camera.y + (config.SCREEN_H - config.HUD_BAR_H) / 2 - h - 20
+    return [(x0 + i * (w + gap), y, w, h) for i in range(n)]
+
+
 def slot_list():
     # 지금 페이지에서 밟을 수 있는 칸들 → ([(구분 이름, 할 일, 열렸는지)], [칸 위치]) — crawl:// 페이지의 메뉴 칸
+    if paused[0]:
+        return [(key, (key,), True) for key, label in PAUSE_SLOTS], pause_rects()
     if isinstance(page, CrawlPage):
         return [(s['key'], s['action'], s['enabled']) for s in page.slots], page.slot_rects()
     return [], []
@@ -314,8 +355,8 @@ def chew_spots():
     # 먹은 링크 껍데기마다 그 링크의 문서로 가는 구멍 자리가 된다. 지나온 문서가 있으면 왼쪽 위에 '← 뒤로' 껍데기
     if isinstance(page, CrawlPage) or exit_need() > 0 or chew_ready[0] is None or play_time < chew_ready[0]:
         return []                                    # 아직 덜 먹었거나, 다 먹은 직후의 텀 (먹자마자 떠나지 않게)
-    if robot_check() is not None:
-        return []                                    # 로봇 확인 중엔 갉을 수도 없음
+    if robot_check() is not None or paused[0]:
+        return []                                    # 로봇 확인 중·일시정지 중엔 갉을 수 없음
     boxes = {}
     for x, y, w, h, text, target, lid in page.links:
         group = page.groups[lid]
@@ -348,7 +389,7 @@ def handle_events():
         if event.type == SDL_QUIT:
             game_framework.quit()
         elif event.type == SDL_KEYDOWN and event.key == SDLK_ESCAPE:
-            game_framework.quit()
+            toggle_pause()                             # 일시정지 (종료는 홈의 '종료' 칸 또는 창 닫기)
         elif event.type == SDL_KEYDOWN and event.key == SDLK_F1:
             debug_view.toggle()
         elif event.type == SDL_KEYDOWN and event.key == SDLK_F2:
@@ -533,6 +574,8 @@ def draw_hazards():
 def on_land(leg):
     # 발이 착지한 순간 한 번: 그 자리의 파란 링크를 먹는다 (몸통은 먹지 못함 — 발 착지만 판정)
     global data_count, next_doc, cleared, clear_timer, clear_spot, shake
+    if paused[0]:
+        return                                        # 일시정지 중 걸음은 메뉴 고르기일 뿐 (먹기·발자국 없음)
     debug_view.note_landing(leg.foot_x, leg.foot_y)
     # 발자국 = 지나간 길: 착지할 때 머리 자리를, 마지막 발자국에서 FOOTPRINT_GAP 이상 움직였으면 기록
     head = body.segs[0]
@@ -585,8 +628,9 @@ def standing_spot():
     # 몇 번 밟았는지가 아니라 몸이 그 위에 있는 시간으로 센다 — 다리 수와 상관없이 같은 시간 (S10-7)
     if next_doc is not None or opening is not None or ((cleared or lost) and not isinstance(page, CrawlPage)):
         return None                                   # 탈출 창이 열리기 직전에는 다른 칸을 세지 않게
-    if grinder is not None and grinder.eye is not None:
-        segs = [grinder.eye] if grinder.eye.grounded() else []   # 다 짜낸 뒤: 눈알이 땅에 있을 때만 셈
+    eye = pause_eye if paused[0] else (grinder.eye if grinder is not None else None)
+    if eye is not None:
+        segs = [eye] if eye.grounded() else []        # 일시정지·다 짜낸 뒤: 네모 눈이 땅에 있을 때만 셈
     else:
         segs = [seg for i, seg in enumerate(body.segs) if body.air(i) == 0]   # 공중(WAVE·낙하) 마디는 안 셈
     m = config.CHEW_MARGIN
@@ -769,6 +813,18 @@ def update():
         return
     if frozen[0]:
         check_lost()                                  # 응답 없음: 아무것도 움직이지 않고 창이 열릴 때만 기다림
+        return
+    if paused[0]:
+        # 일시정지: 세상·몸은 멈추고, 빠져나온 네모 눈만 커서를 따라 뛰어 칸 위에 서서 고른다
+        target_x, target_y = camera.to_world(mouse_x, mouse_y)
+        pause_eye.update(game_framework.frame_time, target_x, target_y)
+        update_charge(game_framework.frame_time)
+        if next_doc is not None:
+            action, rect = next_doc
+            next_doc = None
+            resume_play()                             # 눈이 머리로 돌아감
+            if action[0] != 'resume':
+                start_opening(action, rect, config.COLOR_ORANGE)   # 다시 크롤링 · 홈
         return
     # 커서의 월드 좌표는 매 프레임 다시 계산한다 — 마우스를 가만히 둬도 카메라가 움직이면 가리키는 곳이 바뀐다
     target_x, target_y = camera.to_world(mouse_x, mouse_y)
@@ -992,7 +1048,11 @@ def draw():
         k = 1 - clear_timer / config.CLEAR_DELAY
         for r in (k, k * 0.6):
             draw_circle(x + w / 2, y + h / 2 - camera.y, 6 + config.CLEAR_FX_R * r, 3, config.COLOR_GOLD, 1 - k)
+    if paused[0]:
+        draw_pause()                                  # 멈춘 세상 위 어두운 막 + 칸 (크롤러는 그 위에)
     body.draw(camera)                                 # (깔때기 주둥이 속으로 들어간 마디는 그리지 않음)
+    if paused[0]:
+        pause_eye.draw(camera)                        # 머리에서 빠져나온 네모 눈
     if final_page:
         grinder.draw_over(camera)                     # 깔때기 벽·주둥이가 크롤러 위 + 흘러내리는 데이터 + 눈알
         grinder.draw_panel(play_time, final_time)
@@ -1060,6 +1120,25 @@ def draw():
                     'goal %s/%s (%d hops)  data %d  queue %s  back %s' % (goal['page'], goal['keyword'], goal['hops'], data_count,
                                                                            ', '.join(frontier) or '-', ', '.join(history) or '-'))   # F1
     draw_cursor()
+
+
+def draw_pause():
+    # 일시정지 화면: 어두운 막 + '일시정지' + 칸 세 개 (서 있는 칸은 주황으로 차오름)
+    view_h = config.SCREEN_H - config.HUD_BAR_H
+    fill_rect(0, 0, config.SCREEN_W, view_h, (0, 0, 0), 0.6)
+    title = '일시정지'
+    draw_static_text((config.SCREEN_W - text_width(title, 34, 'bold')) / 2, view_h / 2 + 40, title, 34, config.WIKI_TEXT, 1.0, 'bold')
+    key, k = exit_fill()
+    size = config.WIKI_FONT_H3
+    for (skey, label), (x, y, w, h) in zip(PAUSE_SLOTS, pause_rects()):
+        sy = y - camera.y
+        fill_rect(x, sy, w, h, config.HUD_BAR_BG)
+        if skey == key:
+            fill_rect(x, sy, w * k, h, config.COLOR_ORANGE, 0.35)
+        draw_rect(x, sy, w, h, 2, config.COLOR_GOLD)
+        draw_static_text(x + (w - text_width(label, size, 'bold')) / 2, sy + h / 2 - 11, label, size, config.COLOR_GOLD, 1.0, 'bold')
+    hint = '칸 위에 잠시 서 있으면 선택 · ESC로 계속'
+    draw_static_text((config.SCREEN_W - text_width(hint, 13)) / 2, pause_rects()[0][1] - camera.y - 30, hint, 13, config.HUD_LABEL)
 
 
 def draw_goal_reveal():
