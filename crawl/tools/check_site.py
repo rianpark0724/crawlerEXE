@@ -12,13 +12,16 @@ SLOT = re.compile(r'\{\{(.+?)\|(.+?)\}\}')
 
 
 def all_text(doc):
-    # 문서에서 링크가 들어갈 수 있는 모든 글 (안내문 + 본문 블록)
+    # 문서에서 링크가 들어갈 수 있는 모든 글 (안내문 + 본문 블록 + 사진 캡션 + 뉴스 관련 기사 카드)
     texts = [doc.get('hatnote', '')]
     for block in doc['blocks']:
         if isinstance(block[1], str):
             texts.append(block[1])
+        elif isinstance(block[1], dict):
+            texts.append(block[1].get('caption', ''))
         else:
             texts.extend(block[1])
+    texts += ['[[%s]]' % card['title'] for card in doc.get('related', [])]
     return ' '.join(texts)
 
 

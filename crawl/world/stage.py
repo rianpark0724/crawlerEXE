@@ -52,10 +52,17 @@ LINK = re.compile(r'\[\[(!?)([^\]|]+?)(?:\|(.+?))?\]\]')   # [[제목]] [[제목
 
 
 def doc_texts(doc):
-    # 문서에서 표기가 들어갈 수 있는 글 전부 (안내문 + 본문 블록), 배치되는 순서대로
+    # 문서에서 표기가 들어갈 수 있는 글 전부, 배치되는 순서대로:
+    # 안내문 + 본문 블록(글·목록·사진 캡션) + 관련 기사 카드(뉴스 — 제목이 그 기사로 가는 링크)
     texts = [doc.get('hatnote', '')]
     for block in doc['blocks']:
-        texts.extend([block[1]] if isinstance(block[1], str) else block[1])
+        if isinstance(block[1], str):
+            texts.append(block[1])
+        elif isinstance(block[1], dict):
+            texts.append(block[1].get('caption', ''))     # 사진 블록
+        else:
+            texts.extend(block[1])                          # 목록
+    texts += ['[[%s]]' % card['title'] for card in doc.get('related', [])]
     return texts
 
 
