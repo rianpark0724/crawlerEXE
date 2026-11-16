@@ -79,6 +79,24 @@ def main(site_id):
         print('  %-3s %s / %s  (%s단계, 키워드 자리 %d개)%s' % ('O' if ok else 'X', page, key, h, slots.count(key),
                                                           '' if ok_slot else '  ← 문서에 {{%s|…}} 자리 없음' % key))
     print('뽑을 수 있는 목표 %d개' % usable)
+
+    # 새로 고침 띠 간격: 띠는 WAVE로만 넘을 수 있으니, 한 문서의 띠가 너무 촘촘하면 못 넘는다
+    sys.path.insert(0, BASE)
+    import config
+    for title, cfg in site.get('pages', {}).items():
+        times = []                                   # 한 주기(공배수 대신 20초) 동안 띠가 시작하는 시각들
+        for b in cfg.get('beams', []):
+            period, offset = b.get('period', config.BAND_PERIOD), b.get('offset', 0.0)
+            t = -offset
+            while t < 20:
+                if t >= 0:
+                    times.append(t)
+                t += period
+        times.sort()
+        gaps = [b - a for a, b in zip(times, times[1:])]
+        if gaps and min(gaps) < config.BAND_MIN_GAP:
+            print('  ← %s: 띠 간격 %.1f초 (최소 %.1f초) — WAVE로 매번 넘을 수 없음' % (title, min(gaps), config.BAND_MIN_GAP))
+            problems += 1
     if usable == 0:
         problems += 1
     return problems

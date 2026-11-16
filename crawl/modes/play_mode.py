@@ -231,7 +231,7 @@ def check_hits():
             body.iframe = config.HIT_IFRAME
             hit_stop, shake = config.HIT_STOP, config.SHAKE_TIME
             if isinstance(enemy, RevertBot):
-                enemy.react()                               # 봇: 잘라 낸 뒤 잠깐 멈칫
+                enemy.react(config.REVERT_HIT_PAUSE)        # 봇: 잘라 낸 뒤 한동안 멈춤
             if isinstance(enemy, ProtectedBlock):
                 body.knock(*enemy.push_dir(seg.x, seg.y))   # 보호된 문단: 바깥쪽으로 튕겨 나감
             return                                          # 한 번에 한 번만 맞음

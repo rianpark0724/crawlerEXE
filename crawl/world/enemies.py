@@ -166,9 +166,10 @@ class RevertBot:
         self.pause = 0.0                     # 다리를 자르거나 링크를 되돌린 뒤 멈칫이 남은 시간
         self.burst = 0.0                     # 되돌릴 때 퍼지는 원이 남은 시간
 
-    def react(self):
+    def react(self, pause=config.REVERT_PAUSE):
         # 다리를 잘랐거나 링크를 되돌림: 잠깐 멈추고 ↺가 크게 한 바퀴, 빨간 원이 퍼진다
-        self.pause = self.burst = config.REVERT_PAUSE
+        self.pause = pause
+        self.burst = config.REVERT_PAUSE
 
     def wake(self, step):
         # 이 문서에서 링크가 먹힘 → 깨어나 step번 발자국부터 따라온다 (이미 추적 중이면 그대로)
@@ -191,7 +192,7 @@ class RevertBot:
         self.burst = max(0.0, self.burst - dt)
         if self.pause > 0:
             self.pause -= dt
-            self.spin += math.pi * 2 / config.REVERT_PAUSE * dt   # 멈칫하는 동안 ↺가 한 바퀴 더
+            self.spin += math.pi * 2 / config.REVERT_PAUSE * dt   # 멈칫하는 동안 ↺가 빠르게 돈다
             return
         if self.state == 'track':
             self.track(dt, footprints)

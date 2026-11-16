@@ -53,7 +53,48 @@
       },
       "enemies": {
         "revert": 1
+      }
+    },
+    "스파이더": {
+      "parts": {
+        "plain": 1
       },
+      "enemies": {
+        "revert": 1
+      }
+    },
+    "봇": {
+      "enemies": {
+        "revert": 1
+      }
+    },
+    "백신": {
+      "enemies": {
+        "revert": 2
+      }
+    },
+    "방화벽": {
+      "protect": 2
+    },
+    "로봇 배제 표준": {
+      "protect": 1,
+      "enemies": {
+        "revert": 1
+      }
+    },
+    "쿠키": {
+      "enemies": {
+        "revert": 1
+      },
+      "beams": [
+        {
+          "axis": "h",
+          "period": 5.0,
+          "offset": 0.0
+        }
+      ]
+    },
+    "캐시": {
       "beams": [
         {
           "axis": "h",
@@ -62,13 +103,22 @@
         }
       ]
     },
-    "스파이더": {
-      "parts": {
-        "plain": 1
+    "스팸 봇": {
+      "enemies": {
+        "revert": 2
       }
     },
-    "로봇 배제 표준": {
-      "protect": 1
+    "404": {
+      "enemies": {
+        "revert": 1
+      },
+      "beams": [
+        {
+          "axis": "h",
+          "period": 5.0,
+          "offset": 0.0
+        }
+      ]
     }
   }
 }
