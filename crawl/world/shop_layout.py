@@ -5,8 +5,8 @@
 # 검색 결과 (kind: search)
 #   title(문서 이름, 예: '검색: 텀블러'), query(검색어), count(결과 수 글)
 #   filters: [[제목, [글, ...]], ...]        왼쪽 거르기 칸 (글에 [[링크]] 가능)
-#   results: [{name, image, rating, reviews, price, list_price?, badge?, sponsored?, delivery?}, ...]
-#            name은 표기 글 — 보통 [[상품 제목]] (그 상품 페이지로 가는 링크)
+#   results: [{name, image, rating, reviews, price, list_price?, badge?, sponsored?, delivery?, soldout?}, ...]
+#            name은 표기 글 — 보통 [[상품 제목]] (그 상품 페이지로 가는 링크). 품절(soldout) 상품은 링크 없이 흐리게
 #
 # 상품 상세 (kind: product)
 #   title(상품 이름), brand(표기 글), path([분류, ...] — 맨 위 경로), image
@@ -188,6 +188,8 @@ class ShopLayout(PageLayout):
 
     def result_card(self, r, x, y, w):
         # 결과 카드 하나: 정사각 사진(+딱지) → 스폰서 → 상품 이름 링크 → 별점·리뷰 수 → 가격 → 정가 → 배송
+        if not r.get('soldout'):
+            self.reco_items.append(r)                         # 추천 상품 카드 후보
         self.fill(x, y - w, w, w, BG2)
         self.image(x + 10, y - w + 10, w - 20, w - 20, r['image'])
         if r.get('badge'):
@@ -198,16 +200,21 @@ class ShopLayout(PageLayout):
         if r.get('sponsored'):
             self.text_mid(x, y - 7, '스폰서', 11, 'ui', SUBTLE)
             y -= 18
-        y = self.paragraph(r['name'], x, y, w, 15, WHITE, 22) - 4
+        y = self.paragraph(r['name'], x, y, w, 15, SUBTLE if r.get('soldout') else WHITE, 22) - 4
         sw = self.stars(x, y - 9, r['rating'], 13)
         self.text_mid(x + sw + 6, y - 9, '{:,}'.format(r['reviews']), 12, 'ui', self.LINK)
+        if r['rating'] <= 3.0:
+            self.review_spots.append((x + 30, y - 9))         # 별점 낮은 상품 — 별을 던지는 자리
         y -= 26
         self.price_line(x, y - 12, r['price'], r.get('list_price'), 22)
         y -= 32
         if r.get('list_price'):
             self.list_price(x, y - 7, r['list_price'])
             y -= 20
-        self.text_mid(x, y - 7, r.get('delivery', '무료 배송 내일 도착 보장'), 12, 'ui', SUBTLE)
+        if r.get('soldout'):
+            self.text_mid(x, y - 7, '일시 품절', 13, 'bold', DEAL)
+        else:
+            self.text_mid(x, y - 7, r.get('delivery', '무료 배송 내일 도착 보장'), 12, 'ui', SUBTLE)
         return y - 16
 
     # ── 상품 상세 ──
@@ -286,6 +293,7 @@ class ShopLayout(PageLayout):
         lowest = y
         for i, card in enumerate(doc['also_viewed'][:cols]):
             x = self.left + i * (cw + gap)
+            self.reco_items.append(card)
             size = cw * 0.8
             self.image(x + (cw - size) / 2, y - size, size, size, card['image'])
             cy = self.paragraph(card['name'], x, y - size - 10, cw, 14, WHITE, 21) - 2
@@ -325,6 +333,8 @@ class ShopLayout(PageLayout):
             y -= 38
             sw = self.stars(rx, y - 9, r['stars'], 14)
             self.text_mid(rx + sw + 8, y - 9, r['head'], 14, 'bold', WHITE)
+            if r['stars'] <= 2:
+                self.review_spots.append((rx + 20, y - 9))    # 화난 리뷰 — 별을 던지는 자리
             y -= 24
             self.text_mid(rx, y - 8, '%s 대한민국에서 작성' % r.get('date', '2026년 11월 3일'), 12, 'ui', SUBTLE)
             self.text_mid(rx, y - 28, '구매 확인', 12, 'bold', BUY)

@@ -1,0 +1,104 @@
+{
+  "title": "검색: 주방용품",
+  "kind": "search",
+  "query": "주방용품",
+  "count": "1-8 / 5,000개 이상",
+  "filters": [
+    [
+      "카테고리",
+      [
+        "[[검색: 텀블러|텀블러·보온병]]",
+        "냄비·프라이팬",
+        "도시락·밀폐용기"
+      ]
+    ],
+    [
+      "고객 평점",
+      [
+        "★★★★☆ 이상"
+      ]
+    ],
+    [
+      "가격",
+      [
+        "1만 원 이하",
+        "1만 – 5만 원",
+        "5만 원 이상"
+      ]
+    ],
+    [
+      "브랜드",
+      [
+        "W·E·B 베이직",
+        "홈웹"
+      ]
+    ]
+  ],
+  "results": [
+    {
+      "name": "[[무소음 전기포트 1.7L, 온도 조절 5단계]]",
+      "image": "shop/kettle.png",
+      "rating": 4.4,
+      "reviews": 3120,
+      "price": 32900,
+      "list_price": 45000,
+      "badge": "베스트셀러"
+    },
+    {
+      "name": "[[3칸 밀폐 도시락통, 전자레인지 가능, 수저 세트 포함]]",
+      "image": "shop/lunchbox.png",
+      "rating": 4.3,
+      "reviews": 2210,
+      "price": 12800
+    },
+    {
+      "name": "[[스텐 진공 텀블러 500ml, 12시간 보온보랭, 뚜껑 분리 세척]]",
+      "image": "shop/tumbler.png",
+      "rating": 4.6,
+      "reviews": 12408,
+      "price": 18900,
+      "list_price": 25000
+    },
+    {
+      "name": "논스틱 프라이팬 28cm, 인덕션 겸용",
+      "image": "shop/kettle.png",
+      "rating": 4.3,
+      "reviews": 4120,
+      "price": 23900,
+      "soldout": true
+    },
+    {
+      "name": "[[크롤러 퇴치 스프레이 300ml, 다리 달린 사각형 접근 방지]]",
+      "image": "shop/spray.png",
+      "rating": 2.9,
+      "reviews": 7713,
+      "price": 9900,
+      "list_price": 12900,
+      "sponsored": true
+    },
+    {
+      "name": "유리 밀폐용기 6종 세트",
+      "image": "shop/lunchbox.png",
+      "rating": 4.6,
+      "reviews": 7801,
+      "price": 19900,
+      "soldout": true
+    },
+    {
+      "name": "스텐 냄비 3종 세트, 통3중",
+      "image": "shop/kettle.png",
+      "rating": 4.5,
+      "reviews": 1209,
+      "price": 54000,
+      "soldout": true
+    },
+    {
+      "name": "실리콘 주방 집게, 내열 230도",
+      "image": "shop/lunchbox.png",
+      "rating": 4.1,
+      "reviews": 3302,
+      "price": 6900,
+      "soldout": true
+    }
+  ]
+}

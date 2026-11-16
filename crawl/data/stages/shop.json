@@ -8,12 +8,134 @@
     {
       "page": "크롤러 퇴치 스프레이 300ml, 다리 달린 사각형 접근 방지",
       "keyword": "계피"
+    },
+    {
+      "page": "무선 이어폰, 노이즈 캔슬링, 30시간 재생",
+      "keyword": "블루투스"
+    },
+    {
+      "page": "고양이 숨숨집, 펠트 동굴형, 세탁 가능",
+      "keyword": "캣닢"
+    },
+    {
+      "page": "거실 러그 160×230, 극세사, 미끄럼 방지",
+      "keyword": "세탁기"
+    },
+    {
+      "page": "링크 보호 필름, 파란 링크 코팅, 먹힘 방지",
+      "keyword": "코팅"
     }
   ],
-  "min_pages": 2,
+  "min_pages": 3,
   "min_hops": 2,
-  "page_quota": 2,
+  "page_quota": 3,
   "par_time": 180,
   "dark": true,
-  "pages": {}
+  "pages": {
+    "고양이 숨숨집, 펠트 동굴형, 세탁 가능": {
+      "enemies": {
+        "captcha": 1,
+        "recommend": 1,
+        "cart": 1
+      }
+    },
+    "무선 이어폰, 노이즈 캔슬링, 30시간 재생": {
+      "enemies": {
+        "captcha": 1,
+        "recommend": 1,
+        "stars": 1,
+        "cart": 1
+      }
+    },
+    "링크 보호 필름, 파란 링크 코팅, 먹힘 방지": {
+      "enemies": {
+        "captcha": 1,
+        "recommend": 1,
+        "stars": 2,
+        "cart": 1
+      }
+    },
+    "무소음 전기포트 1.7L, 온도 조절 5단계": {
+      "enemies": {
+        "captcha": 1,
+        "recommend": 1,
+        "cart": 1
+      }
+    },
+    "LED 책상 스탠드, 밝기 5단계, 눈 보호": {
+      "enemies": {
+        "captcha": 1,
+        "recommend": 1,
+        "cart": 1
+      }
+    },
+    "3칸 밀폐 도시락통, 전자레인지 가능, 수저 세트 포함": {
+      "enemies": {
+        "captcha": 1,
+        "recommend": 1,
+        "cart": 1
+      }
+    },
+    "거실 러그 160×230, 극세사, 미끄럼 방지": {
+      "enemies": {
+        "captcha": 1,
+        "recommend": 1,
+        "stars": 1,
+        "cart": 1
+      }
+    },
+    "검색: 크롤러 퇴치": {
+      "enemies": {
+        "deal": 2,
+        "captcha": 1,
+        "stars": 4,
+        "cart": 1
+      }
+    },
+    "검색: 주방용품": {
+      "enemies": {
+        "deal": 2,
+        "captcha": 1,
+        "stars": 1,
+        "cart": 1
+      }
+    },
+    "검색: 반려동물": {
+      "enemies": {
+        "deal": 2,
+        "captcha": 1,
+        "cart": 1
+      }
+    },
+    "검색: 텀블러": {
+      "enemies": {
+        "deal": 2,
+        "captcha": 1,
+        "cart": 1
+      }
+    },
+    "크롤러 퇴치 스프레이 300ml, 다리 달린 사각형 접근 방지": {
+      "enemies": {
+        "captcha": 1,
+        "recommend": 1,
+        "stars": 1,
+        "cart": 1
+      }
+    },
+    "스텐 진공 텀블러 500ml, 12시간 보온보랭, 뚜껑 분리 세척": {
+      "enemies": {
+        "captcha": 1,
+        "recommend": 1,
+        "stars": 1,
+        "cart": 1
+      }
+    },
+    "자동 장우산, 방풍 프레임, 대형 120cm": {
+      "enemies": {
+        "captcha": 1,
+        "recommend": 1,
+        "cart": 1
+      }
+    }
+  }
 }

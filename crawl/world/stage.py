@@ -141,6 +141,8 @@ class Page:
         self.goals = layout.goals           # 목표 키워드 조각 (x, y, w, h) — 목표 문서에만 있음
         self.paragraphs = layout.paragraphs # 본문 문단 위치 — 보호된 문단 고르기용
         self.nest_spot = layout.nest_spot   # 댓글 둥지 자리 (기사 끝 댓글란) — 없으면 None
+        self.review_spots = layout.review_spots   # 낮은 별점 리뷰 자리 (쇼핑몰)
+        self.reco_items = layout.reco_items       # 상품 카드들 (쇼핑몰)
         self.baits = layout.baits           # 낚시 링크 조각 (x, y, w, h, 낚시 번호)
         self.sprung = {}                    # 낚시 번호 → [물고 난 뒤 지난 시간, 물린 x, 물린 y] (BAIT_REARM 동안 힘 빠짐)
         self.time = 0.0                     # 키워드 반짝임용

@@ -278,8 +278,10 @@ def draw_revert_arrow(x, y, r, angle, color, width=2):
 
 from world.comments import CommentNest   # 뉴스 사이트: 댓글 부대
 from world.ads import AdSpawner          # 뉴스 사이트: 광고 팝업 (ads.py가 위의 ProtectedBlock을 쓰므로 여기서 가져옴)
+from world.shop_enemies import Captcha, StarThrower, TimeDeal, Recommender, CartRush   # 쇼핑몰 사이트 적
 
-KINDS = {'revert': RevertBot, 'comments': CommentNest, 'ads': AdSpawner}
+KINDS = {'revert': RevertBot, 'comments': CommentNest, 'ads': AdSpawner,
+         'captcha': Captcha, 'stars': StarThrower, 'deal': TimeDeal, 'recommend': Recommender, 'cart': CartRush}
 
 
 def place_enemies(page, counts):
@@ -287,6 +289,11 @@ def place_enemies(page, counts):
     enemies = []
     for kind, n in counts.items():
         for _ in range(n):
+            if hasattr(KINDS[kind], 'place'):              # 자리를 스스로 고르는 적 (쇼핑몰: 리뷰 자리·링크·문서 전체)
+                enemy = KINDS[kind].place(page, enemies)
+                if enemy is not None:
+                    enemies.append(enemy)
+                continue
             if kind == 'comments' and page.nest_spot is not None:
                 spot = page.nest_spot                      # 댓글 둥지는 기사 끝 댓글란 자리
             else:

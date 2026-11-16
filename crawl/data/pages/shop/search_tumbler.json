@@ -54,14 +54,12 @@
       "delivery": "무료 배송 내일(화) 도착 보장"
     },
     {
-      "name": "[[크롤러 퇴치 스프레이 300ml, 다리 달린 사각형 접근 방지]]",
-      "image": "shop/spray.png",
-      "rating": 2.9,
-      "reviews": 7713,
-      "price": 9900,
-      "list_price": 12900,
-      "sponsored": true,
-      "delivery": "무료 배송 모레 도착"
+      "name": "캠핑 머그 텀블러 750ml, 손잡이형, 4색",
+      "image": "shop/tumbler.png",
+      "rating": 4.2,
+      "reviews": 3312,
+      "price": 14900,
+      "soldout": true
     },
     {
       "name": "[[무소음 전기포트 1.7L, 온도 조절 5단계]]",
@@ -86,7 +84,16 @@
       "reviews": 4389,
       "price": 27900,
       "list_price": 39000,
-      "badge": "추천"
+      "badge": "추천",
+      "sponsored": true
+    },
+    {
+      "name": "어린이 빨대 텀블러 350ml, 캐릭터 스티커",
+      "image": "shop/tumbler.png",
+      "rating": 4.4,
+      "reviews": 980,
+      "price": 11900,
+      "soldout": true
     },
     {
       "name": "[[자동 장우산, 방풍 프레임, 대형 120cm]]",
@@ -96,21 +103,12 @@
       "price": 15900
     },
     {
-      "name": "[[무선 이어폰, 노이즈 캔슬링, 30시간 재생]]",
-      "image": "shop/earbuds.png",
-      "rating": 4.1,
-      "reviews": 8731,
-      "price": 49000,
-      "list_price": 69000,
-      "sponsored": true
-    },
-    {
-      "name": "[[링크 보호 필름, 파란 링크 코팅, 먹힘 방지]]",
-      "image": "shop/film.png",
-      "rating": 3.1,
-      "reviews": 2045,
-      "price": 4900,
-      "delivery": "배송비 2,500원"
+      "name": "대용량 보틀 1L, 눈금 표시, 트라이탄",
+      "image": "shop/tumbler.png",
+      "rating": 4.0,
+      "reviews": 2650,
+      "price": 9900,
+      "soldout": true
     }
   ]
 }

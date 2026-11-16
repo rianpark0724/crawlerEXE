@@ -21,6 +21,7 @@ from world.collision import leg_hit, circle_circle, circle_rect, leg_hit_rect
 from world.hole import draw_hole, BitLeak
 from world.comments import CommentNest
 from world.ads import AdSpawner
+from world.shop_enemies import Captcha, Vaccine, StarThrower, StarShot, TimeDeal, Recommender, Cart, CartRush
 from ui.hud import draw_scrollbar, draw_bar
 from ui.draw import draw_line, draw_rect, draw_circle, fill_circle, fill_rect, draw_static_text, text_width, begin_zoom, end_zoom
 from ui import debug_view
@@ -181,6 +182,8 @@ def chew_spots():
     # 먹은 링크 껍데기마다 그 링크의 문서로 가는 구멍 자리가 된다. 지나온 문서가 있으면 왼쪽 위에 '← 뒤로' 껍데기
     if isinstance(page, CrawlPage) or exit_need() > 0 or chew_ready[0] is None or play_time < chew_ready[0]:
         return []                                    # 아직 덜 먹었거나, 다 먹은 직후의 텀 (먹자마자 떠나지 않게)
+    if robot_check() is not None:
+        return []                                    # 로봇 확인 중엔 갉을 수도 없음
     boxes = {}
     for x, y, w, h, text, target, lid in page.links:
         group = page.groups[lid]
@@ -244,6 +247,12 @@ def check_hits():
             dangers.append(('rect', e.rect(camera), e))
         elif isinstance(e, AdSpawner):
             dangers += [('rect', ad.rect(), ad) for ad in e.slamming()]   # 광고가 떨어지는 순간만 맞음
+        elif isinstance(e, StarThrower):
+            dangers += [('circle', (s.x, s.y, config.STAR_R), s) for s in e.shots]   # 날아오는 화난 별
+        elif isinstance(e, CartRush):
+            dangers += [('rect', c.rect(), c) for c in e.rolling()]     # 굴러오는 카트
+        elif isinstance(e, Captcha):
+            dangers += [('circle', (*v.tip(), config.VAC_TIP_R), v) for v in e.stabbing()]   # 찌르러 오는 백신 바늘
     for shape, d, enemy in dangers:
         if shape == 'circle':
             hit_seg = lambda seg, r_seg, d=d: circle_circle(d[0], d[1], d[2], seg.x, seg.y, r_seg)
@@ -271,6 +280,12 @@ def check_hits():
                 enemy.react(config.REVERT_HIT_PAUSE)        # 봇: 잘라 낸 뒤 한동안 멈춤
             if isinstance(enemy, ProtectedBlock):
                 body.knock(*enemy.push_dir(seg.x, seg.y))   # 보호된 문단: 바깥쪽으로 튕겨 나감
+            if isinstance(enemy, StarShot):
+                enemy.dead = True                           # 맞힌 별은 사라짐
+            if isinstance(enemy, Cart):
+                enemy.grab()                                # 카트에 실려 화면 끝까지 밀려감
+            if isinstance(enemy, Vaccine):
+                enemy.hit()                                 # 찌른 백신은 멈칫
             return                                          # 한 번에 한 번만 맞음
 
 
@@ -280,8 +295,8 @@ def push_out_walls():
     r = body.seg_size(0) / 2
     walls = [e for e in page.enemies if isinstance(e, ProtectedBlock)]
     for e in page.enemies:
-        if isinstance(e, AdSpawner):
-            walls += e.walls()                        # 떨어진 광고도 벽
+        if isinstance(e, (AdSpawner, Recommender)):
+            walls += e.walls()                        # 떨어진 광고·추천 상품 카드도 벽
     for e in walls:
         if circle_rect(head.x, head.y, r, *e.rect()):
             dx, dy = e.push_dir(head.x, head.y)
@@ -296,6 +311,26 @@ def link_pieces(group):
     lids = [lid for lid, g in page.groups.items() if g is group]
     sizes = {item[7]: item[6] for item in page.items if item[0] == 'link'}
     return [(x, y, text, sizes.get(lid, config.WIKI_FONT_BODY)) for x, y, w, h, text, target, lid in page.links if lid in lids]
+
+
+def robot_check():
+    # 이 문서에 떠 있는 캡차 판 (없으면 None)
+    for e in page.enemies:
+        if isinstance(e, Captcha) and e.blocking():
+            return e
+    return None
+
+
+def shop_eat(group):
+    # 쇼핑몰 적이 링크 먹기에 반응: 캡차는 먹은 시각을 세고, 타임딜 링크면 보너스
+    global data_count
+    for e in page.enemies:
+        if isinstance(e, Captcha):
+            e.note_eat(play_time, body, page)
+        elif isinstance(e, TimeDeal) and not e.done and page.groups[e.lid] is group:
+            e.done = True
+            data_count += config.DEAL_BONUS
+            messages.append([e.x + 40, e.y + 24, '타임딜! +%d' % (1 + config.DEAL_BONUS), 0.0])
 
 
 def bitten(leg):
@@ -400,9 +435,12 @@ def on_land(leg):
     if not isinstance(page, CrawlPage) and page.bait_at(leg.foot_x, leg.foot_y) is not None:
         bitten(leg)                                   # 낚시 링크에 물림
         return
+    if robot_check() is not None:
+        return                                        # 로봇 확인 중: 링크를 먹을 수 없음 (판의 칸을 골라 풀어야 함)
     group = page.eat_at(leg.foot_x, leg.foot_y)
     if group is not None:
         data_count += 1
+        shop_eat(group)
         ingest.eat(link_pieces(group), leg.foot_x, leg.foot_y)   # 글자가 떨어져 나와 머리로 빨려 들어감
         for enemy in page.enemies:                    # 링크를 먹으면 되돌리기 봇이 깨어나 지금 발자국부터 따라옴
             if isinstance(enemy, RevertBot):
@@ -574,6 +612,8 @@ def update():
                 enemy.swarm(game_framework.frame_time, body)   # 댓글 벌레: 쫓아가 달라붙기·떨쳐지기
             if isinstance(enemy, AdSpawner) and not cleared:
                 enemy.drop(game_framework.frame_time, body, page)   # 광고: 가는 길 앞에 떨어뜨림
+            if hasattr(enemy, 'watch'):
+                enemy.watch(game_framework.frame_time, body)   # 쇼핑몰 적: 크롤러를 보고 움직임
     body.burden = sum(e.stuck_count() for e in page.enemies if isinstance(e, CommentNest))
     ingest.update(game_framework.frame_time, body)    # 날아가는 글자, 도착하면 꿀꺽·저장
     body.stored = len(ingest.stored)

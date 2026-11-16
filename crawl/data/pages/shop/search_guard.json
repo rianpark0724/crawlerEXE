@@ -1,0 +1,97 @@
+{
+  "title": "검색: 크롤러 퇴치",
+  "kind": "search",
+  "query": "크롤러 퇴치",
+  "count": "1-8 / 120개",
+  "filters": [
+    [
+      "카테고리",
+      [
+        "스프레이",
+        "필름·코팅",
+        "덫·차단"
+      ]
+    ],
+    [
+      "고객 평점",
+      [
+        "★★★☆☆ 이상"
+      ]
+    ],
+    [
+      "브랜드",
+      [
+        "크롤가드",
+        "링크지기"
+      ]
+    ]
+  ],
+  "results": [
+    {
+      "name": "[[크롤러 퇴치 스프레이 300ml, 다리 달린 사각형 접근 방지]]",
+      "image": "shop/spray.png",
+      "rating": 2.9,
+      "reviews": 7713,
+      "price": 9900,
+      "list_price": 12900,
+      "badge": "많이 찾는 상품"
+    },
+    {
+      "name": "[[링크 보호 필름, 파란 링크 코팅, 먹힘 방지]]",
+      "image": "shop/film.png",
+      "rating": 3.1,
+      "reviews": 2045,
+      "price": 4900
+    },
+    {
+      "name": "링크 덫 10개입, 끈끈이형",
+      "image": "shop/spray.png",
+      "rating": 2.1,
+      "reviews": 330,
+      "price": 5900,
+      "soldout": true
+    },
+    {
+      "name": "새로 고침 버튼 덮개, 실리콘",
+      "image": "shop/film.png",
+      "rating": 2.8,
+      "reviews": 120,
+      "price": 3900,
+      "soldout": true
+    },
+    {
+      "name": "[[무선 이어폰, 노이즈 캔슬링, 30시간 재생]]",
+      "image": "shop/earbuds.png",
+      "rating": 4.1,
+      "reviews": 8731,
+      "price": 49000,
+      "list_price": 69000,
+      "sponsored": true
+    },
+    {
+      "name": "사각형 탐지기, 다리 감지 센서",
+      "image": "shop/lamp.png",
+      "rating": 1.9,
+      "reviews": 77,
+      "price": 39000,
+      "soldout": true
+    },
+    {
+      "name": "보라색 링크 복원 펜",
+      "image": "shop/film.png",
+      "rating": 3.3,
+      "reviews": 410,
+      "price": 2900,
+      "soldout": true
+    },
+    {
+      "name": "[[고양이 숨숨집, 펠트 동굴형, 세탁 가능]]",
+      "image": "shop/cathouse.png",
+      "rating": 4.7,
+      "reviews": 5402,
+      "price": 21900,
+      "list_price": 29900,
+      "sponsored": true
+    }
+  ]
+}

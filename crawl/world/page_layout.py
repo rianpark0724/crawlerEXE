@@ -98,6 +98,8 @@ class PageLayout:
         self.paragraphs = []     # 본문 문단 (x, 아래 y, w, h, 링크·키워드 없는 평범한 문단인지) — 보호된 문단 후보
         self.exit_rect = None    # 다음 문서 상자 (x, 아래 y, w, h) — 페이지 출구
         self.nest_spot = None    # 댓글 둥지 자리 (x, y) — 댓글란이 있는 사이트(뉴스)만
+        self.review_spots = []   # 낮은 별점(1–2점) 리뷰의 별 자리 (x, y) — 쇼핑몰 별점 투척
+        self.reco_items = []     # 이 문서에 나온 상품 카드 {name, image} — 쇼핑몰 추천 상품
         self.link_count = 0      # 문단마다 링크 번호가 겹치지 않게 더해 주는 값
         self.float_bottom = None # 오른쪽에 떠 있는 상자(그림 틀 등)의 아래 y (그 위쪽 줄은 폭을 줄인다)
         self.float_w = 0

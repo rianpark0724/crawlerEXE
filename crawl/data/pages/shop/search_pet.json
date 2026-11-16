@@ -1,0 +1,99 @@
+{
+  "title": "검색: 반려동물",
+  "kind": "search",
+  "query": "반려동물",
+  "count": "1-8 / 3,000개 이상",
+  "filters": [
+    [
+      "카테고리",
+      [
+        "고양이 용품",
+        "강아지 용품",
+        "하우스·방석"
+      ]
+    ],
+    [
+      "고객 평점",
+      [
+        "★★★★☆ 이상"
+      ]
+    ],
+    [
+      "가격",
+      [
+        "1만 원 이하",
+        "1만 – 3만 원",
+        "3만 원 이상"
+      ]
+    ]
+  ],
+  "results": [
+    {
+      "name": "[[고양이 숨숨집, 펠트 동굴형, 세탁 가능]]",
+      "image": "shop/cathouse.png",
+      "rating": 4.7,
+      "reviews": 5402,
+      "price": 21900,
+      "list_price": 29900,
+      "badge": "베스트셀러"
+    },
+    {
+      "name": "[[거실 러그 160×230, 극세사, 미끄럼 방지]]",
+      "image": "shop/rug.png",
+      "rating": 4.0,
+      "reviews": 960,
+      "price": 59000,
+      "list_price": 89000
+    },
+    {
+      "name": "고양이 스크래처, 골판지 3단",
+      "image": "shop/cathouse.png",
+      "rating": 4.5,
+      "reviews": 6620,
+      "price": 12900,
+      "soldout": true
+    },
+    {
+      "name": "자동 급수기 2L, 저소음 필터",
+      "image": "shop/kettle.png",
+      "rating": 4.2,
+      "reviews": 2280,
+      "price": 29900,
+      "soldout": true
+    },
+    {
+      "name": "[[LED 책상 스탠드, 밝기 5단계, 눈 보호]]",
+      "image": "shop/lamp.png",
+      "rating": 4.5,
+      "reviews": 4389,
+      "price": 27900,
+      "list_price": 39000,
+      "sponsored": true
+    },
+    {
+      "name": "강아지 겨울 방석, 극세사 원형",
+      "image": "shop/rug.png",
+      "rating": 4.4,
+      "reviews": 1530,
+      "price": 18900,
+      "soldout": true
+    },
+    {
+      "name": "고양이 낚싯대 장난감 5종",
+      "image": "shop/cathouse.png",
+      "rating": 4.6,
+      "reviews": 8840,
+      "price": 7900,
+      "soldout": true
+    },
+    {
+      "name": "[[링크 보호 필름, 파란 링크 코팅, 먹힘 방지]]",
+      "image": "shop/film.png",
+      "rating": 3.1,
+      "reviews": 2045,
+      "price": 4900,
+      "sponsored": true,
+      "delivery": "배송비 2,500원"
+    }
+  ]
+}
