@@ -13,6 +13,7 @@ class CrawlPage:
         # style 'transfer': 파일 전송 창 — info = {from, to, items(옮길 데이터 수), names(옮기는 문서 이름들)}
         self.style = style
         self.info = info or {}
+        self.slot_y = config.CRAWL_SLOT_Y          # 칸 높이 (final은 깔때기 위로 올림)
         self.title = name
         self.url = '/' + name                      # 띠 주소칸: crawl:/ + /complete
         self.height = config.SCREEN_H - config.HUD_BAR_H   # 한 화면 (스크롤 없음)
@@ -48,7 +49,7 @@ class CrawlPage:
         w, h, gap = config.CRAWL_SLOT_W, config.CRAWL_SLOT_H, config.CRAWL_SLOT_GAP
         n = len(self.slots)
         x0 = (config.SCREEN_W - (n * w + (n - 1) * gap)) / 2
-        return [(x0 + i * (w + gap), config.CRAWL_SLOT_Y, w, h) for i in range(n)]
+        return [(x0 + i * (w + gap), self.slot_y, w, h) for i in range(n)]
 
     def progress(self):
         # 전송 창: 0 → 1 (TRANSFER_TIME 동안 — 처음엔 빠르고 끝에서 느려지는 진짜 전송 막대처럼)
@@ -86,8 +87,10 @@ class CrawlPage:
             draw_rect(sx, sy - camera.y, w, h, 2 if slot['enabled'] else 1, color)
             tw = text_width(slot['label'], size, 'bold')
             draw_static_text(sx + (w - tw) / 2, sy - camera.y + h / 2 - 11, slot['label'], size, color, 1.0, 'bold')
-        hint = '칸을 세 번 밟으면 이동합니다'
-        draw_static_text((config.SCREEN_W - text_width(hint, 12)) / 2, config.CRAWL_SLOT_Y - 34 - camera.y, hint, 12, config.HUD_LABEL)
+        if self.slots:                                                   # (칸이 아직 없는 페이지 — final — 에는 안내도 없음)
+            hint = '칸 위에 잠시 서 있으면 이동합니다'
+            hy = self.slot_y - 34 if self.slot_y == config.CRAWL_SLOT_Y else self.slot_y + config.CRAWL_SLOT_H + 12   # 칸 아래가 막혔으면 위에
+            draw_static_text((config.SCREEN_W - text_width(hint, 12)) / 2, hy - camera.y, hint, 12, config.HUD_LABEL)
 
     def draw_transfer(self, camera):
         # 파일 복사 창처럼: 제목 줄 → 어디서 어디로 → 두 폴더 사이를 날아가는 종이 → 퍼센트·막대 → 이름·남은 시간·남은 항목

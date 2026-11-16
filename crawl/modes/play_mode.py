@@ -20,6 +20,7 @@ from world.objects import place_parts
 from world.enemies import place_enemies, place_walls, draw_revert_arrow, RefreshBand, RevertBot, ProtectedBlock
 from world.collision import leg_hit, circle_circle, circle_rect, leg_hit_rect
 from world.hole import draw_hole, BitLeak
+from world.grinder import Grinder
 from world.comments import CommentNest
 from world.ads import AdSpawner
 from world.shop_enemies import Captcha, Vaccine, StarThrower, StarShot, TimeDeal, Recommender, Cart, CartRush
@@ -60,12 +61,15 @@ next_doc = None               # 이번 프레임에 다 채운 칸 (할 일, 칸
 opening = None                # 새 창이 열리는 중: {'action', 'name'(창 제목), 'url', 'rect'(시작 칸, 월드), 'color', 't'}
 checkpoint = None             # 지금 사이트에 들어올 때의 {몸, 데이터, 저장 조각} — 죽으면 여기서 다시
 goal_reveal = [None]          # 목표 키워드 등장 연출이 시작된 뒤 지난 시간 (None = 연출 없음)
+grinder = None                # crawl://final의 데이터 깔때기 (완전 클리어 때만)
+final_time = None             # 크롤러가 다 갈린 순간의 전체 시간 (이때 시간이 멈춤)
+respawn_t = 0.0               # 다 갈린 뒤 새 크롤러가 나타나기까지 남은 시간
 play_time = 0.0               # 플레이 시간 (출구 깜빡임 등)
 fade = 0.0                    # 문서를 옮긴 뒤 남은 밝아짐 시간
 hit_stop = 0.0                # 피격 순간 멈칫이 남은 시간 (이동안 게임이 멈춤)
 shake = 0.0                   # 화면 흔들림이 남은 시간
 data_flash = 0.0              # 데이터를 잃어 띠의 DATA가 빨갛게 깜빡이는 시간
-charge = {'key': None, 'n': 0, 'time': 0.0}     # 칸 채우기: 어느 칸을, 몇 번 연속 밟았는지, 마지막 착지 시각
+charge = {'key': None, 'fill': 0.0, 'tick': 0.0}   # 칸·껍데기 채우기: 어느 자리 위에, 몇 초 서 있었는지, 다음 갉기 연출까지
 
 
 def init(start='home'):
@@ -87,6 +91,9 @@ def init(start='home'):
 def reset_site(site_id):
     # 사이트 하나의 상태를 새로 (몸·데이터·시간은 건드리지 않음)
     global site, frontier, visited, pages, history, next_doc, opening, cleared, messages, clear_timer, clear_spot, lost, lost_timer
+    global grinder, final_time
+    grinder, final_time = None, None
+    goal_reveal[0] = None
     chew_jolt[0] = 0.0
     site = load_site(site_id)
     frontier, visited, pages, history, next_doc, opening = [], [], {}, [], None, None
@@ -141,7 +148,9 @@ def open_home():
 def show_page(new_page):
     # 페이지를 화면에 띄우고 그 페이지 맨 위에 크롤러를 세운다 (문서·crawl:// 페이지 공통)
     global page, camera, body, target_x, target_y, fade, charge, footprints
-    charge = {'key': None, 'n': 0, 'time': 0.0}
+    if isinstance(new_page, CrawlPage):
+        goal_reveal[0] = None                       # 사이트를 떠남: 목표 등장 연출도 끝
+    charge = {'key': None, 'fill': 0.0, 'tick': 0.0}
     chew_ready[0] = None                            # 새 문서는 다시 링크를 먹어야 갉을 수 있음
     leak.bits.clear()
     footprints = []                                 # 발자국은 문서마다 새로
@@ -197,23 +206,34 @@ def open_transfer():
     show_page(CrawlPage('transfer', [], [], 'transfer', info))
 
 
-def open_complete():
-    # 결과 페이지 crawl://complete — 크롤러가 걸어 다니며 다음 사이트·다시·홈 칸을 밟는다. 마지막 사이트면 판 끝
-    order = config.STAGE_ORDER
-    last = is_last_site()
-    lines = [('ALL SITES CRAWLED' if last else 'CRAWL COMPLETE', 34, config.COLOR_GOLD, True),
-             ('"%s" — %s%s 에서 찾음' % (goal['keyword'], site['url'], goal['page']), 16, config.WIKI_TEXT, False),
-             ('전체 시간 %d:%02d  ·  데이터 %d  ·  방문 %d' % (play_time // 60, play_time % 60, data_count, len(visited)), 16, config.WIKI_TEXT, False),
-             ('경로  ' + ' → '.join(visited), 13, config.HUD_LABEL, False)]
-    if last:
-        slots = [{'label': '처음부터', 'key': 'start', 'action': ('start',), 'enabled': True},
-                 {'label': '홈', 'key': 'home', 'action': ('home',), 'enabled': True}]
-    else:
-        nxt = load_site(order[order.index(site['id']) + 1])['name']
-        slots = [{'label': '다음: ' + nxt, 'key': 'next', 'action': ('next',), 'enabled': True},
-                 {'label': '다시 크롤링', 'key': 'restart', 'action': ('restart',), 'enabled': True},
-                 {'label': '홈', 'key': 'home', 'action': ('home',), 'enabled': True}]
-    show_page(CrawlPage('complete', lines, slots))
+def open_final():
+    # crawl://final (S10-7d) — 마지막 사이트까지 깸: 화면 위쪽에 나타난 크롤러를 플레이어가 아래쪽 깔때기 입구로 몰면
+    # 짓눌리며 빨려 들어가고 데이터가 주둥이로 주르륵 흘러나온다. 다 짜내야 시간이 멈추고 최종 점수. 그 뒤 새 크롤러가 나와 칸을 밟음
+    global grinder, final_time
+    par_total = sum(load_site(s)['par_time'] for s in config.STAGE_ORDER)
+    grinder = Grinder(data_count, par_total)
+    final_time = None
+    final = CrawlPage('final', [('ALL SITES CRAWLED', 34, config.COLOR_GOLD, True)], [])
+    final.slot_y = config.FINAL_SLOT_Y                # 칸은 깔때기 위에 (다 짜낸 뒤 생김)
+    show_page(final)
+
+
+def update_final():
+    # 깔때기 진행. 다 짜내면 시간을 멈추고, 잠시 뒤 데이터 주스에서 크롤러의 네모 눈이 튀어나와 '처음부터'·'홈' 칸이 생긴다
+    global final_time, respawn_t
+    if grinder is None or not isinstance(page, CrawlPage) or page.title != 'final':
+        return
+    grinder.update(game_framework.frame_time, body, target_x, target_y)
+    if grinder.state == 'done' and final_time is None:
+        final_time = play_time                        # 다 짜냄: 여기서 시간이 멈춤
+        respawn_t = config.EYE_POP_DELAY
+    if final_time is not None and respawn_t > 0:
+        respawn_t -= game_framework.frame_time
+        if respawn_t <= 0:
+            grinder.spawn_eye()                       # 눈알이 남아 화면에서 크롤러가 사라진 채 끝나지 않음
+            page.slots = [{'label': '처음부터', 'key': 'start', 'action': ('start',), 'enabled': True},
+                          {'label': '홈', 'key': 'home', 'action': ('home',), 'enabled': True}]
+            page.lines = []                           # 칸이 제목 자리에 오므로 제목은 치움 (점수판은 남음)
 
 
 def open_lost():
@@ -527,50 +547,62 @@ def on_land(leg):
         if group['target'] not in visited and group['target'] not in frontier:
             frontier.append(group['target'])          # 먹은 링크의 문서 → 방문 대기열
         return
+def standing_spot():
+    # 크롤러 몸(마디 어디든)이 올라가 있는 껍데기·칸 → (구분 이름, 상자, 할 일, 글, 갉기인지). 없으면 None
+    # 몇 번 밟았는지가 아니라 몸이 그 위에 있는 시간으로 센다 — 다리 수와 상관없이 같은 시간 (S10-7)
     if next_doc is not None or opening is not None or ((cleared or lost) and not isinstance(page, CrawlPage)):
-        return                                        # 탈출 창이 열리기 직전에는 다른 칸을 밟지 않게
-    # 먹은 링크 껍데기 갉기: 같은 껍데기를 CHEW_STEPS번 이어서 디디면 구멍이 뚫려 그 문서로 떨어진다
+        return None                                   # 탈출 창이 열리기 직전에는 다른 칸을 세지 않게
+    if grinder is not None and grinder.eye is not None:
+        segs = [grinder.eye] if grinder.eye.grounded() else []   # 다 짜낸 뒤: 눈알이 땅에 있을 때만 셈
+    else:
+        segs = [seg for i, seg in enumerate(body.segs) if body.air(i) == 0]   # 공중(WAVE·낙하) 마디는 안 셈
     m = config.CHEW_MARGIN
     for key, (x, y, w, h), action, text in chew_spots():
-        if x - m <= leg.foot_x <= x + w + m and y - m <= leg.foot_y <= y + h + m:
-            if charge['key'] == key and play_time - charge['time'] < config.CHEW_FORGET:
-                charge['n'] += 1
-            else:
-                charge['key'], charge['n'] = key, 1
-            charge['time'] = play_time
-            ingest.crumbs(text, x + w / 2, y + h / 2, leg.foot_x, leg.foot_y, 3)   # 부스러기가 머리로
+        if any(x - m <= s.x <= x + w + m and y - m <= s.y <= y + h + m for s in segs):
+            return key, (x, y, w, h), action, text, True
+    slots, rects = slot_list()
+    for (key, action, enabled), (x, y, w, h) in zip(slots, rects):
+        if enabled and any(x <= s.x <= x + w and y <= s.y <= y + h for s in segs):
+            return key, (x, y, w, h), action, '', False
+    return None
+
+
+def update_charge(dt):
+    # 올라가 있는 동안 게이지가 차고(갉기는 CHEW_HOLD, 칸은 SLOT_HOLD초), 내려오면 HOLD_DRAIN배 빠르기로 빠진다.
+    # 갉는 중에는 CHEW_TICK마다 부스러기·흔들림·0과 1 (예전 '한 번 디딜 때'의 연출)
+    global next_doc, shake
+    spot = standing_spot()
+    if spot is None:
+        charge['fill'] = max(0.0, charge['fill'] - dt * config.HOLD_DRAIN)
+        if charge['fill'] == 0:
+            charge['key'] = None
+        return
+    key, (x, y, w, h), action, text, chew = spot
+    if charge['key'] != key:
+        charge['key'], charge['fill'], charge['tick'] = key, 0.0, 0.0   # 다른 자리로 옮김 → 처음부터
+    charge['fill'] += dt
+    if chew:
+        charge['tick'] -= dt
+        if charge['tick'] <= 0:
+            charge['tick'] = config.CHEW_TICK
+            head = body.segs[0]
+            ingest.crumbs(text, x + w / 2, y + h / 2, head.x, head.y, 3)   # 부스러기가 머리로
             chew_jolt[0] = config.CHEW_JOLT               # 뜯길 때마다 구멍이 흔들리고
             shake = max(shake, config.CHEW_JOLT)          # 화면도 살짝 (흔들림 폭은 남은 시간에 비례 → 피격보다 약함)
             leak.emit(x + w / 2, y + h / 2, config.CHEW_BURST)   # 0·1이 확 튀어 나옴
-            if charge['n'] >= config.CHEW_STEPS:
-                next_doc = (action, (x, y, w, h))
-            return
-    # 칸(crawl:// 페이지의 메뉴 칸)에 착지했는지
-    slots, rects = slot_list()
-    for (key, action, enabled), (sx, sy, w, h) in zip(slots, rects):
-        if enabled and sx <= leg.foot_x <= sx + w and sy <= leg.foot_y <= sy + h:   # 여유 없이 칸 안
-            if charge['key'] == key and play_time - charge['time'] < config.EXIT_FORGET:
-                charge['n'] += 1                      # 같은 칸을 이어서 밟음
-            else:
-                charge['key'], charge['n'] = key, 1   # 다른 칸이거나 한참 만에 → 처음부터
-            charge['time'] = play_time
-            if charge['n'] >= config.EXIT_STEPS:
-                next_doc = (action, (sx, sy, w, h))   # 걷기 처리 중이므로 프레임 끝에 창 열기 시작
-            return
+    if charge['fill'] >= (config.CHEW_HOLD if chew else config.SLOT_HOLD):
+        next_doc = (action, (x, y, w, h))             # 다 찼음 → 프레임 끝에 창 열기 시작
+        charge['key'], charge['fill'] = None, 0.0
 
 
 def exit_fill():
-    # 밟고 있는 칸이 얼마나 찼는지: (구분 이름, 0~1). 한참 안 밟았으면 비워짐
-    if charge['key'] is None or play_time - charge['time'] >= config.EXIT_FORGET:
-        return None, 0.0
-    return charge['key'], charge['n'] / config.EXIT_STEPS
+    # 서 있는 칸이 얼마나 찼는지: (구분 이름, 0~1)
+    return charge['key'], min(1.0, charge['fill'] / config.SLOT_HOLD)
 
 
 def chew_fill():
-    # 갉고 있는 껍데기와 구멍 크기 0~1 (한참 안 디디면 비워짐)
-    if charge['key'] is None or play_time - charge['time'] >= config.CHEW_FORGET:
-        return None, 0.0
-    return charge['key'], min(1.0, charge['n'] / config.CHEW_STEPS)
+    # 갉고 있는 껍데기와 구멍 크기 0~1
+    return charge['key'], min(1.0, charge['fill'] / config.CHEW_HOLD)
 
 
 def update_leak():
@@ -642,13 +674,14 @@ def start_opening(action, rect, color):
 
 def do_action(action):
     # 창이 다 열린 뒤 할 일
+    global body
     if action[0] == 'doc':
         go_to(action[1], action[2])
         body.drop()                                   # 구멍으로 떨어져 들어옴
         arrive_hole[0] = config.ARRIVE_HOLE_TIME
     elif action[0] == 'complete':
         if is_last_site():
-            open_complete()                           # 마지막 사이트: 판 끝
+            open_final()                              # 마지막 사이트: 크롤러를 깔때기에 넣어 데이터를 짜내고 최종 점수
         else:
             open_transfer()                           # 중간 사이트: '다음 장소로 이동 중' 전송 창
     elif action[0] == 'lost':
@@ -658,6 +691,8 @@ def do_action(action):
     elif action[0] == 'next':
         next_site()                                   # 몸·데이터를 가지고 다음 사이트로
     elif action[0] == 'home':
+        if body is not None and body.in_funnel:
+            body = None                               # 깔때기로 짜낸 몸 대신 새 몸으로 홈에 나타남
         open_home()
     elif action[0] == 'start':
         init(config.STAGE_ORDER[0])                   # 새 판: 새 몸으로 첫 사이트부터
@@ -725,7 +760,10 @@ def update():
     for part in page.parts:
         part.locked = not body.can_grow()             # 최대면 파츠를 흐리게 (주울 수 없음)
     debug_view.update(game_framework.frame_time)
-    play_time += game_framework.frame_time
+    update_charge(game_framework.frame_time)          # 껍데기·칸 위에 서 있는 시간 → 갉기·이동
+    update_final()
+    if final_time is None:
+        play_time += game_framework.frame_time          # 시간은 판 전체로 흐름 (크롤러가 다 갈리면 멈춤)
     for m in messages:
         m[3] += game_framework.frame_time
     messages = [m for m in messages if m[3] < config.SHORT_MSG_TIME]
@@ -899,8 +937,11 @@ def draw():
     camera_y = camera.y
     if shake > 0:
         camera.y += math.sin(shake * config.SHAKE_FREQ) * config.SHAKE_AMP * shake / config.SHAKE_TIME
+    final_page = grinder is not None and isinstance(page, CrawlPage) and page.title == 'final'
     if isinstance(page, CrawlPage):
         page.draw(camera, exit_fill())                # crawl:// 페이지: 글줄 + 메뉴 칸
+        if final_page:
+            grinder.draw_under(camera)                # 깔때기 안쪽·통 (크롤러 아래)
     else:
         page.draw(camera)
         draw_chew_spots()                             # 먹은 링크 껍데기 = 다음 문서로 가는 구멍 자리
@@ -917,7 +958,10 @@ def draw():
         k = 1 - clear_timer / config.CLEAR_DELAY
         for r in (k, k * 0.6):
             draw_circle(x + w / 2, y + h / 2 - camera.y, 6 + config.CLEAR_FX_R * r, 3, config.COLOR_GOLD, 1 - k)
-    body.draw(camera)
+    body.draw(camera)                                 # (깔때기 주둥이 속으로 들어간 마디는 그리지 않음)
+    if final_page:
+        grinder.draw_over(camera)                     # 깔때기 벽·주둥이가 크롤러 위 + 흘러내리는 데이터 + 눈알
+        grinder.draw_panel(play_time, final_time)
     for enemy in page.enemies:
         if isinstance(enemy, CommentNest):
             enemy.draw_stuck(camera)                  # 몸에 붙은 댓글 벌레는 크롤러 위에

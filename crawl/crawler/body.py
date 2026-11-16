@@ -19,6 +19,7 @@ class Segment:
         self.squash = 0.0        # WAVE 착지 후 납작함이 남은 시간
         self.flash = 0.0         # 피격 후 빨갛게 번쩍임이 남은 시간
         self.legless = 0.0       # 다리를 모두 잃고 끌린 시간 — DROP_DELAY가 되면 떨어져 나감
+        self.crush = 0.0         # 깔때기에 짓눌린 정도 0~1 (완전 클리어) — 옆으로 좁아지고 앞뒤로 길어짐
         self.legs = [Leg(+1), Leg(-1)]   # 다리 한 쌍 (왼쪽, 오른쪽)
         self.legs[0].partner, self.legs[1].partner = self.legs[1], self.legs[0]   # 서로 반대쪽 다리
 
@@ -51,6 +52,8 @@ class Body:
         self.stagger_v = 0.0                         # 비틀거림: 지금 머리를 꺾고 있는 회전 속도 (rad/s, 점점 사라짐)
         self.stagger_gap = 0.0                       # 다음 휘청임까지 남은 최소 시간
         self.burden = 0                              # 몸에 달라붙은 방해꾼 수 (댓글 벌레) — 그만큼 느려짐 (play_mode가 정함)
+        self.in_funnel = False                       # 깔때기에 빨려 들어가는 중 (다리 없는 마디도 떨어져 나가지 않음)
+        self.hide_below = None                       # 이 y보다 아래 마디는 그리지 않음 (깔때기 주둥이 속으로 들어감)
         self.gaps = [config.SEG_SPACING] * len(self.segs)   # 마디 i와 앞 마디 사이 간격 (평소 19, WAVE 중 늘어남). gaps[0]은 안 씀
         self.update_legs(0.0)                        # 발을 처음 위치에 놓는다
 
@@ -218,6 +221,9 @@ class Body:
 
     def shape(self, i):
         # 마디 i의 (길이 배율, 폭 배율) — 길이는 바라보는 방향. 넓이(길이×폭)는 1로 유지해 쫀득하게
+        if self.segs[i].crush > 0:
+            c = self.segs[i].crush                                        # 깔때기: 옆으로 짓눌리고 앞뒤로 조금 길쭉
+            return 1 + config.CRUSH_STRETCH * c, 1 - config.CRUSH_MAX * c
         if self.invincible(i):
             u = (self.wave_t - i * config.WAVE_STEP) / config.WAVE_HOLD
             along = 1 + config.WAVE_STRETCH_AIR * math.sin(math.pi * u)        # 공중: 나는 방향으로 길쭉
@@ -317,7 +323,8 @@ class Body:
             self.update_dying(dt)                # 데스 애니메이션 (마디 탈락·먼지 대신)
         else:
             self.drag_dust(dt)                   # D: 다리 없이 끌리는 마디의 먼지
-            self.drop_segments(dt)               # 다리를 모두 잃은 마디 탈락
+            if not self.in_funnel:
+                self.drop_segments(dt)           # 다리를 모두 잃은 마디 탈락 (깔때기 속에선 그대로 끌려 들어감)
         self.update_height(dt)                   # 5. 착지 반동 (+ 질주 중 착지 흙먼지)
         self.effects.update(dt, self)            # 6. 효과
 
@@ -498,15 +505,21 @@ class Body:
             seg.y = front.y - dy / d * self.gaps[i]
             seg.angle = math.atan2(dy, dx)                   # 앞 마디를 바라봄
 
+    def hidden(self, i):
+        # 마디 i가 깔때기 주둥이 속으로 들어가 안 보이는지
+        return self.hide_below is not None and self.segs[i].y < self.hide_below
+
     def draw(self, camera):
         # 1. 그림자를 먼저 전부 깐다 (몸·다리 위에 그림자가 겹치지 않게)
         for leg in self.all_legs():
             leg.draw_shadow(camera)
         for i, seg in enumerate(self.segs):
+            if self.hidden(i):
+                continue
             size = self.seg_size(i)
             along, across = self.shape(i)
             sx, sy = camera.to_screen(seg.x + seg.ox, seg.y + seg.oy)
-            k = self.seg_h(i) / config.BODY_HEIGHT                                 # 높이에 비례해 그림자가 멀어짐 (점프하면 멀리, 처지면 가까이)
+            k = self.seg_h(i) / config.BODY_HEIGHT                                # 높이에 비례해 그림자가 멀어짐 (점프하면 멀리, 처지면 가까이)
             fill_rect_rotated(sx + config.SHADOW_DX * k, sy + config.SHADOW_DY * k, size * along + 2, size * across + 2, seg.angle,
                               (0, 0, 0), config.SHADOW_ALPHA)
         self.effects.draw_ground(camera)       # 흙먼지 (바닥)
@@ -529,6 +542,8 @@ class Body:
         # 3. 마디: 꼬리부터 그려서 머리가 맨 위에 오게 한다. 몸은 height(+점프 높이)만큼 떠 있으니 그만큼 화면 위로
         for i in range(len(self.segs) - 1, -1, -1):
             seg = self.segs[i]
+            if self.hidden(i):
+                continue
             size = self.seg_size(i)
             sx, sy = camera.to_screen(seg.x + seg.ox, seg.y + seg.oy)
             if self.glitch():
@@ -541,6 +556,8 @@ class Body:
             draw_segment(sx, sy + self.seg_h(i) * config.VIEW_TILT, size, seg.angle, self.invincible(i) or self.blink(), *self.shape(i),
                          flash=seg.flash / config.HIT_FLASH, glow=self.glow(i), dots=self.stored_in(i))
         # 머리 앞쪽 가장자리 근처에 주황 점 — 어느 쪽이 앞인지 표시
+        if self.hidden(0):
+            return
         head = self.segs[0]
         lift = self.seg_h(0) * config.VIEW_TILT
         hx, hy = camera.to_screen(head.x + head.ox, head.y + head.oy)
