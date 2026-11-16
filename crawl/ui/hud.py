@@ -44,6 +44,12 @@ def draw_field(x, w, cy):
     draw_rect(x, cy - h / 2, w, h, 1, config.HUD_BAR_LINE)
 
 
+def goal_spot():
+    # 목표칸에서 키워드 글이 놓이는 자리 (화면 좌표: 글 왼쪽 x, 띠 세로 가운데 y) — 목표 등장 연출이 여기로 날아옴
+    cy = view_h() + config.HUD_BAR_H / 2
+    return config.HUD_GOAL_X + 32 + text_width('목표  ', config.HUD_FONT), cy
+
+
 def draw_bar(url, goal, visited, min_pages, eaten, quota, data, loading=None, loading_color=config.COLOR_ORANGE,
              data_color=config.COLOR_SKY):
     # 위쪽 띠: [CRAWL.EXE] [crawl:// 주소] [🔍 목표 키워드]  ……  방문 k/K  문서 n/N  DATA 07

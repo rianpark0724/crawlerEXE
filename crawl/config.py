@@ -215,7 +215,13 @@ CRAWL_GRID = 32           # 바탕 점 격자 간격
 CRAWL_SLOT_W, CRAWL_SLOT_H = 260, 64   # 칸 크기
 CRAWL_SLOT_GAP = 40       # 칸 사이 간격
 CRAWL_SLOT_Y = 150        # 칸 아래 y (페이지 아래쪽)
-TRANSFER_TIME = 3.5       # 탈출 전송 창: 막대가 다 차는 시간 (초) — 끝나면 다음 사이트
+GOAL_BIG = 64             # 목표 등장: 가운데 키워드 글자 크기
+GOAL_Y = 0.67             # 목표 등장 높이 (띠 아래 창 높이의 비율, 아래에서부터 — 위쪽 2/3)
+GOAL_IN = 0.3             # 톡 튀어나오는 시간 (초)
+GOAL_HOLD = 1.5           # 가운데에 보여 주는 시간 (초)
+GOAL_FLY = 0.6            # 작아지며 띠의 목표칸으로 날아가는 시간 (초)
+GOAL_FLASH = 0.5          # 도착한 목표칸이 금색으로 반짝이는 시간 (초)
+TRANSFER_TIME = 3.5      # 탈출 전송 창: 막대가 다 차는 시간 (초) — 끝나면 다음 사이트
 TRANSFER_HOLD = 0.5       # 100%가 된 뒤 창이 열리기 전 잠깐 (초)
 TRANSFER_W, TRANSFER_H = 620, 330   # 전송 창 크기 (px)
 
@@ -382,6 +388,7 @@ SHADOW_ALPHA = 0.45       # 그림자 진하기
 # ── 페이지 (PRD 10.1) ─────────────────
 RANDOM_SEED = None        # 숫자를 넣으면 매번 같은 판(목표·키워드 자리), None이면 매번 다르게 (PRD 11.3-7)
 STAGE_ORDER = ['wiki', 'news', 'shop']   # 한 판의 사이트 순서 (data/stages/<id>.json) — 홈에서 시작해 차례로
+START_SAFE_KINDS = ['deal']   # 사이트 첫 문서에도 남기는 것 (적이 아닌 보너스: 타임딜)
 PAGE_TRIAL_H = 100000     # 문서 높이를 재려고 한 번 배치해 보는 임시 높이
 PAGE_BOTTOM_PAD = 60      # 문서 바닥글 아래 여백
 SPAWN_FROM_TOP = 140      # 시작 위치: 문서 맨 위에서 이만큼 아래 (가운데)

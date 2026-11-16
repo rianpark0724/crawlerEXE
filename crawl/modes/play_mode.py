@@ -23,8 +23,8 @@ from world.hole import draw_hole, BitLeak
 from world.comments import CommentNest
 from world.ads import AdSpawner
 from world.shop_enemies import Captcha, Vaccine, StarThrower, StarShot, TimeDeal, Recommender, Cart, CartRush
-from ui.hud import draw_scrollbar, draw_bar
-from ui.draw import draw_line, draw_rect, draw_circle, fill_circle, fill_rect, draw_static_text, text_width, begin_zoom, end_zoom
+from ui.hud import draw_scrollbar, draw_bar, goal_spot
+from ui.draw import draw_line, draw_rect, draw_circle, fill_circle, fill_rect, draw_static_text, text_width, text_height, begin_zoom, end_zoom
 from ui import debug_view
 
 mouse_x, mouse_y = 0.0, 0.0   # 커서 위치 (화면 좌표, y 위로 증가) — 커서 그리기용
@@ -59,6 +59,7 @@ footprints = []               # 이 문서의 발자국 [(x, y) 또는 None(WAVE
 next_doc = None               # 이번 프레임에 다 채운 칸 (할 일, 칸 위치) — 걷기 처리가 끝난 뒤 창 열기 시작
 opening = None                # 새 창이 열리는 중: {'action', 'name'(창 제목), 'url', 'rect'(시작 칸, 월드), 'color', 't'}
 checkpoint = None             # 지금 사이트에 들어올 때의 {몸, 데이터, 저장 조각} — 죽으면 여기서 다시
+goal_reveal = [None]          # 목표 키워드 등장 연출이 시작된 뒤 지난 시간 (None = 연출 없음)
 play_time = 0.0               # 플레이 시간 (출구 깜빡임 등)
 fade = 0.0                    # 문서를 옮긴 뒤 남은 밝아짐 시간
 hit_stop = 0.0                # 피격 순간 멈칫이 남은 시간 (이동안 게임이 멈춤)
@@ -99,6 +100,7 @@ def enter_site(site_id):
     global goal, checkpoint
     reset_site(site_id)
     goal = pick_goal(site)                          # 시작에서 min_hops단계 이상 떨어진 후보 중 하나
+    goal_reveal[0] = 0.0 if goal['page'] else None  # 목표가 가운데 크게 떴다가 띠로 (S10-7c)
     checkpoint = {'body': copy.deepcopy(body), 'data': data_count, 'stored': list(ingest.stored)}
     open_doc(site['start'])                         # 시작 문서 맨 위에서 출발
 
@@ -124,6 +126,7 @@ def open_home():
     global goal
     reset_site(config.STAGE_ORDER[0])               # 띠(HUD)가 쓰는 사이트 값 (홈 자체는 사이트가 아님)
     goal = {'page': None, 'keyword': '-', 'hops': 0}
+    goal_reveal[0] = None
     names = [load_site(s)['name'] for s in config.STAGE_ORDER]
     lines = [('CRAWL.EXE', 52, config.COLOR_ORANGE, True),
              ('웹페이지 위를 기어 다니며 링크를 먹고 사는 크롤러', 16, config.WIKI_TEXT, False),
@@ -162,10 +165,14 @@ def open_doc(title):
         pages[title] = Page(doc, set(site['docs']), LAYOUTS[site['layout']])  # 링크 색은 사이트의 문서 제목으로, 모양은 사이트 layout으로
         counts = site['pages'].get(title, {}).get('parts', {})   # 이 문서의 파츠 종류별 개수 (사이트 JSON)
         pages[title].parts = place_parts(pages[title], counts)  # 위치는 무작위 (처음 열 때 한 번)
-        enemies = site['pages'].get(title, {}).get('enemies', {})   # 이 문서의 적 종류별 개수
-        pages[title].enemies = place_enemies(pages[title], enemies)
-        pages[title].enemies += place_walls(pages[title], site['pages'].get(title, {}).get('protect', 0))   # 보호된 문단
-        for beam in site['pages'].get(title, {}).get('beams', []):   # 새로 고침 띠 (주기·어긋남은 문서 설정)
+        setup = site['pages'].get(title, {})
+        counts = setup.get('enemies', {})           # 이 문서의 적 종류별 개수
+        if title == site['start']:                  # 사이트 첫 문서에는 적이 없다 (들어와서 숨 돌리기) — 보너스(타임딜)만 남김
+            counts = {k: n for k, n in counts.items() if k in config.START_SAFE_KINDS}
+            setup = {}
+        pages[title].enemies = place_enemies(pages[title], counts)
+        pages[title].enemies += place_walls(pages[title], setup.get('protect', 0))   # 보호된 문단
+        for beam in setup.get('beams', []):         # 새로 고침 띠 (주기·어긋남은 문서 설정)
             pages[title].enemies.append(RefreshBand(beam.get('period', config.BAND_PERIOD), beam.get('offset', 0.0)))
     if title not in visited:
         visited.append(title)                       # 방문 수 (HUD 방문 k/K)
@@ -671,6 +678,10 @@ def update():
     data_flash = max(0.0, data_flash - game_framework.frame_time)
     arrive_hole[0] = max(0.0, arrive_hole[0] - game_framework.frame_time)
     chew_jolt[0] = max(0.0, chew_jolt[0] - game_framework.frame_time)
+    if goal_reveal[0] is not None and opening is None:
+        goal_reveal[0] += game_framework.frame_time    # 목표 등장 연출 (창이 다 열린 뒤부터)
+        if goal_reveal[0] >= config.GOAL_IN + config.GOAL_HOLD + config.GOAL_FLY + config.GOAL_FLASH:
+            goal_reveal[0] = None
     if not isinstance(page, CrawlPage):
         if exit_need() > 0:
             chew_ready[0] = None                      # 모자람 (처음이거나 봇이 되돌림)
@@ -937,6 +948,8 @@ def draw():
     markers = [(y + h / 2, config.COLOR_ORANGE) for key, (x, y, w, h), a, t in chew_spots()]   # 갉을 수 있는 곳 (주황 점)
     draw_scrollbar(camera, page.height, markers)    # HUD — 화면 좌표
     goal_text = goal['keyword'] + ('  (찾음)' if cleared else '')
+    if goal_reveal[0] is not None and goal_reveal[0] < config.GOAL_IN + config.GOAL_HOLD + config.GOAL_FLY:
+        goal_text = ''                                # 목표가 아직 날아오는 중: 목표칸은 비워 둠
     url = page.url if isinstance(page, CrawlPage) else site['url'] + page.title
     loading, loading_color = None, config.COLOR_ORANGE
     lost_dialog = opening is not None and opening['action'][0] == 'lost' and opening['t'] < config.LOST_DIALOG_TIME
@@ -953,11 +966,50 @@ def draw():
     flash = data_flash > 0 and int(data_flash / 0.1) % 2 == 0      # 데이터를 잃으면 DATA가 빨갛게 깜빡
     draw_bar(url, goal_text, len(visited), site['min_pages'], eaten, site['page_quota'], shown_data(), loading, loading_color,
              config.COLOR_RED if flash else config.COLOR_SKY)
+    draw_goal_reveal()
 
     debug_view.draw(camera, body, (mouse_x, mouse_y), (target_x, target_y), page,
                     'goal %s/%s (%d hops)  data %d  queue %s  back %s' % (goal['page'], goal['keyword'], goal['hops'], data_count,
                                                                            ', '.join(frontier) or '-', ', '.join(history) or '-'))   # F1
     draw_cursor()
+
+
+def draw_goal_reveal():
+    # 목표 키워드 등장 (S10-7c): 화면 가운데 크게 톡 → 잠깐 보여 줌 → 작아지며 띠의 목표칸으로 날아감 → 목표칸 반짝
+    t = goal_reveal[0]
+    if t is None or opening is not None:
+        return
+    word = goal['keyword']
+    big = config.GOAL_BIG
+    cx, cy = config.SCREEN_W / 2, (config.SCREEN_H - config.HUD_BAR_H) * config.GOAL_Y   # 화면 위쪽 2/3 높이
+    tx, ty = goal_spot()                                                       # 목표칸 키워드 자리
+    t_fly = config.GOAL_IN + config.GOAL_HOLD
+    if t < t_fly:
+        k = min(1.0, t / config.GOAL_IN)
+        size = int(big * (0.6 + 0.4 * k) * (1 + 0.12 * math.sin(math.pi * k)))   # 커지며 살짝 넘쳤다가 제자리
+        fill_rect(0, 0, config.SCREEN_W, config.SCREEN_H - config.HUD_BAR_H, (0, 0, 0), 0.4 * k)
+        label = '목표'
+        lw = text_width(label, 18, 'bold')
+        draw_circle(cx - lw / 2 - 16, cy + size * 0.75 + 12, 7, 2, config.HUD_LABEL, k)           # 돋보기
+        draw_line(cx - lw / 2 - 11, cy + size * 0.75 + 7, cx - lw / 2 - 5, cy + size * 0.75 + 1, 2, config.HUD_LABEL, k)
+        draw_static_text(cx - lw / 2, cy + size * 0.75, label, 18, config.HUD_LABEL, k, 'bold')
+        w = text_width(word, size, 'bold')
+        draw_static_text(cx - w / 2, cy - text_height(size, 'bold') / 2, word, size, config.COLOR_GOLD, k, 'bold')
+        hint = '%s 어딘가에 있는 이 단어를 찾아 밟으세요' % site['name']
+        draw_static_text(cx - text_width(hint, 15) / 2, cy - size * 0.75 - 26, hint, 15, config.WIKI_TEXT, k)
+    elif t < t_fly + config.GOAL_FLY:
+        u = (t - t_fly) / config.GOAL_FLY
+        e = u * u * (3 - 2 * u)                                                # 천천히 출발해 빨라졌다 도착
+        fill_rect(0, 0, config.SCREEN_W, config.SCREEN_H - config.HUD_BAR_H, (0, 0, 0), 0.4 * (1 - e))
+        size = max(config.HUD_FONT, int(big + (config.HUD_FONT - big) * e))   # 크게 → 띠 글자 크기
+        x0 = cx - text_width(word, big, 'bold') / 2                           # 출발: 가운데 정렬된 글 왼쪽
+        x = x0 + (tx - x0) * e
+        y = cy + (ty - cy) * e
+        draw_static_text(x, y - text_height(size, 'bold') / 2, word, size, config.COLOR_GOLD, 1.0, 'bold')
+    else:
+        v = 1 - (t - t_fly - config.GOAL_FLY) / config.GOAL_FLASH             # 도착: 목표칸 금색 테두리가 사라짐
+        h = config.HUD_FIELD_H
+        draw_rect(config.HUD_GOAL_X - 2, ty - h / 2 - 2, config.HUD_GOAL_W + 4, h + 4, 2, config.COLOR_GOLD, v)
 
 
 def pause():
