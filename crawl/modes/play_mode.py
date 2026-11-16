@@ -15,8 +15,8 @@ from world.camera import Camera
 from world.stage import Page, load_site, pick_goal, mark_goal
 from world.crawl_page import CrawlPage
 from world.objects import place_parts
-from world.enemies import place_enemies, draw_revert_arrow
-from world.collision import leg_hit, circle_circle
+from world.enemies import place_enemies, draw_revert_arrow, RefreshBand, RevertBot
+from world.collision import leg_hit, circle_circle, circle_rect, leg_hit_rect
 from ui.hud import draw_scrollbar, draw_bar
 from ui.draw import draw_line, draw_rect, draw_circle, fill_rect, draw_static_text, text_width, begin_zoom, end_zoom
 from ui import debug_view
@@ -97,10 +97,15 @@ def open_doc(title):
         pages[title].parts = place_parts(pages[title], counts)  # 위치는 무작위 (처음 열 때 한 번)
         enemies = site['pages'].get(title, {}).get('enemies', {})   # 이 문서의 적 종류별 개수
         pages[title].enemies = place_enemies(pages[title], enemies)
+        for beam in site['pages'].get(title, {}).get('beams', []):   # 새로 고침 띠 (주기·어긋남은 문서 설정)
+            pages[title].enemies.append(RefreshBand(beam.get('period', config.BAND_PERIOD), beam.get('offset', 0.0)))
     if title not in visited:
         visited.append(title)                       # 방문 수 (HUD 방문 k/K)
     if title in frontier:
         frontier.remove(title)                      # 갔으니 방문 대기열에서 뺀다
+    for enemy in pages[title].enemies:
+        if isinstance(enemy, RefreshBand):
+            enemy.reset()                           # 띠는 들어올 때마다 처음부터 (경고 없이 오지 않게)
     show_page(pages[title])
 
 
@@ -194,23 +199,37 @@ def check_hits():
     # 위험 지점에 닿은 다리를 자르거나(−1) 마디에 닿으면 다리 2개를 잃는다 (PRD 5.4)
     # 한 번 맞으면 멈칫 + 화면 흔들림 + 1초 무적(깜빡임) — 무적 동안·WAVE 공중 마디는 안 맞음
     global hit_stop, shake
-    dangers = [(x, y, r, None) for x, y, r in page.hazards]
-    dangers += [(e.x, e.y, config.REVERT_R, e) for e in page.enemies]      # 되돌리기 봇 몸통
-    for x, y, r, enemy in dangers:
+    # 위험한 것: 원 (x, y, r) — F2 위험 지점·되돌리기 봇 / 사각형 (x, y, w, h) — 새로 고침 띠
+    dangers = [('circle', (x, y, r), None) for x, y, r in page.hazards]
+    for e in page.enemies:
+        if isinstance(e, RevertBot):
+            dangers.append(('circle', (e.x, e.y, config.REVERT_R), e))
+        elif isinstance(e, RefreshBand) and e.rect(camera) is not None:
+            dangers.append(('rect', e.rect(camera), e))
+    for shape, d, enemy in dangers:
+        if shape == 'circle':
+            hit_seg = lambda seg, r_seg, d=d: circle_circle(d[0], d[1], d[2], seg.x, seg.y, r_seg)
+            hit_leg = lambda leg, d=d: leg_hit(leg, *d)
+            cx, cy = d[0], d[1]                             # 잘린 다리가 튕겨 나갈 기준
+        else:
+            hit_seg = lambda seg, r_seg, d=d: circle_rect(seg.x, seg.y, r_seg, *d)
+            hit_leg = lambda leg, d=d: leg_hit_rect(leg, *d)
+            cx, cy = None, d[1] + d[3] / 2                  # 띠: 위아래 방향으로 튕김
         for i, seg in enumerate(body.segs):
             if not body.hit_ok(i):
                 continue
-            if circle_circle(x, y, r, seg.x, seg.y, body.seg_size(i) / 2):
-                body.lose_legs(config.BODY_HIT_LEGS, x, y)  # 몸통 피격: 꼬리 쪽 다리부터 2개
+            fx = seg.x if cx is None else cx
+            if hit_seg(seg, body.seg_size(i) / 2):
+                body.lose_legs(config.BODY_HIT_LEGS, fx, cy)  # 몸통 피격: 꼬리 쪽 다리부터 2개
                 seg.flash = config.HIT_FLASH                # 맞은 마디가 번쩍
             else:
-                legs = [leg for leg in seg.legs if leg_hit(leg, x, y, r)]
+                legs = [leg for leg in seg.legs if hit_leg(leg)]
                 if not legs:
                     continue
-                body.cut_leg(legs[0], x, y)                 # 다리 피격: 닿은 다리 하나
+                body.cut_leg(legs[0], legs[0].knee_x if cx is None else cx, cy)   # 다리 피격: 닿은 다리 하나
             body.iframe = config.HIT_IFRAME
             hit_stop, shake = config.HIT_STOP, config.SHAKE_TIME
-            if enemy is not None:
+            if isinstance(enemy, RevertBot):
                 enemy.react()                               # 봇: 잘라 낸 뒤 잠깐 멈칫
             return                                          # 한 번에 한 번만 맞음
 
@@ -220,7 +239,7 @@ def check_reverts():
     global data_count, data_flash
     m = config.REVERT_LINK_R
     for enemy in page.enemies:
-        if enemy.state != 'track' or enemy.pause > 0:
+        if not isinstance(enemy, RevertBot) or enemy.state != 'track' or enemy.pause > 0:
             continue
         for x, y, w, h, text, target, lid in page.links:
             group = page.groups[lid]
@@ -269,7 +288,8 @@ def on_land(leg):
     if len(footprints) > config.FOOTPRINT_MAX:
         del footprints[0]
         for enemy in page.enemies:                    # 버린 만큼 봇이 읽을 번호도 당긴다
-            enemy.step = max(0, enemy.step - 1)
+            if isinstance(enemy, RevertBot):
+                enemy.step = max(0, enemy.step - 1)
     if page.goal_at(leg.foot_x, leg.foot_y) and not cleared:
         if len(visited) >= site['min_pages']:
             cleared = True                            # 탈출! (PRD 11.3-4) — 잠시 뒤 키워드 자리에서 창이 열린다
@@ -287,7 +307,8 @@ def on_land(leg):
     if group is not None:
         data_count += 1
         for enemy in page.enemies:                    # 링크를 먹으면 되돌리기 봇이 깨어나 지금 발자국부터 따라옴
-            enemy.wake(len(footprints) - 1)
+            if isinstance(enemy, RevertBot):
+                enemy.wake(len(footprints) - 1)
         if group['target'] not in visited and group['target'] not in frontier:
             frontier.append(group['target'])          # 먹은 링크의 문서 → 방문 대기열
         return
@@ -577,6 +598,9 @@ def draw():
     if fade > 0:                          # 문서를 막 옮겼으면 배경색에서 밝아진다
         fill_rect(0, 0, config.SCREEN_W, config.SCREEN_H, config.COLOR_BG, fade / config.PAGE_FADE_TIME)
     camera.y = camera_y                               # 흔들림 되돌림 (HUD·스크롤바는 흔들지 않음)
+    for enemy in page.enemies:
+        if isinstance(enemy, RefreshBand):
+            enemy.draw_warning()                      # 새로 고침 띠 경고는 덮개 위에 (놓치지 않게)
     markers = []
     if not isinstance(page, CrawlPage):
         exit_y = page.exit_rect[1] + page.exit_rect[3] / 2

@@ -53,7 +53,14 @@
       },
       "enemies": {
         "revert": 1
-      }
+      },
+      "beams": [
+        {
+          "axis": "h",
+          "period": 4.0,
+          "offset": 0.0
+        }
+      ]
     },
     "스파이더": {
       "parts": {

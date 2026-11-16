@@ -5,8 +5,77 @@ import math
 import random
 
 import config
-from ui.draw import fill_circle, draw_circle, draw_line, fill_rect
+from ui.draw import fill_circle, draw_circle, draw_line, fill_rect, draw_static_text
 from world.objects import random_spot
+
+
+class RefreshBand:
+    # 새로 고침 띠: 화면 기준으로 위 → 아래를 훑는 로딩 띠 (PRD 9). 0.5초 전 화면 맨 위 경고.
+    # 위치는 화면에 붙어 있어서 스크롤해도 따라온다. 닿은 다리는 잘리고 마디는 몸통 피격, WAVE 공중이면 통과
+    def __init__(self, period=config.BAND_PERIOD, offset=0.0, axis='h'):
+        self.period = period
+        # 어긋남은 '주기 − 훑기 − 경고'까지만: 더 크면 들어오자마자 다시 훑는 구간에 걸린다
+        self.offset = max(0.0, min(offset, period - config.BAND_PASS - config.BAND_WARN))
+        self.reset()
+
+    def reset(self):
+        # 문서에 들어올 때마다: '훑기가 막 끝난' 시점부터 → 잠잠하다가 경고 뒤 훑기 (들어오자마자 맞지 않게)
+        # offset은 띠마다 박자를 엇갈리게 한다 (같은 문서에 띠가 여럿일 때). 그래도 첫 훑기 전엔 반드시 경고가 있다
+        self.t = config.BAND_PASS
+
+    def active(self, camera):
+        return True                                          # 화면 기준이라 늘 활성
+
+    def update(self, dt, footprints):
+        self.t += dt
+
+    def phase(self):
+        # 주기 안에서 지난 시간: [0, PASS) 훑는 중, [period − WARN, period) 경고
+        return (self.t + self.offset) % self.period
+
+    def warning(self):
+        return self.phase() >= self.period - config.BAND_WARN
+
+    def band_y(self, camera):
+        # 훑는 중이면 띠 가운데의 월드 y (화면 위 → 아래), 아니면 None
+        p = self.phase()
+        if p >= config.BAND_PASS:
+            return None
+        view_h = config.SCREEN_H - config.HUD_BAR_H
+        return camera.y + view_h * (1 - p / config.BAND_PASS)
+
+    def rect(self, camera):
+        # 판정 사각형 (월드): 화면 가로 전체 × BAND_H
+        y = self.band_y(camera)
+        if y is None:
+            return None
+        return 0, y - config.BAND_H / 2, config.SCREEN_W, config.BAND_H
+
+    def draw_warning(self):
+        # 경고: 화면 맨 위 굵은 빨간 점선 + ↻ '새로 고침'이 깜빡임 (play_mode가 화면 덮개 위에 그림 — 놓치지 않게)
+        if not self.warning() or int(self.phase() * 10) % 2:
+            return
+        view_h = config.SCREEN_H - config.HUD_BAR_H
+        for x in range(0, config.SCREEN_W, 24):
+            fill_rect(x, view_h - 5, 14, 3, config.COLOR_RED)
+        fill_rect(10, view_h - 34, 104, 24, config.HUD_BAR_BG, 0.9)
+        draw_revert_arrow(26, view_h - 22, 7, self.t * 6, config.COLOR_RED)
+        draw_static_text(40, view_h - 30, '새로 고침', 14, config.COLOR_RED, 1.0, 'bold')
+
+    def draw(self, camera):
+        y = self.band_y(camera)
+        if y is None:
+            return
+        sy = y - camera.y
+        h = config.BAND_H
+        # 띠가 지나간 위쪽: 다시 불러온 듯 잠깐 흐림 (꼬리)
+        fill_rect(0, sy + h / 2, config.SCREEN_W, 60, config.COLOR_BG, 0.35)
+        # 띠: 반투명 링크 색 + 스캔선 무늬 + 위아래 밝은 테두리
+        fill_rect(0, sy - h / 2, config.SCREEN_W, h, config.WIKI_LINK, 0.25)
+        for ly in range(int(sy - h / 2), int(sy + h / 2), 3):
+            fill_rect(0, ly, config.SCREEN_W, 1, config.WIKI_LINK, 0.25)
+        fill_rect(0, sy + h / 2, config.SCREEN_W, 2, config.COLOR_WHITE, 0.7)
+        fill_rect(0, sy - h / 2 - 2, config.SCREEN_W, 2, config.WIKI_LINK, 0.7)
 
 
 class RevertBot:
@@ -16,6 +85,7 @@ class RevertBot:
         self.x, self.y = x, y
         self.home_x, self.home_y = x, y      # 제자리 (길을 잃으면 돌아옴)
         self.state = 'idle'                  # idle 대기 / track 추적 / lost 헤맴 / home 복귀
+        self.wakes = True                    # 링크를 먹으면 깨어나는 적 (play_mode가 wake를 부름)
         self.spin = 0.0                      # ↺ 화살표 각도
         self.t = 0.0
         self.step = 0                        # 다음에 읽을 발자국 번호 (footprints 목록의 위치)
