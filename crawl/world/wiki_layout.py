@@ -83,6 +83,7 @@ class WikiLayout:
         self.items = []
         self.links = []          # 파란 링크 조각 위치 (x, y, w, h, 글, 대상 문서, 링크 번호) — 데이터 조각 (S05-4)
         self.goals = []          # 목표 키워드 조각 위치 (x, y, w, h)
+        self.paragraphs = []     # 본문 문단 (x, 아래 y, w, h, 링크·키워드 없는 평범한 문단인지) — 보호된 문단 후보 (S09-5)
         self.exit_rect = None    # 다음 문서 상자 (x, 아래 y, w, h) — 페이지 출구 (S05-6)
         self.link_count = 0      # 문단마다 링크 번호가 겹치지 않게 더해 주는 값
         self.float_bottom = None # 오른쪽 그림 틀의 아래 y (그 위쪽 줄은 폭을 줄인다)
@@ -281,7 +282,11 @@ class WikiLayout:
         for block in doc['blocks']:
             kind = block[0]
             if kind == 'p':
-                y = self.paragraph(block[1], x, y, w) - 8
+                top = y
+                bottom = self.paragraph(block[1], x, y, w)
+                plain = '[[' not in block[1] and '{{' not in block[1] and '<<' not in block[1]
+                self.paragraphs.append((x, bottom, self.width_at(top - 1, x, w), top - bottom, plain))
+                y = bottom - 8
             elif kind == 'h2':
                 y -= 14
                 self.text_mid(x, y - 16, block[1], config.WIKI_FONT_H2, 'ui', config.WIKI_TEXT)

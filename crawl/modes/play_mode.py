@@ -15,7 +15,7 @@ from world.camera import Camera
 from world.stage import Page, load_site, pick_goal, mark_goal
 from world.crawl_page import CrawlPage
 from world.objects import place_parts
-from world.enemies import place_enemies, draw_revert_arrow, RefreshBand, RevertBot
+from world.enemies import place_enemies, place_walls, draw_revert_arrow, RefreshBand, RevertBot, ProtectedBlock
 from world.collision import leg_hit, circle_circle, circle_rect, leg_hit_rect
 from ui.hud import draw_scrollbar, draw_bar
 from ui.draw import draw_line, draw_rect, draw_circle, fill_rect, draw_static_text, text_width, begin_zoom, end_zoom
@@ -97,6 +97,7 @@ def open_doc(title):
         pages[title].parts = place_parts(pages[title], counts)  # 위치는 무작위 (처음 열 때 한 번)
         enemies = site['pages'].get(title, {}).get('enemies', {})   # 이 문서의 적 종류별 개수
         pages[title].enemies = place_enemies(pages[title], enemies)
+        pages[title].enemies += place_walls(pages[title], site['pages'].get(title, {}).get('protect', 0))   # 보호된 문단
         for beam in site['pages'].get(title, {}).get('beams', []):   # 새로 고침 띠 (주기·어긋남은 문서 설정)
             pages[title].enemies.append(RefreshBand(beam.get('period', config.BAND_PERIOD), beam.get('offset', 0.0)))
     if title not in visited:
@@ -204,7 +205,7 @@ def check_hits():
     for e in page.enemies:
         if isinstance(e, RevertBot):
             dangers.append(('circle', (e.x, e.y, config.REVERT_R), e))
-        elif isinstance(e, RefreshBand) and e.rect(camera) is not None:
+        elif isinstance(e, (RefreshBand, ProtectedBlock)) and e.rect(camera) is not None:
             dangers.append(('rect', e.rect(camera), e))
     for shape, d, enemy in dangers:
         if shape == 'circle':
@@ -231,7 +232,22 @@ def check_hits():
             hit_stop, shake = config.HIT_STOP, config.SHAKE_TIME
             if isinstance(enemy, RevertBot):
                 enemy.react()                               # 봇: 잘라 낸 뒤 잠깐 멈칫
+            if isinstance(enemy, ProtectedBlock):
+                body.knock(*enemy.push_dir(seg.x, seg.y))   # 보호된 문단: 바깥쪽으로 튕겨 나감
             return                                          # 한 번에 한 번만 맞음
+
+
+def push_out_walls():
+    # 보호된 문단은 벽: 무적 중이라도 머리가 안으로 파고들면 가장 가까운 변 바깥으로 밀어낸다
+    head = body.segs[0]
+    r = body.seg_size(0) / 2
+    for e in page.enemies:
+        if isinstance(e, ProtectedBlock) and circle_rect(head.x, head.y, r, *e.rect()):
+            dx, dy = e.push_dir(head.x, head.y)
+            if dx:
+                head.x = e.x - r if dx < 0 else e.x + e.w + r
+            else:
+                head.y = e.y - r if dy < 0 else e.y + e.h + r
 
 
 def check_reverts():
@@ -398,6 +414,7 @@ def update():
         if enemy.active(camera):                      # 화면 ± ENEMY_ACTIVE_PAD 안의 적만 움직임
             enemy.update(game_framework.frame_time, footprints)
     check_reverts()
+    push_out_walls()
     check_hits()
     for part in page.parts:
         part.locked = not body.can_grow()             # 최대면 파츠를 흐리게 (주울 수 없음)

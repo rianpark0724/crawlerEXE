@@ -78,6 +78,77 @@ class RefreshBand:
         fill_rect(0, sy - h / 2 - 2, config.SCREEN_W, 2, config.WIKI_LINK, 0.7)
 
 
+class ProtectedBlock:
+    # 보호된 문단: 편집 보호된 문단이 벽이 된다 (PRD 9). 닿으면 그 다리 잘림 + 몸이 바깥쪽으로 튕겨 나감
+    def __init__(self, x, y, w, h):
+        p = config.WALL_PAD
+        self.x, self.y, self.w, self.h = x - p, y - p, w + p * 2, h + p * 2   # 문단 글 + 여백 (월드, 왼쪽 아래 기준)
+
+    def active(self, camera):
+        return True
+
+    def update(self, dt, footprints):
+        pass
+
+    def rect(self, camera=None):
+        return self.x, self.y, self.w, self.h
+
+    def push_dir(self, px, py):
+        # (px, py)를 문단 바깥으로 밀 방향 (단위 벡터): 가장 가까운 변 쪽으로
+        left, right = px - self.x, self.x + self.w - px
+        bottom, top = py - self.y, self.y + self.h - py
+        m = min(left, right, bottom, top)
+        if m == left:
+            return -1.0, 0.0
+        if m == right:
+            return 1.0, 0.0
+        if m == bottom:
+            return 0.0, -1.0
+        return 0.0, 1.0
+
+    def draw(self, camera):
+        # 회색 반투명 판 + 테두리 + 오른쪽 위 자물쇠 '보호됨' (위키백과 보호 문서 표시처럼)
+        sx, sy = self.x, self.y - camera.y
+        if sy > config.SCREEN_H or sy + self.h < 0:
+            return
+        fill_rect(sx, sy, self.w, self.h, config.WIKI_BOX_BG, 0.55)
+        for i in range(0, int(self.w), 12):                       # 사선 무늬 대신 위아래 점선 테두리
+            fill_rect(sx + i, sy, 7, 2, config.WIKI_BORDER_STRONG)
+            fill_rect(sx + i, sy + self.h - 2, 7, 2, config.WIKI_BORDER_STRONG)
+        fill_rect(sx, sy, 2, self.h, config.WIKI_BORDER_STRONG)
+        fill_rect(sx + self.w - 2, sy, 2, self.h, config.WIKI_BORDER_STRONG)
+        lx, ly = sx + self.w - 70, sy + self.h - 22               # 자물쇠 표
+        fill_rect(lx - 4, ly - 3, 68, 20, config.HUD_BAR_BG, 0.9)
+        draw_lock(lx + 6, ly + 4, config.COLOR_GOLD)
+        draw_static_text(lx + 18, ly - 1, '보호됨', 12, config.COLOR_GOLD, 1.0, 'bold')
+
+
+def draw_lock(x, y, color):
+    # 자물쇠: 몸통 사각형 + 위쪽 고리(반원) — (x, y)는 몸통 가운데
+    fill_rect(x - 5, y - 4, 10, 8, color)
+    steps = 8
+    pts = [(x + math.cos(math.pi * i / steps) * 3.5, y + 4 + math.sin(math.pi * i / steps) * 4) for i in range(steps + 1)]
+    for (x1, y1), (x2, y2) in zip(pts, pts[1:]):
+        draw_line(x1, y1, x2, y2, 1.5, color)
+    fill_rect(x - 1, y - 2, 2, 3, config.HUD_BAR_BG)            # 열쇠 구멍
+
+
+def place_walls(page, count):
+    # 문단 count개를 무작위로 보호. 먹을 수 있는 파란 링크·목표 키워드가 놓인 문단, 시작 위치 근처, 출구 바로 위 문단은 뺀다
+    # (빨간 링크·뽑히지 않은 키워드 자리는 먹을 수 없는 글이라 괜찮다)
+    sy = page.spawn()[1]
+    exit_top = page.exit_rect[1] + page.exit_rect[3]
+    edible = [(x, y, w, h) for x, y, w, h, *_ in page.links] + list(page.goals)
+
+    def has_edible(px, py, pw, ph):
+        return any(px <= ex + ew and ex <= px + pw and py <= ey + eh and ey <= py + ph for ex, ey, ew, eh in edible)
+
+    plain = [(x, y, w, h) for x, y, w, h, _ in page.paragraphs
+             if y + h < sy - config.WALL_SPAWN_GAP and y > exit_top + config.WALL_EXIT_GAP and not has_edible(x, y, w, h)]
+    random.shuffle(plain)
+    return [ProtectedBlock(*p) for p in plain[:count]]
+
+
 class RevertBot:
     # 되돌리기 봇: 평소엔 제자리. 링크를 먹으면 깨어나 크롤러의 발자국을 되짚어 따라오고(S09-2),
     # 먹힌 링크 자리를 지나면 그 링크를 되돌린다(S09-3)

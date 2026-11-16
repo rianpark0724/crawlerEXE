@@ -42,6 +42,7 @@ class Body:
         self.stun = 0.0                              # 남은 경직 시간 — 머리가 움직이지도 돌지도 않음
         self.dust_timer = 0.0                        # 다리 없이 끌리는 마디의 다음 먼지까지 남은 시간
         self.iframe = 0.0                            # 피격 후 무적이 남은 시간 (깜빡임)
+        self.knock_vx = self.knock_vy = 0.0          # 튕겨 나가는 속도 (보호된 문단) — 점점 줄어듦
         self.dying = None                            # 죽은 뒤 지난 시간 (None = 살아 있음) — 데스 애니메이션
         self.dropped = []                            # 떨어져 나간 마디 [x, y, 각도, 크기, 나이, 도는 속도] — 바닥에서 흐려짐
         self.stagger_v = 0.0                         # 비틀거림: 지금 머리를 꺾고 있는 회전 속도 (rad/s, 점점 사라짐)
@@ -101,6 +102,11 @@ class Body:
     def glitch(self):
         # 글리치 중인지 (머리 색 어긋남·끊김, 눈 ×)
         return self.dying is not None and self.dying >= config.DIE_GLITCH
+
+    def knock(self, dx, dy):
+        # (dx, dy) 방향(단위 벡터)으로 WALL_KNOCK만큼 튕겨 나가게: 처음 속도 = 거리 × 줄어드는 빠르기
+        v = config.WALL_KNOCK * config.KNOCK_DECAY
+        self.knock_vx, self.knock_vy = dx * v, dy * v
 
     def hit_ok(self, i):
         # 마디 i(와 그 다리)가 지금 맞을 수 있는지: 피격 무적도 WAVE 공중도 아니어야 함
@@ -255,6 +261,13 @@ class Body:
             self.speed = 0.0                     # 1~2. WAVE 착지 경직: 움직이지도 돌지도 않음
         else:
             self.move_head(target_x, target_y, dt)   # 1~2. 머리 회전·전진
+        if self.knock_vx or self.knock_vy:       # 튕겨 나감: 머리를 밀고, 속도는 지수적으로 줄어듦
+            self.segs[0].x += self.knock_vx * dt
+            self.segs[0].y += self.knock_vy * dt
+            k = math.exp(-config.KNOCK_DECAY * dt)
+            self.knock_vx, self.knock_vy = self.knock_vx * k, self.knock_vy * k
+            if abs(self.knock_vx) + abs(self.knock_vy) < 5:
+                self.knock_vx = self.knock_vy = 0.0
         self.follow(dt)                          # 3. 나머지 마디는 앞 마디에 끌려온다 (거리 제약)
         for seg, (px, py) in zip(self.segs, before):
             if dt > 0:
